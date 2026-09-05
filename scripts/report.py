@@ -48,131 +48,198 @@ def rows(results):
     return out
 
 
+def cell(size, mysql):
+    """Every Dolt figure is shown with what it is against MySQL. A size on its own invites the
+    reader to compare columns by eye across three orders of magnitude, which is where the wrong
+    conclusion comes from."""
+    if not size:
+        return "—"
+    r = size / mysql
+    return f"{human(size)}<br>**{r:.2f}×**" if r < 10 else f"{human(size)}<br>**{r:.0f}×**"
+
+
 def summary_table(items):
-    L = ["| database | rows | MySQL | Dolt<br>one commit | Dolt<br>row INSERTs | "
-         "Dolt<br>commit per row | Dolt ÷ MySQL |",
-         "|---|---:|---:|---:|---:|---:|---:|"]
+    L = ["| database | rows | MySQL | Dolt<br>one commit | Dolt<br>one INSERT/row | "
+         "Dolt<br>one commit/row |",
+         "|---|---:|---:|---:|---:|---:|"]
     for i in sorted(items, key=lambda x: -x["mysql"]):
-        L.append(f"| `{i['db']}` | {i['rows']:,} | {human(i['mysql'])} | {human(i['dolt'])} "
-                 f"| {human(i['rowinsert']) if i['rowinsert'] else '—'} "
-                 f"| {human(i['rowcommit']) if i['rowcommit'] else '—'} "
-                 f"| **{i['ratio']:.2f}×** |")
+        L.append(f"| `{i['db']}` | {i['rows']:,} | {human(i['mysql'])} "
+                 f"| {cell(i['dolt'], i['mysql'])} | {cell(i['rowinsert'], i['mysql'])} "
+                 f"| {cell(i['rowcommit'], i['mysql'])} |")
     my, do = sum(i["mysql"] for i in items), sum(i["dolt"] for i in items)
-    ri = sum(i["rowinsert"] or 0 for i in items)
     L.append(f"| **all {len(items)}** | **{sum(i['rows'] for i in items):,}** | **{human(my)}** "
-             f"| **{human(do)}** | **{human(ri) if ri else '—'}** | — | **{do / my:.2f}×** |")
+             f"| **{human(do)}<br>{do / my:.2f}×** | | |")
+    covered = [i for i in items if i["rowinsert"] and i["rowcommit"]]
+    if covered:
+        cmy = sum(i["mysql"] for i in covered)
+        L.append(f"| *the {len(covered)} measured in every mode* | *{sum(i['rows'] for i in covered):,}* "
+                 f"| *{human(cmy)}* "
+                 f"| *{human(sum(i['dolt'] for i in covered))}<br>{sum(i['dolt'] for i in covered) / cmy:.2f}×* "
+                 f"| *{human(sum(i['rowinsert'] for i in covered))}<br>{sum(i['rowinsert'] for i in covered) / cmy:.2f}×* "
+                 f"| *{human(sum(i['rowcommit'] for i in covered))}<br>{sum(i['rowcommit'] for i in covered) / cmy:.0f}×* |")
     return "\n".join(L)
 
 
 def report(items):
-    my, do = sum(i["mysql"] for i in items), sum(i["dolt"] for i in items)
+    my = sum(i["mysql"] for i in items)
+    do = sum(i["dolt"] for i in items)
+    ri = [i for i in items if i["rowinsert"]]
+    rc = [i for i in items if i["rowcommit"]]
     smallest = min(items, key=lambda x: x["ratio"])
     largest = max(items, key=lambda x: x["ratio"])
+
     L = [GENERATED, "", "# Disk usage: MySQL 9.7.2 against Dolt 2.3.2", "",
          f"The same {len(items)} sample databases, {sum(i['rows'] for i in items):,} rows, loaded "
          "into both engines from the same `mysqldump` files and measured the same way: `du -sb` of "
          "the directory each engine keeps the database in.", "",
-         f"**Dolt uses {human(do)} where MySQL uses {human(my)} — {do / my:.2f}× overall.** The "
-         f"ratio is not uniform: it ranges from {smallest['ratio']:.2f}× (`{smallest['db']}`) to "
-         f"{largest['ratio']:.2f}× (`{largest['db']}`).", "",
-         "![All databases](docs/img/totals.png)", "",
-         "![Ratio per database](docs/img/ratio-by-database.png)", "",
-         "## Every database", "",
-         "`MySQL on disk` and `Dolt on disk` are directory sizes. `MySQL logical` is what",
-         "`information_schema` reports (`data_length + index_length`) — always smaller than the",
-         "directory, because it does not count free pages in the tablespace. `Dump` is the",
-         "`mysqldump` SQL both engines were loaded from, included as a size-independent reference",
-         "point for how much data is actually there.", "",
-         "![Disk used per database](docs/img/size-by-database.png)", "",
-         "| database | tables | rows | dump | MySQL logical | MySQL on disk | Dolt on disk | Dolt ÷ MySQL |",
-         "|---|---:|---:|---:|---:|---:|---:|---:|"]
-    for i in sorted(items, key=lambda x: -x["mysql"]):
-        L.append(f"| `{i['db']}` | {i['tables']} | {i['rows']:,} | {human(i['dump'])} "
-                 f"| {human(i['logical'])} | {human(i['mysql'])} | {human(i['dolt'])} "
-                 f"| **{i['ratio']:.2f}×** |")
-    L.append(f"| **total** | {sum(i['tables'] for i in items)} | {sum(i['rows'] for i in items):,} "
-             f"| {human(sum(i['dump'] for i in items))} | {human(sum(i['logical'] for i in items))} "
-             f"| **{human(my)}** | **{human(do)}** | **{do / my:.2f}×** |")
+         "## The short answer: it depends on how you write the rows", "",
+         "Dolt is a version-controlled database, so *how* the rows arrive decides what it stores. "
+         "Three loads of identical data give three different answers, and they are not close:", "",
+         "| load | what it does | against MySQL |", "|---|---|---:|"]
 
-    # --- the three loads, side by side ---------------------------------------------------
-    ri = [i for i in items if i["rowinsert"]]
-    rc = [i for i in items if i["rowcommit"]]
+    L.append(f"| **one commit per database** | the way anyone would load a database | "
+             f"**{do / my:.2f}×** across all {len(items)} |")
     if ri:
-        deltas = [abs(i["rowinsert"] - i["dolt"]) / i["dolt"] for i in ri]
-        L += ["", "## Does it matter how the rows are written?", "",
-              "Two more loads of the same data answer two different questions. The first replaces "
-              "mysqldump's extended `INSERT`s with **one `INSERT` per row**, keeping a single commit. "
-              "The second commits **after every row**.", "",
-              "**Statement granularity changes nothing that is stored.** Across "
-              f"{len(ri)} databases the row-by-row load lands within "
-              f"{max(deltas) * 100:.1f}% of the one-shot load, and within "
-              f"{sorted(deltas)[len(deltas) // 2] * 100:.1f}% at the median — noise from how chunks "
-              "happen to pack, not a difference in what Dolt keeps. It costs a great deal of *time*: "
-              "`dvdstore` takes "
-              f"{max((i for i in ri if i['db'] == 'dvdstore'), key=lambda x: 0)['rows']:,} rows "
-              "through 174,716 separate statements instead of a handful.", "",
-              "| database | rows | one commit, extended INSERTs | one commit, one INSERT per row | difference |",
-              "|---|---:|---:|---:|---:|"]
+        rmy = sum(i["mysql"] for i in ri)
+        L.append(f"| **one `INSERT` per row** | same commit, one statement per row instead of "
+                 f"thousands of rows per statement | "
+                 f"**{sum(i['rowinsert'] for i in ri) / rmy:.2f}×** across {len(ri)} |")
+    if rc:
+        cmy = sum(i["mysql"] for i in rc)
+        L.append(f"| **one commit per row** | a commit for every row | "
+                 f"**{sum(i['rowcommit'] for i in rc) / cmy:.0f}×** across {len(rc)} |")
+    L += ["", "The first two are the same number. The third is not the same kind of number. Every "
+          "section below gives each load the same treatment: what it costs, against MySQL, per "
+          "database.", ""]
+    if rc:
+        L += ["![Dolt ÷ MySQL for each load](docs/img/modes-vs-mysql.png)", "",
+              "![Totalled over the databases measured in every mode](docs/img/totals-by-mode.png)", ""]
+
+    # --- 1 ------------------------------------------------------------------------------------
+    L += ["## 1. One commit per database", "",
+          f"The standard load. **{human(do)} against MySQL's {human(my)} — {do / my:.2f}×** over "
+          f"all {len(items)} databases, and the ratio is not uniform: it runs from "
+          f"{smallest['ratio']:.2f}× (`{smallest['db']}`) to {largest['ratio']:.2f}× "
+          f"(`{largest['db']}`), a spread of more than "
+          f"{largest['ratio'] / smallest['ratio']:.0f} to one.", "",
+          "![All databases](docs/img/totals.png)", "",
+          "![Ratio per database](docs/img/ratio-by-database.png)", "",
+          "The shape of the spread is legible. Small databases favour Dolt heavily because InnoDB "
+          "allocates a tablespace per table whether or not anything is in it. Text-heavy data "
+          "narrows the gap, because neither engine can compress prose. Dense numeric fact tables "
+          "narrow it furthest — `oracle_sh` is close to InnoDB's best case.", ""]
+
+    # --- 2 ------------------------------------------------------------------------------------
+    if ri:
+        deltas = sorted(abs(i["rowinsert"] - i["dolt"]) / i["dolt"] for i in ri)
+        within = sum(1 for d in deltas if d <= 0.005)
+        rmy = sum(i["mysql"] for i in ri)
+        L += ["## 2. One `INSERT` per row, still one commit", "",
+              "Replacing mysqldump's extended `INSERT`s with one statement per row changes the load "
+              f"completely and the result **not at all**: {within} of the {len(ri)} databases land "
+              f"within 0.5% of their one-shot size, and the widest differs by "
+              f"{deltas[-1] * 100:.1f}%. Against MySQL the two loads are indistinguishable — "
+              f"{sum(i['rowinsert'] for i in ri) / rmy:.2f}× against "
+              f"{sum(i['dolt'] for i in ri) / rmy:.2f}× on the same databases.", "",
+              "This is a real result rather than a non-event: statement batching is a load-time "
+              "concern in Dolt exactly as it is in MySQL, and anyone reasoning about \"row by row\" "
+              "storage costs is reasoning about the wrong granularity. It costs time — the largest "
+              f"database here goes through {max(i['rows'] for i in ri):,} separate statements.", "",
+              "| database | rows | MySQL | one commit | one INSERT per row | difference | vs MySQL |",
+              "|---|---:|---:|---:|---:|---:|---:|"]
         for i in sorted(ri, key=lambda x: -x["rows"]):
             d = (i["rowinsert"] - i["dolt"]) / i["dolt"] * 100
-            L.append(f"| `{i['db']}` | {i['rows']:,} | {human(i['dolt'])} | {human(i['rowinsert'])} "
-                     f"| {d:+.1f}% |")
+            L.append(f"| `{i['db']}` | {i['rows']:,} | {human(i['mysql'])} | {human(i['dolt'])} "
+                     f"| {human(i['rowinsert'])} | {d:+.1f}% "
+                     f"| **{i['rowinsert'] / i['mysql']:.2f}×** |")
         L.append("")
+
+    # --- 3 ------------------------------------------------------------------------------------
     if rc:
-        worst = max(rc, key=lambda x: x["rowcommit"] / x["dolt"])
-        my_rc = sum(i["mysql"] for i in rc)
-        do_rc = sum(i["rowcommit"] for i in rc)
-        one_rc = sum(i["dolt"] for i in rc)
-        L += ["**Commit granularity changes everything.** The same rows, committed one at a time, "
-              f"take **{human(do_rc)} where the one-commit load takes {human(one_rc)}** — "
-              f"{do_rc / one_rc:.0f}× more, and {do_rc / my_rc:.0f}× what MySQL uses for the same "
-              f"data. The worst case here is `{worst['db']}`: {worst['rows']:,} rows, "
-              f"{human(worst['dolt'])} in one commit, {human(worst['rowcommit'])} in "
-              f"{(worst['rowcommit_commits'] or 0):,} commits.", "",
-              "This is not overhead to be tuned away. It is what a version-controlled database is "
-              "*for*: each commit is an addressable, diffable state of the whole database, and "
-              "keeping a million of them costs what keeping a million of anything costs. The "
-              "question it answers is not \"is Dolt wasteful\" but \"what does my commit rate cost "
-              "me\", and the answer scales with commits, not rows.", "",
-              "| database | rows | MySQL | Dolt, one commit | Dolt, commit per row | commits | × one commit |",
-              "|---|---:|---:|---:|---:|---:|---:|"]
+        cmy = sum(i["mysql"] for i in rc)
+        cdo = sum(i["rowcommit"] for i in rc)
+        cone = sum(i["dolt"] for i in rc)
+        worst = max(rc, key=lambda x: x["rowcommit"] / x["mysql"])
+        over = [i for i in rc if i["rowcommit"] > i["mysql"]]
+        L += ["## 3. One commit per row", "",
+              f"The same rows with a commit after each one take **{human(cdo)} where the one-commit "
+              f"load takes {human(cone)}** — {cdo / cone:.0f}× more. Against MySQL the comparison "
+              f"**inverts**: those databases are {cone / cmy:.2f}× MySQL loaded normally and "
+              f"**{cdo / cmy:.0f}× MySQL** loaded a commit at a time, a swing of "
+              f"{cdo / cone:.0f}× from nothing but how the rows were written.", "",
+              f"{len(over)} of the {len(rc)} end up larger than MySQL. The extreme is "
+              f"`{worst['db']}`: {worst['rows']:,} rows, {human(worst['mysql'])} in MySQL, "
+              f"{human(worst['dolt'])} in one Dolt commit, {human(worst['rowcommit'])} in "
+              f"{(worst['rowcommit_commits'] or 0):,} — **{worst['rowcommit'] / worst['mysql']:.0f}× "
+              "MySQL for identical data**.", "",
+              "![What history costs](docs/img/commit-granularity.png)", "",
+              "| database | rows | MySQL | one commit | ÷MySQL | one commit per row | ÷MySQL | × one commit |",
+              "|---|---:|---:|---:|---:|---:|---:|---:|"]
         for i in sorted(rc, key=lambda x: -x["rows"]):
             L.append(f"| `{i['db']}` | {i['rows']:,} | {human(i['mysql'])} | {human(i['dolt'])} "
-                     f"| {human(i['rowcommit'])} | {(i['rowcommit_commits'] or 0):,} "
-                     f"| **{i['rowcommit'] / i['dolt']:.0f}×** |")
-        L += [f"| **these {len(rc)}** | **{sum(i['rows'] for i in rc):,}** | **{human(my_rc)}** "
-              f"| **{human(one_rc)}** | **{human(do_rc)}** | | **{do_rc / one_rc:.0f}×** |", "",
-              "Scope: the per-row-commit load ran on the smallest databases only. At the measured "
-              f"rate it would need roughly {sum(i['rowcommit'] / i['rows'] for i in rc) / len(rc) * 9056697 / 1024**3:.0f} GB "
-              "and several hours for all 9,056,697 rows, which buys no additional insight — the "
-              "per-commit cost is already visible.", ""]
+                     f"| {i['dolt'] / i['mysql']:.2f}× | {human(i['rowcommit'])} "
+                     f"| **{i['rowcommit'] / i['mysql']:.1f}×** "
+                     f"| {i['rowcommit'] / i['dolt']:.0f}× |")
+        L += [f"| **these {len(rc)}** | **{sum(i['rows'] for i in rc):,}** | **{human(cmy)}** "
+              f"| **{human(cone)}** | **{cone / cmy:.2f}×** | **{human(cdo)}** "
+              f"| **{cdo / cmy:.0f}×** | **{cdo / cone:.0f}×** |", "",
+              "This is not overhead to be tuned away. Each commit is an addressable, diffable state "
+              "of the whole database, and keeping a million of them costs what keeping a million of "
+              "anything costs. The question the number answers is not \"is Dolt wasteful\" but "
+              "**\"what does my commit rate cost me\"**, and it scales with commits, not with rows.", ""]
+
+    # --- everything, together ------------------------------------------------------------------
+    L += ["## Every database, every load", "",
+          "`MySQL logical` is what `information_schema` reports (`data_length + index_length`) — "
+          "always smaller than the directory, because it does not count free pages in the "
+          "tablespace. `Dump` is the `mysqldump` SQL both engines were loaded from.", "",
+          "| database | tables | rows | dump | MySQL logical | MySQL | one commit | one INSERT/row | one commit/row |",
+          "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    for i in sorted(items, key=lambda x: -x["mysql"]):
+        L.append(f"| `{i['db']}` | {i['tables']} | {i['rows']:,} | {human(i['dump'])} "
+                 f"| {human(i['logical'])} | {human(i['mysql'])} | {cell(i['dolt'], i['mysql'])} "
+                 f"| {cell(i['rowinsert'], i['mysql'])} | {cell(i['rowcommit'], i['mysql'])} |")
+    L.append(f"| **total** | {sum(i['tables'] for i in items)} | {sum(i['rows'] for i in items):,} "
+             f"| {human(sum(i['dump'] for i in items))} | {human(sum(i['logical'] for i in items))} "
+             f"| **{human(my)}** | **{human(do)}<br>{do / my:.2f}×** | | |")
+    L.append("")
+
+    missing_ri = [i["db"] for i in items if not i["rowinsert"]]
+    missing_rc = [i["db"] for i in items if not i["rowcommit"]]
+    if missing_ri or missing_rc:
+        L += ["### Coverage", "",
+              "The extra loads are expensive, and where a cell is empty the load has not been run "
+              "rather than failed. `make experiment` runs them.", ""]
+        if missing_ri:
+            L.append(f"* **one `INSERT` per row** — not yet measured for {len(missing_ri)}: "
+                     + ", ".join(f"`{d}`" for d in sorted(missing_ri)))
+        if missing_rc:
+            L.append(f"* **one commit per row** — not yet measured for {len(missing_rc)}: "
+                     + ", ".join(f"`{d}`" for d in sorted(missing_rc)))
+        L.append("")
 
     bad = [i for i in items if i["mismatch"]]
     idx_bad = [i for i in items if i["idx_diff"]]
     idx_my, idx_do = sum(i["idx_my"] for i in items), sum(i["idx_do"] for i in items)
-    stats = sum(i["stats"] for i in items)
     commits = sorted({i["commits"] for i in items if i["commits"]})
-    L += ["", "## Is the comparison valid?", "",
+    L += ["## Is the comparison valid?", "",
           "Three things have to be true before a size ratio means anything. All three were checked "
           "on every database, not assumed.", "",
-          "**The same rows.** Every table counted with `COUNT(*)` on both sides before any size was "
-          "recorded; `information_schema.table_rows` is an InnoDB estimate and is not used. "
+          "**The same rows.** `COUNT(*)` on both sides, per table, before any size was recorded; "
+          "`information_schema.table_rows` is an InnoDB estimate and is not used. "
           + (f"**{len(bad)} database(s) disagree**: " + ", ".join(f"`{i['db']}`" for i in bad)
              if bad else "**Every table matches.**"), "",
-          "**The same indexes.** Indexes are a large part of what a database costs on disk, so each "
-          "one is compared by definition — table, index name, column position, column, uniqueness — "
-          "and not by count. "
+          "**The same indexes.** Compared by definition — table, index name, column position, "
+          "column, uniqueness — not by count. "
           + (f"**{len(idx_bad)} database(s) differ**: "
              + ", ".join(f"`{i['db']}`" for i in idx_bad) if idx_bad else
              f"**{idx_my} indexes in MySQL, {idx_do} in Dolt, identical in every database.**"), "",
-          "**The least history Dolt can hold.** Dolt is a versioned database, so how much history it "
-          "keeps changes what it stores. The load makes exactly **one data commit per database** — "
-          f"`dolt_log` shows {', '.join(str(c) for c in commits)} commits, of which two are Dolt's "
-          "own `Initialize data repository` and `CREATE DATABASE` — and `dolt_status` is clean "
-          "afterwards, so nothing is sitting uncommitted where it would go unmeasured. Rows are not "
-          "committed individually: the whole database arrives in one commit. **These numbers are "
-          "therefore Dolt at its most favourable.** A branch, or a week of changes, would store "
-          "more; this measures the floor.", ""]
+          "**The history is stated, not assumed.** The one-commit load makes exactly one data commit "
+          f"per database (`dolt_log` shows {', '.join(str(c) for c in commits)}, two of them Dolt's "
+          "own `Initialize data repository` and `CREATE DATABASE`), and `dolt_status` is clean "
+          "afterwards. That is the least history Dolt can hold, which is why section 3 exists: it "
+          "measures the other end.", ""]
+
     served = sum(r.get("server_stats_bytes") or 0 for r in RAW.values())
     L += ["## What a running server adds, and why it is not in the figures", "",
           "Every size above was measured with **no server running**: the load is done by the `dolt` "
@@ -200,15 +267,6 @@ def report(items):
               "| database | views MySQL → Dolt | routines MySQL → Dolt |", "|---|---|---|"]
         L += [f"| `{i['db']}` | {i['views_my']} → {i['views_do']} | {i['rout_my']} → {i['rout_do']} |"
               for i in missing]
-        L.append("")
-
-    errs = [i for i in items if i["errors"]]
-    if errs:
-        L += ["Some statements in the dumps were rejected by Dolt. These are schema objects, not "
-              "rows — the row counts above still match — but they are listed in `build/results.json` "
-              "per database and summarised here:", "",
-              "| database | statements Dolt rejected |", "|---|---:|"]
-        L += [f"| `{i['db']}` | {i['errors']} |" for i in sorted(errs, key=lambda x: -x["errors"])]
         L.append("")
     return "\n".join(L) + "\n"
 

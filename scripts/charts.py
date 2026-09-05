@@ -11,9 +11,12 @@ Four figures, each answering one question:
 
   size-by-database     what does each database cost in each engine? (log scale: the databases span
                        three orders of magnitude, and a linear axis would show only the big ones)
-  ratio-by-database    where is Dolt cheaper, and by how much? (the spread is the real finding)
-  commit-granularity   what does history cost? one commit per database against one per row
-  totals               the whole corpus in one picture, including what is not counted
+  ratio-by-database    where is Dolt cheaper than MySQL, and by how much, for the standard load
+  modes-vs-mysql       the same ratio for **every** load, side by side -- the one figure that shows
+                       that "Dolt against MySQL" has no single answer
+  totals-by-mode       the same, totalled, on the databases measured in all three
+  commit-granularity   absolute sizes: what history costs
+  totals               the whole corpus in one picture
 """
 import json, os, sys
 
@@ -32,8 +35,8 @@ LABELS = {"mysql": "MySQL 9.7.2", "oneshot": "Dolt — one commit per database",
           "rowcommit": "Dolt — one commit per row"}
 
 
-def style(ax, title, xlabel):
-    ax.set_title(title, color=INK, fontsize=12, pad=12, loc="left", fontweight="bold")
+def style(ax, title, xlabel, pad=12):
+    ax.set_title(title, color=INK, fontsize=12, pad=pad, loc="left", fontweight="bold")
     ax.set_xlabel(xlabel, color=INK, fontsize=9)
     ax.tick_params(colors=INK, labelsize=8)
     for side in ("top", "right"):
@@ -131,6 +134,78 @@ def fig_commit_granularity(results):
     save(fig, "commit-granularity.png")
 
 
+def fig_modes_vs_mysql(results):
+    """Dolt ÷ MySQL for each load, per database.
+
+    The ratio chart next to this one answers "is Dolt smaller than MySQL" for the way anyone would
+    actually load a database. This one answers the same question for all three loads at once, and
+    the answer changes sign: the same nine databases are a fifth of MySQL's size when the load is
+    one commit, and twenty-five times MySQL's size when it is one commit per row.
+    """
+    my = {db: r.get("mysql_disk_bytes") for db, r in results.items()}
+    modes = ["oneshot", "rowinsert", "rowcommit"]
+    ser = {m: series(results, m) for m in modes}
+    dbs = [d for d in sorted(my, key=lambda d: -(results[d].get("rows_mysql") or 0))
+           if ser["rowcommit"].get(d) and my.get(d)]
+    if not dbs:
+        return
+
+    fig, ax = plt.subplots(figsize=(9.5, 0.62 * len(dbs) + 2))
+    h, y = 0.24, range(len(dbs))
+    for k, m in enumerate(modes):
+        vals = [(ser[m].get(d) or 0) / my[d] for d in dbs]
+        ax.barh([i + (1 - k) * h for i in y], vals, h, label=LABELS[m], color=COLOURS[m])
+    for i, d in enumerate(dbs):
+        ax.text(ser["rowcommit"][d] / my[d] * 1.15, i - h, f"{ser['rowcommit'][d] / my[d]:.1f}×",
+                va="center", fontsize=7.5, color=COLOURS["rowcommit"], fontweight="bold")
+        ax.text(ser["oneshot"][d] / my[d] * 1.15, i + h, f"{ser['oneshot'][d] / my[d]:.2f}×",
+                va="center", fontsize=7, color=COLOURS["oneshot"])
+    ax.axvline(1.0, color=COLOURS["mysql"], linewidth=1.4, linestyle="--")
+    ax.text(1.06, len(dbs) - .4, "the size MySQL uses", fontsize=8, color=COLOURS["mysql"])
+    ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
+                  fontsize=7.5)
+    ax.set_xscale("log")
+    ax.set_xlim(0.02, max(ser["rowcommit"][d] / my[d] for d in dbs) * 4)
+    style(ax, "Dolt ÷ MySQL, for each way of loading the same rows",
+          "left of the dashed line is smaller than MySQL; right of it is larger (log scale)", pad=34)
+    # above the plot, not inside it: at the top of the chart the per-row-commit bars are longest
+    # and a legend in the corner sits on top of their labels
+    ax.legend(fontsize=8, frameon=False, ncol=3, loc="lower center",
+              bbox_to_anchor=(0.5, 1.045))
+    save(fig, "modes-vs-mysql.png")
+
+
+def fig_totals_by_mode(results):
+    """The same comparison totalled, on the databases measured in every mode, so the bars stand for
+    one population rather than three."""
+    modes = ["oneshot", "rowinsert", "rowcommit"]
+    ser = {m: series(results, m) for m in modes}
+    dbs = [d for d, r in results.items()
+           if r.get("mysql_disk_bytes") and all(ser[m].get(d) for m in modes)]
+    if not dbs:
+        return
+    my = sum(results[d]["mysql_disk_bytes"] for d in dbs)
+    tot = {m: sum(ser[m][d] for d in dbs) for m in modes}
+    rows = sum(results[d].get("rows_mysql") or 0 for d in dbs)
+
+    fig, ax = plt.subplots(figsize=(8.5, 3.8))
+    names = ["mysql"] + modes
+    vals = [my / MB] + [tot[m] / MB for m in modes]
+    bars = ax.bar([LABELS[n].replace(" — ", "\n") for n in names], vals,
+                  color=[COLOURS[n] for n in names], width=.6)
+    for b, v, n in zip(bars, vals, names):
+        ratio = "" if n == "mysql" else f"\n{v * MB / my:.2f}× MySQL"
+        ax.text(b.get_x() + b.get_width() / 2, v * 1.05, f"{v:,.0f} MB{ratio}", ha="center",
+                fontsize=8.5, color=INK, fontweight="bold")
+    ax.set_yscale("log")
+    ax.set_ylabel("megabytes on disk (log scale)", color=INK, fontsize=9)
+    style(ax, f"The {len(dbs)} databases measured in every mode — {rows:,} rows", "")
+    ax.grid(axis="x", visible=False)
+    ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
+    ax.set_ylim(top=max(vals) * 4)
+    save(fig, "totals-by-mode.png")
+
+
 def fig_totals(results):
     """MySQL against Dolt for every database. The other two modes are measured on subsets and are
     shown in commit-granularity.png, where the population is stated; putting them here would mean
@@ -183,6 +258,8 @@ def main():
     results = load()
     fig_size_by_database(results)
     fig_ratio(results)
+    fig_modes_vs_mysql(results)
+    fig_totals_by_mode(results)
     fig_commit_granularity(results)
     fig_totals(results)
     return 0

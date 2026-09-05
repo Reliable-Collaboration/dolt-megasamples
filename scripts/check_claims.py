@@ -54,6 +54,9 @@ def facts(r):
         "rowcommit_worse": sum(1 for d in rc if mode(d, "rowcommit")["disk_bytes"]
                                > r[d]["mysql_disk_bytes"]),
         "within_05": sum(1 for x in deltas if x <= 0.005),
+        "ri_ratio": f"{sum((r[d]['modes']['rowinsert']['disk_bytes']) for d in ri) / sum(r[d]['mysql_disk_bytes'] for d in ri):.2f}×",
+        "rc_ratio": f"{sum((r[d]['modes']['rowcommit']['disk_bytes']) for d in rc) / sum(r[d]['mysql_disk_bytes'] for d in rc):.1f}×",
+        "rc_one_ratio": f"{sum((r[d]['modes']['oneshot']['disk_bytes']) for d in rc) / sum(r[d]['mysql_disk_bytes'] for d in rc):.2f}×",
         "identical": sum(1 for x in deltas if x <= 0.0001),
         "widest": f"{max(deltas) * 100:.1f}%",
         "aw_data": f"{one('adventureworks')['disk_bytes'] / MB:.1f} MB",
@@ -71,6 +74,9 @@ CLAIMS = [
     ("within 0.5% for {within_05} of the {rowinsert_dbs} databases", DOCS),
     ("{mult_low} to {mult_high} the single-commit load", DOCS),
     ("{indexes} in MySQL, {indexes} in Dolt", DOCS),
+    # the three headline ratios, each against the population it was measured on
+    ("| **one `INSERT` per row** | {rowinsert_dbs} | **{ri_ratio}** |", ["README.md"]),
+    ("| **one commit per row** | {rowcommit_dbs} | **{rc_ratio}** | {rc_one_ratio}", ["README.md"]),
 ]
 
 

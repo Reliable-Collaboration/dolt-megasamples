@@ -5,96 +5,120 @@
 
 The same 21 sample databases, 9,056,697 rows, loaded into both engines from the same `mysqldump` files and measured the same way: `du -sb` of the directory each engine keeps the database in.
 
-**Dolt uses 524.8 MB where MySQL uses 1.5 GB — 0.34× overall.** The ratio is not uniform: it ranges from 0.05× (`pubs`) to 0.76× (`oracle_sh`).
+## The short answer: it depends on how you write the rows
+
+Dolt is a version-controlled database, so *how* the rows arrive decides what it stores. Three loads of identical data give three different answers, and they are not close:
+
+| load | what it does | against MySQL |
+|---|---|---:|
+| **one commit per database** | the way anyone would load a database | **0.34×** across all 21 |
+| **one `INSERT` per row** | same commit, one statement per row instead of thousands of rows per statement | **0.29×** across 11 |
+| **one commit per row** | a commit for every row | **25×** across 9 |
+
+The first two are the same number. The third is not the same kind of number. Every section below gives each load the same treatment: what it costs, against MySQL, per database.
+
+![Dolt ÷ MySQL for each load](docs/img/modes-vs-mysql.png)
+
+![Totalled over the databases measured in every mode](docs/img/totals-by-mode.png)
+
+## 1. One commit per database
+
+The standard load. **524.8 MB against MySQL's 1.5 GB — 0.34×** over all 21 databases, and the ratio is not uniform: it runs from 0.05× (`pubs`) to 0.76× (`oracle_sh`), a spread of more than 15 to one.
 
 ![All databases](docs/img/totals.png)
 
 ![Ratio per database](docs/img/ratio-by-database.png)
 
-## Every database
+The shape of the spread is legible. Small databases favour Dolt heavily because InnoDB allocates a tablespace per table whether or not anything is in it. Text-heavy data narrows the gap, because neither engine can compress prose. Dense numeric fact tables narrow it furthest — `oracle_sh` is close to InnoDB's best case.
 
-`MySQL on disk` and `Dolt on disk` are directory sizes. `MySQL logical` is what
-`information_schema` reports (`data_length + index_length`) — always smaller than the
-directory, because it does not count free pages in the tablespace. `Dump` is the
-`mysqldump` SQL both engines were loaded from, included as a size-independent reference
-point for how much data is actually there.
+## 2. One `INSERT` per row, still one commit
 
-![Disk used per database](docs/img/size-by-database.png)
+Replacing mysqldump's extended `INSERT`s with one statement per row changes the load completely and the result **not at all**: 10 of the 11 databases land within 0.5% of their one-shot size, and the widest differs by 4.1%. Against MySQL the two loads are indistinguishable — 0.29× against 0.29× on the same databases.
 
-| database | tables | rows | dump | MySQL logical | MySQL on disk | Dolt on disk | Dolt ÷ MySQL |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `adventureworks` | 69 | 759,240 | 89.6 MB | 119.3 MB | 292.2 MB | 48.7 MB | **0.17×** |
-| `wikipedia_simple` | 9 | 1,167,112 | 73.6 MB | 64.7 MB | 208.2 MB | 123.2 MB | **0.59×** |
-| `oracle_sh` | 9 | 1,063,396 | 49.8 MB | 1.7 MB | 188.4 MB | 143.6 MB | **0.76×** |
-| `lahman` | 27 | 706,466 | 52.5 MB | 75.6 MB | 178.9 MB | 26.3 MB | **0.15×** |
-| `employees` | 6 | 3,919,015 | 160.6 MB | 146.8 MB | 176.3 MB | 42.6 MB | **0.24×** |
-| `contoso` | 8 | 753,467 | 65.1 MB | 103.3 MB | 135.3 MB | 39.3 MB | **0.29×** |
-| `stackexchange_beer` | 11 | 62,523 | 15.0 MB | 6.1 MB | 73.6 MB | 14.0 MB | **0.19×** |
-| `chicago_crimes` | 2 | 259,702 | 51.2 MB | 65.7 MB | 72.1 MB | 28.9 MB | **0.40×** |
-| `enron` | 3 | 48,778 | 23.4 MB | 38.0 MB | 66.2 MB | 34.3 MB | **0.52×** |
-| `dvdstore` | 9 | 174,716 | 7.4 MB | 16.3 MB | 50.0 MB | 11.9 MB | **0.24×** |
-| `sakila` | 16 | 47,268 | 3.2 MB | 432.0 KB | 22.3 MB | 2.0 MB | **0.09×** |
-| `oracle_oe` | 9 | 11,518 | 1.8 MB | 3.2 MB | 19.7 MB | 4.4 MB | **0.22×** |
-| `nyc_taxi` | 2 | 48,591 | 6.6 MB | 10.1 MB | 16.1 MB | 3.0 MB | **0.19×** |
-| `adventureworks_lt` | 12 | 4,277 | 1.9 MB | 4.1 MB | 12.6 MB | 1.0 MB | **0.08×** |
-| `northwind` | 13 | 3,308 | 636.2 KB | 1.4 MB | 2.8 MB | 519.5 KB | **0.18×** |
-| `chinook` | 11 | 15,607 | 457.0 KB | 1.6 MB | 2.6 MB | 615.0 KB | **0.23×** |
-| `oracle_co` | 7 | 8,783 | 374.2 KB | 1.1 MB | 1.8 MB | 456.3 KB | **0.25×** |
-| `pubs` | 11 | 255 | 122.0 KB | 176.0 KB | 1.5 MB | 77.0 KB | **0.05×** |
-| `oracle_hr` | 7 | 216 | 29.7 KB | 112.0 KB | 1.2 MB | 62.8 KB | **0.05×** |
-| `smallsets` | 4 | 2,147 | 231.2 KB | 64.0 KB | 644.0 KB | 164.3 KB | **0.26×** |
-| `jaffle_shop` | 3 | 312 | 11.4 KB | 80.0 KB | 372.0 KB | 37.7 KB | **0.10×** |
-| **total** | 248 | 9,056,697 | 603.5 MB | 660.0 MB | **1.5 GB** | **524.8 MB** | **0.34×** |
+This is a real result rather than a non-event: statement batching is a load-time concern in Dolt exactly as it is in MySQL, and anyone reasoning about "row by row" storage costs is reasoning about the wrong granularity. It costs time — the largest database here goes through 259,702 separate statements.
 
-## Does it matter how the rows are written?
-
-Two more loads of the same data answer two different questions. The first replaces mysqldump's extended `INSERT`s with **one `INSERT` per row**, keeping a single commit. The second commits **after every row**.
-
-**Statement granularity changes nothing that is stored.** Across 11 databases the row-by-row load lands within 4.1% of the one-shot load, and within 0.0% at the median — noise from how chunks happen to pack, not a difference in what Dolt keeps. It costs a great deal of *time*: `dvdstore` takes 174,716 rows through 174,716 separate statements instead of a handful.
-
-| database | rows | one commit, extended INSERTs | one commit, one INSERT per row | difference |
-|---|---:|---:|---:|---:|
-| `chicago_crimes` | 259,702 | 28.9 MB | 28.8 MB | -0.3% |
-| `dvdstore` | 174,716 | 11.9 MB | 11.9 MB | +0.3% |
-| `chinook` | 15,607 | 615.0 KB | 615.0 KB | +0.0% |
-| `oracle_oe` | 11,518 | 4.4 MB | 4.2 MB | -4.1% |
-| `oracle_co` | 8,783 | 456.3 KB | 456.3 KB | +0.0% |
-| `adventureworks_lt` | 4,277 | 1.0 MB | 1.0 MB | -0.0% |
-| `northwind` | 3,308 | 519.5 KB | 519.5 KB | +0.0% |
-| `smallsets` | 2,147 | 164.3 KB | 164.3 KB | +0.0% |
-| `jaffle_shop` | 312 | 37.7 KB | 37.7 KB | +0.0% |
-| `pubs` | 255 | 77.0 KB | 77.0 KB | +0.0% |
-| `oracle_hr` | 216 | 62.8 KB | 62.8 KB | +0.0% |
-
-**Commit granularity changes everything.** The same rows, committed one at a time, take **1.0 GB where the one-commit load takes 7.2 MB** — 148× more, and 25× what MySQL uses for the same data. The worst case here is `oracle_oe`: 11,518 rows, 4.4 MB in one commit, 815.6 MB in 11,520 commits.
-
-This is not overhead to be tuned away. It is what a version-controlled database is *for*: each commit is an addressable, diffable state of the whole database, and keeping a million of them costs what keeping a million of anything costs. The question it answers is not "is Dolt wasteful" but "what does my commit rate cost me", and the answer scales with commits, not rows.
-
-| database | rows | MySQL | Dolt, one commit | Dolt, commit per row | commits | × one commit |
+| database | rows | MySQL | one commit | one INSERT per row | difference | vs MySQL |
 |---|---:|---:|---:|---:|---:|---:|
-| `chinook` | 15,607 | 2.6 MB | 615.0 KB | 112.4 MB | 15,609 | **187×** |
-| `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | 815.6 MB | 11,520 | **187×** |
-| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 68.4 MB | 8,785 | **153×** |
-| `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | 37.5 MB | 4,279 | **37×** |
-| `northwind` | 3,308 | 2.8 MB | 519.5 KB | 26.6 MB | 3,310 | **52×** |
-| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 8.3 MB | 2,149 | **52×** |
-| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 738.6 KB | 314 | **20×** |
-| `pubs` | 255 | 1.5 MB | 77.0 KB | 758.3 KB | 257 | **10×** |
-| `oracle_hr` | 216 | 1.2 MB | 62.8 KB | 786.1 KB | 218 | **13×** |
-| **these 9** | **46,423** | **43.1 MB** | **7.2 MB** | **1.0 GB** | | **148×** |
+| `chicago_crimes` | 259,702 | 72.1 MB | 28.9 MB | 28.8 MB | -0.3% | **0.40×** |
+| `dvdstore` | 174,716 | 50.0 MB | 11.9 MB | 11.9 MB | +0.3% | **0.24×** |
+| `chinook` | 15,607 | 2.6 MB | 615.0 KB | 615.0 KB | +0.0% | **0.23×** |
+| `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | 4.2 MB | -4.1% | **0.21×** |
+| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 456.3 KB | +0.0% | **0.25×** |
+| `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | 1.0 MB | -0.0% | **0.08×** |
+| `northwind` | 3,308 | 2.8 MB | 519.5 KB | 519.5 KB | +0.0% | **0.18×** |
+| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 164.3 KB | +0.0% | **0.26×** |
+| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 37.7 KB | +0.0% | **0.10×** |
+| `pubs` | 255 | 1.5 MB | 77.0 KB | 77.0 KB | +0.0% | **0.05×** |
+| `oracle_hr` | 216 | 1.2 MB | 62.8 KB | 62.8 KB | +0.0% | **0.05×** |
 
-Scope: the per-row-commit load ran on the smallest databases only. At the measured rate it would need roughly 113 GB and several hours for all 9,056,697 rows, which buys no additional insight — the per-commit cost is already visible.
+## 3. One commit per row
 
+The same rows with a commit after each one take **1.0 GB where the one-commit load takes 7.2 MB** — 148× more. Against MySQL the comparison **inverts**: those databases are 0.17× MySQL loaded normally and **25× MySQL** loaded a commit at a time, a swing of 148× from nothing but how the rows were written.
+
+7 of the 9 end up larger than MySQL. The extreme is `chinook`: 15,607 rows, 2.6 MB in MySQL, 615.0 KB in one Dolt commit, 112.4 MB in 15,609 — **43× MySQL for identical data**.
+
+![What history costs](docs/img/commit-granularity.png)
+
+| database | rows | MySQL | one commit | ÷MySQL | one commit per row | ÷MySQL | × one commit |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `chinook` | 15,607 | 2.6 MB | 615.0 KB | 0.23× | 112.4 MB | **42.8×** | 187× |
+| `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | 0.22× | 815.6 MB | **41.5×** | 187× |
+| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 0.25× | 68.4 MB | **37.6×** | 153× |
+| `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | 0.08× | 37.5 MB | **3.0×** | 37× |
+| `northwind` | 3,308 | 2.8 MB | 519.5 KB | 0.18× | 26.6 MB | **9.6×** | 52× |
+| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 0.26× | 8.3 MB | **13.3×** | 52× |
+| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 0.10× | 738.6 KB | **2.0×** | 20× |
+| `pubs` | 255 | 1.5 MB | 77.0 KB | 0.05× | 758.3 KB | **0.5×** | 10× |
+| `oracle_hr` | 216 | 1.2 MB | 62.8 KB | 0.05× | 786.1 KB | **0.7×** | 13× |
+| **these 9** | **46,423** | **43.1 MB** | **7.2 MB** | **0.17×** | **1.0 GB** | **25×** | **148×** |
+
+This is not overhead to be tuned away. Each commit is an addressable, diffable state of the whole database, and keeping a million of them costs what keeping a million of anything costs. The question the number answers is not "is Dolt wasteful" but **"what does my commit rate cost me"**, and it scales with commits, not with rows.
+
+## Every database, every load
+
+`MySQL logical` is what `information_schema` reports (`data_length + index_length`) — always smaller than the directory, because it does not count free pages in the tablespace. `Dump` is the `mysqldump` SQL both engines were loaded from.
+
+| database | tables | rows | dump | MySQL logical | MySQL | one commit | one INSERT/row | one commit/row |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `adventureworks` | 69 | 759,240 | 89.6 MB | 119.3 MB | 292.2 MB | 48.7 MB<br>**0.17×** | — | — |
+| `wikipedia_simple` | 9 | 1,167,112 | 73.6 MB | 64.7 MB | 208.2 MB | 123.2 MB<br>**0.59×** | — | — |
+| `oracle_sh` | 9 | 1,063,396 | 49.8 MB | 1.7 MB | 188.4 MB | 143.6 MB<br>**0.76×** | — | — |
+| `lahman` | 27 | 706,466 | 52.5 MB | 75.6 MB | 178.9 MB | 26.3 MB<br>**0.15×** | — | — |
+| `employees` | 6 | 3,919,015 | 160.6 MB | 146.8 MB | 176.3 MB | 42.6 MB<br>**0.24×** | — | — |
+| `contoso` | 8 | 753,467 | 65.1 MB | 103.3 MB | 135.3 MB | 39.3 MB<br>**0.29×** | — | — |
+| `stackexchange_beer` | 11 | 62,523 | 15.0 MB | 6.1 MB | 73.6 MB | 14.0 MB<br>**0.19×** | — | — |
+| `chicago_crimes` | 2 | 259,702 | 51.2 MB | 65.7 MB | 72.1 MB | 28.9 MB<br>**0.40×** | 28.8 MB<br>**0.40×** | — |
+| `enron` | 3 | 48,778 | 23.4 MB | 38.0 MB | 66.2 MB | 34.3 MB<br>**0.52×** | — | — |
+| `dvdstore` | 9 | 174,716 | 7.4 MB | 16.3 MB | 50.0 MB | 11.9 MB<br>**0.24×** | 11.9 MB<br>**0.24×** | — |
+| `sakila` | 16 | 47,268 | 3.2 MB | 432.0 KB | 22.3 MB | 2.0 MB<br>**0.09×** | — | — |
+| `oracle_oe` | 9 | 11,518 | 1.8 MB | 3.2 MB | 19.7 MB | 4.4 MB<br>**0.22×** | 4.2 MB<br>**0.21×** | 815.6 MB<br>**41×** |
+| `nyc_taxi` | 2 | 48,591 | 6.6 MB | 10.1 MB | 16.1 MB | 3.0 MB<br>**0.19×** | — | — |
+| `adventureworks_lt` | 12 | 4,277 | 1.9 MB | 4.1 MB | 12.6 MB | 1.0 MB<br>**0.08×** | 1.0 MB<br>**0.08×** | 37.5 MB<br>**2.97×** |
+| `northwind` | 13 | 3,308 | 636.2 KB | 1.4 MB | 2.8 MB | 519.5 KB<br>**0.18×** | 519.5 KB<br>**0.18×** | 26.6 MB<br>**9.60×** |
+| `chinook` | 11 | 15,607 | 457.0 KB | 1.6 MB | 2.6 MB | 615.0 KB<br>**0.23×** | 615.0 KB<br>**0.23×** | 112.4 MB<br>**43×** |
+| `oracle_co` | 7 | 8,783 | 374.2 KB | 1.1 MB | 1.8 MB | 456.3 KB<br>**0.25×** | 456.3 KB<br>**0.25×** | 68.4 MB<br>**38×** |
+| `pubs` | 11 | 255 | 122.0 KB | 176.0 KB | 1.5 MB | 77.0 KB<br>**0.05×** | 77.0 KB<br>**0.05×** | 758.3 KB<br>**0.50×** |
+| `oracle_hr` | 7 | 216 | 29.7 KB | 112.0 KB | 1.2 MB | 62.8 KB<br>**0.05×** | 62.8 KB<br>**0.05×** | 786.1 KB<br>**0.66×** |
+| `smallsets` | 4 | 2,147 | 231.2 KB | 64.0 KB | 644.0 KB | 164.3 KB<br>**0.26×** | 164.3 KB<br>**0.26×** | 8.3 MB<br>**13×** |
+| `jaffle_shop` | 3 | 312 | 11.4 KB | 80.0 KB | 372.0 KB | 37.7 KB<br>**0.10×** | 37.7 KB<br>**0.10×** | 738.6 KB<br>**1.99×** |
+| **total** | 248 | 9,056,697 | 603.5 MB | 660.0 MB | **1.5 GB** | **524.8 MB<br>0.34×** | | |
+
+### Coverage
+
+The extra loads are expensive, and where a cell is empty the load has not been run rather than failed. `make experiment` runs them.
+
+* **one `INSERT` per row** — not yet measured for 10: `adventureworks`, `contoso`, `employees`, `enron`, `lahman`, `nyc_taxi`, `oracle_sh`, `sakila`, `stackexchange_beer`, `wikipedia_simple`
+* **one commit per row** — not yet measured for 12: `adventureworks`, `chicago_crimes`, `contoso`, `dvdstore`, `employees`, `enron`, `lahman`, `nyc_taxi`, `oracle_sh`, `sakila`, `stackexchange_beer`, `wikipedia_simple`
 
 ## Is the comparison valid?
 
 Three things have to be true before a size ratio means anything. All three were checked on every database, not assumed.
 
-**The same rows.** Every table counted with `COUNT(*)` on both sides before any size was recorded; `information_schema.table_rows` is an InnoDB estimate and is not used. **Every table matches.**
+**The same rows.** `COUNT(*)` on both sides, per table, before any size was recorded; `information_schema.table_rows` is an InnoDB estimate and is not used. **Every table matches.**
 
-**The same indexes.** Indexes are a large part of what a database costs on disk, so each one is compared by definition — table, index name, column position, column, uniqueness — and not by count. **613 indexes in MySQL, 613 in Dolt, identical in every database.**
+**The same indexes.** Compared by definition — table, index name, column position, column, uniqueness — not by count. **613 indexes in MySQL, 613 in Dolt, identical in every database.**
 
-**The least history Dolt can hold.** Dolt is a versioned database, so how much history it keeps changes what it stores. The load makes exactly **one data commit per database** — `dolt_log` shows 3 commits, of which two are Dolt's own `Initialize data repository` and `CREATE DATABASE` — and `dolt_status` is clean afterwards, so nothing is sitting uncommitted where it would go unmeasured. Rows are not committed individually: the whole database arrives in one commit. **These numbers are therefore Dolt at its most favourable.** A branch, or a week of changes, would store more; this measures the floor.
+**The history is stated, not assumed.** The one-commit load makes exactly one data commit per database (`dolt_log` shows 3, two of them Dolt's own `Initialize data repository` and `CREATE DATABASE`), and `dolt_status` is clean afterwards. That is the least history Dolt can hold, which is why section 3 exists: it measures the other end.
 
 ## What a running server adds, and why it is not in the figures
 
@@ -117,16 +141,4 @@ Views load once mysqldump's `ALGORITHM=` and `SQL SECURITY` clauses are removed.
 | `oracle_oe` | 8 → 7 | 0 → 0 |
 | `pubs` | 1 → 1 | 4 → 1 |
 | `sakila` | 7 → 7 | 6 → 0 |
-
-Some statements in the dumps were rejected by Dolt. These are schema objects, not rows — the row counts above still match — but they are listed in `build/results.json` per database and summarised here:
-
-| database | statements Dolt rejected |
-|---|---:|
-| `adventureworks` | 1 |
-| `adventureworks_lt` | 1 |
-| `employees` | 1 |
-| `oracle_co` | 1 |
-| `oracle_oe` | 1 |
-| `pubs` | 1 |
-| `sakila` | 1 |
 

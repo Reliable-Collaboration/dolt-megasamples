@@ -31,7 +31,9 @@ NAME = "doltsamples-statsprobe"
 
 def main():
     results = load_results()
-    dbs = sorted(d for d in os.listdir(DATA) if os.path.isdir(os.path.join(DATA, d)))
+    # not `.dolt`: that is the data directory's own repository, not one of the databases
+    dbs = sorted(d for d in os.listdir(DATA)
+                 if os.path.isdir(os.path.join(DATA, d)) and not d.startswith("."))
     if not dbs:
         sys.exit("no Dolt databases; run `make load` first")
 

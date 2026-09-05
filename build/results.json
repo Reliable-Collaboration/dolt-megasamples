@@ -1,7 +1,4 @@
 {
-  ".dolt": {
-    "server_stats_bytes": 0
-  },
   "adventureworks": {
     "dolt": {
       "commit_ok": true,
