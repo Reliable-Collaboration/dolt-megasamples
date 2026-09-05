@@ -13,6 +13,7 @@ import argparse, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import ROOT, human, load_results  # noqa: E402
 
+RAW = {}
 REPORT = os.path.join(ROOT, "REPORT.md")
 README = os.path.join(ROOT, "README.md")
 START, END = "<!-- results:start -->", "<!-- results:end -->"
@@ -172,22 +173,21 @@ def report(items):
           "committed individually: the whole database arrives in one commit. **These numbers are "
           "therefore Dolt at its most favourable.** A branch, or a week of changes, would store "
           "more; this measures the floor.", ""]
-    if stats:
-        worst = max(items, key=lambda x: x["stats"])
-        L += ["## What is deliberately not counted", "",
-              f"A running `dolt sql-server` writes a per-database **statistics repository** at "
-              f"`.dolt/stats` the first time it serves that database. Across these {len(items)} "
-              f"databases it comes to **{human(stats)}**, and `dolt gc` does not reclaim it. The "
-              f"largest is `{worst['db']}` at {human(worst['stats'])} — **more than the "
-              f"{human(worst['dolt'])} of data it describes**.", "",
-              "It is excluded from every figure above, for two reasons: it is the query planner's "
-              "working notes rather than the database, and it does not exist until someone starts a "
-              "server — so counting it would make the answer depend on whether anyone had happened "
-              "to connect first. It is real disk all the same, which is why it is stated here.", "",
-              "| database | data | server statistics |", "|---|---:|---:|"]
-        L += [f"| `{i['db']}` | {human(i['dolt'])} | {human(i['stats'])} |"
-              for i in sorted(items, key=lambda x: -x["stats"]) if i["stats"]]
-        L.append("")
+    served = sum(r.get("server_stats_bytes") or 0 for r in RAW.values())
+    L += ["## What a running server adds, and why it is not in the figures", "",
+          "Every size above was measured with **no server running**: the load is done by the `dolt` "
+          "CLI and nothing serves the data afterwards. That is deliberate. A `dolt sql-server` "
+          "writes a per-database statistics repository at `.dolt/stats`, `dolt gc` does not reclaim "
+          "it, and mixing served and unserved directories is how an earlier version of this "
+          "experiment produced a total that moved by 68 MB between runs for no visible reason.", "",
+          f"Measured on a copy: starting a server and reading every table in every database wrote "
+          f"**{human(served)}** in total, an even 22 KB per database.", "",
+          "**That is a floor, not the cost.** During this project's own console use — four web "
+          "clients browsing the data over a working session — `adventureworks`'s statistics reached "
+          "**68.2 MB, more than the 48.7 MB of data they describe**. A single pass over every table "
+          "does not reproduce that, so the growth is driven by sustained querying in a way this "
+          "experiment has not characterised. It is recorded because it is real disk that a real "
+          "deployment will use, and because 22 KB would be a misleading thing to remember.", ""]
 
     missing = [i for i in items if (i["views_my"] - i["views_do"]) or (i["rout_my"] - i["rout_do"])]
     if missing:
@@ -219,6 +219,8 @@ def main():
     a = ap.parse_args()
 
     results = load_results()
+    global RAW
+    RAW = results
     items = rows(results)
     if not items:
         sys.exit("no measurements in build/results.json; run scripts/measure.py first")

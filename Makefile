@@ -12,7 +12,7 @@ help:
 	@echo "make report     regenerate REPORT.md, the README tables and the figures"
 	@echo "make charts     regenerate the figures only (matplotlib, in .venv)"
 	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
-	@echo "make check      fail if REPORT.md or the README is stale"
+	@echo "make check      fail if the report, the README table or a prose number is stale"
 	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
 	@echo "make down       all of it down again"
 	@echo "make status     what is running"
@@ -57,6 +57,7 @@ experiment:
 	@$(MAKE) --no-print-directory report
 check:
 	@$(PY) scripts/report.py --check
+	@$(PY) scripts/check_claims.py
 
 up:
 	@docker compose up -d

@@ -149,21 +149,32 @@ def fig_totals(results):
     fig, ax = plt.subplots(figsize=(7, 3.6))
     bars = ax.bar([LABELS[n].replace(" — ", "\n") for n in names], vals,
                   color=[COLOURS[n] for n in names], width=.55)
-    ax.bar([LABELS["oneshot"].replace(" — ", "\n")], [stats / MB], bottom=[tot["oneshot"] / MB],
-           color=COLOURS["oneshot"], alpha=.35, width=.55,
-           label="server-collected statistics (not counted)")
+    # Only draw the statistics overlay when there is something to see. These figures are measured
+    # with no server running, so it is normally a rounding error, and a "+0 MB" label sitting on
+    # top of the real one is worse than no label.
+    material = stats > 0.01 * tot["oneshot"]
+    if material:
+        ax.bar([LABELS["oneshot"].replace(" — ", "\n")], [stats / MB], bottom=[tot["oneshot"] / MB],
+               color=COLOURS["oneshot"], alpha=.35, width=.55,
+               label="server-collected statistics (not counted)")
     for b, v in zip(bars, vals):
         ax.text(b.get_x() + b.get_width() / 2, v * 1.02, f"{v:,.0f} MB", ha="center", fontsize=9,
                 color=INK, fontweight="bold")
-    ax.text(1, (tot["oneshot"] + stats) / MB * 1.02, f"+{stats / MB:,.0f} MB stats", ha="center",
-            fontsize=7.5, color=INK, alpha=.8)
+    if material:
+        ax.text(1, (tot["oneshot"] + stats) / MB * 1.02, f"+{stats / MB:,.0f} MB stats",
+                ha="center", fontsize=7.5, color=INK, alpha=.8)
     ax.text(0.5, max(vals) * .62, f"{one_total / my:.2f}×", ha="center", fontsize=22,
             color=INK, alpha=.35, fontweight="bold")
     ax.set_ylabel("megabytes on disk", color=INK, fontsize=9)
     style(ax, f"All {len(covered)} databases, {rows_total:,} rows", "")
     ax.grid(axis="x", visible=False)
     ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
-    ax.legend(fontsize=8, frameon=False)
+    if material:
+        ax.legend(fontsize=8, frameon=False)
+    else:
+        ax.text(1, tot["oneshot"] / MB * .45, "measured with\nno server running",
+                ha="center", va="center", fontsize=7.5, color="white", alpha=.95,
+                linespacing=1.4)
     save(fig, "totals.png")
 
 

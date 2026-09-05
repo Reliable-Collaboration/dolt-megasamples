@@ -34,7 +34,7 @@ def dolt_disk_bytes(db, mode="oneshot"):
 
     `.dolt/stats` is not the database: it is a per-database repository of table statistics that the
     sql-server collects the first time it serves that database. It is absent until a server runs,
-    `dolt gc` does not reclaim it, and it is not small -- for `adventureworks` it reached 71.5 MB
+    `dolt gc` does not reclaim it, and it is not small -- for `adventureworks` it reached 68.2 MB
     against 51 MB of actual data. Counting it as storage would compare MySQL's data against Dolt's
     data plus its query planner's working notes, and would give a different answer depending on
     whether anyone had happened to start the server first. So the headline excludes it and reports

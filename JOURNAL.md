@@ -58,36 +58,40 @@ on every database, none of them assumed:
 3. **The same measurement.** `du -sb` of the directory each engine keeps the database in. Not
    `information_schema`, which under-reports MySQL by ignoring free pages in its own tablespaces.
 4. **A packed store, not a journal.** Dolt is garbage-collected before measuring. `jaffle_shop` is
-   34,926 bytes before `dolt gc` and 15,673 after; measuring the difference by accident would have
-   been easy and wrong.
+   35,550 bytes after its commit and 16,951 after `dolt gc`; measuring the wrong one of those by
+   accident would have been easy.
 
 ## What is deliberately excluded, and why
 
 **The server's statistics.** A running `dolt sql-server` writes a per-database statistics repository
-at `.dolt/stats` the first time it serves that database, and `dolt gc` does not reclaim it. For
-`adventureworks` it reached 71.5 MB — more than the 48.8 MB of data it describes.
+at `.dolt/stats`, and `dolt gc` does not reclaim it. Every figure here is therefore measured with no
+server running, and the server's contribution is measured separately on a copy.
 
-It is excluded from the headline figures and reported separately, for a reason worth stating: it does
-not exist until somebody starts a server, so counting it would make the answer depend on whether
-anyone had happened to connect first. Hiding it entirely would be worse — it is real disk. So it is
-in its own table in `REPORT.md`.
+The size of that contribution is not settled. A controlled pass — start a server, read every table in
+every database — writes an even 22 KB per database, 462 KB in total. But during this project's own
+console use, four web clients browsing over a working session, `adventureworks`'s statistics reached
+68.2 MB — more than the 48.7 MB of data they describe. A single pass does not reproduce that, so the
+growth depends on sustained querying in a way this experiment has not characterised. Both numbers are
+reported because quoting only the small one would be misleading and quoting only the large one would
+be unreproducible.
 
-This was not a design decision made in advance. It was found because a re-measurement disagreed with
-the first one by 68 MB, and the cause turned out to be that a server had run in between.
+None of this was designed in advance. It was found because a re-measurement disagreed with the
+previous one by 68 MB, and the cause turned out to be that a server had run in between. The
+measurement discipline — server down for the data, copy for the server — came out of that.
 
 ## What came out
 
-**One commit per database:** the 21 databases take 1,523 MB in MySQL and 526 MB in Dolt — 0.35×.
+**One commit per database:** the 21 databases take 1,523 MB in MySQL and 525 MB in Dolt — 0.34×.
 The per-database ratio runs from 0.05× to 0.76×, a spread of more than fifteen to one, and the shape
 of that spread is legible: tiny databases favour Dolt enormously because InnoDB allocates a
 tablespace per table whether or not anything is in it, and text-heavy data narrows the gap because
 neither engine can do much with incompressible prose.
 
-**One `INSERT` per row, still one commit:** the same, to within 0.3% for ten of the eleven databases
-tried. Statement batching is a load-time concern and not a storage one. It is worth knowing precisely
+**One `INSERT` per row, still one commit:** the same, to within 0.5% for ten of the eleven databases
+tried — eight of them byte-identical — and 4.1% for the one outlier. Statement batching is a load-time concern and not a storage one. It is worth knowing precisely
 because it is the assumption most people would make either way without checking.
 
-**One commit per row:** 10× to 187× the single-commit load, and for six of the nine databases more
+**One commit per row:** 10× to 187× the single-commit load, and for seven of the nine databases more
 disk than MySQL uses. `chinook` goes from 615 KB to 112 MB. A controlled check outside the sample
 data makes the same point without any schema in the way: 1,000 rows in one commit is 16,202 bytes;
 the same 1,000 rows in 1,000 commits is 2,929,110 bytes, **181× for identical data**.

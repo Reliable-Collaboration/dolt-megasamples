@@ -27,6 +27,10 @@ DEEP = (("phpMyAdmin", "P", "http://127.0.0.1:8091/index.php?route=/database/str
 
 def main():
     results = load_results()
+    for r in results.values():          # flatten the one-shot mode for this page's table
+        one = (r.get("modes", {}) or {}).get("oneshot") or {}
+        if one.get("disk_bytes"):
+            r["dolt_disk_bytes"] = one["disk_bytes"]
     items = [(db, r) for db, r in sorted(results.items())
              if r.get("mysql_disk_bytes") and r.get("dolt_disk_bytes")]
     if not items:
@@ -35,6 +39,20 @@ def main():
     my = sum(r["mysql_disk_bytes"] for _, r in items)
     do = sum(r["dolt_disk_bytes"] for _, r in items)
     rows_total = sum(r.get("rows_mysql") or 0 for _, r in items)
+
+    # The table below is the one-commit load. Saying so matters: the same rows committed one at a
+    # time are 10x to 187x larger, and a page that showed only the flattering number would be
+    # telling half the result.
+    rc = [(db, r, (r.get("modes", {}).get("rowcommit") or {}).get("disk_bytes"))
+          for db, r in items]
+    rc = [(db, r, v) for db, r, v in rc if v]
+    granularity = ""
+    if rc:
+        mults = sorted(v / r["dolt_disk_bytes"] for _, r, v in rc)
+        granularity = (
+            f' Committing one row at a time instead costs <b>{mults[0]:.0f}\u00d7 to '
+            f'{mults[-1]:.0f}\u00d7</b> as much, measured on {len(rc)} of them \u2014 history is '
+            f'the expensive part, not the rows. See <code>REPORT.md</code>.')
 
     links = "\n".join(
         f'      <a class="console" href="http://127.0.0.1:{port}/"><b>{name}</b>'
@@ -94,7 +112,7 @@ def main():
   <b>{do / my:.2f}×</b>. Per database the ratio runs from
   {min(r["dolt_disk_bytes"] / r["mysql_disk_bytes"] for _, r in items):.2f}× to
   {max(r["dolt_disk_bytes"] / r["mysql_disk_bytes"] for _, r in items):.2f}×, which is the point of
-  the experiment: the number is not one number.
+  the experiment: the number is not one number.{granularity}
 </div>
 
 <div class="consoles">
@@ -102,6 +120,9 @@ def main():
 </div>
 
 <table>
+  <caption style="text-align:left;font-size:.85em;opacity:.7;padding:.4rem 0">
+    Each database loaded in a single Dolt commit.
+  </caption>
   <thead><tr><th>database — <b>P</b> opens it in phpMyAdmin, <b>A</b> in Adminer</th>
   <th class="n">rows</th><th class="n">MySQL</th><th class="n">Dolt</th><th class="n">Dolt ÷ MySQL</th>
   <th></th></tr></thead>

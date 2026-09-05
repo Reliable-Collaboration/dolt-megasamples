@@ -1,4 +1,7 @@
 {
+  ".dolt": {
+    "server_stats_bytes": 0
+  },
   "adventureworks": {
     "dolt": {
       "commit_ok": true,
@@ -24,15 +27,27 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 51131995,
+        "dialect_notes": [
+          "unwrapped 576 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 13 view definition(s)",
+          "dropped 13 DEFINER clause(s)"
+        ],
+        "disk_bytes": 51084372,
+        "gc_seconds": 1.3,
         "indexes_dolt": 201,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 20.8,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 759240,
-        "stats_bytes": 71475058,
+        "statement_error_count": 1,
+        "statement_errors": [
+          "error on line 2091 for query CREATE SQL SECURITY DEFINER"
+        ],
+        "stats_bytes": 22532,
         "views_dolt": 12
       }
     },
@@ -43,6 +58,7 @@
     "row_mismatches": {},
     "rows_dolt": 759240,
     "rows_mysql": 759240,
+    "server_stats_bytes": 22532,
     "tables": 69,
     "views_dolt": 12,
     "views_mysql": 13
@@ -73,15 +89,28 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 1056124,
+        "dialect_notes": [
+          "unwrapped 203 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 3 view definition(s)",
+          "removed 1 `DROP ... IF EXISTS` statement(s) Dolt rejects",
+          "dropped 8 DEFINER clause(s)"
+        ],
+        "disk_bytes": 1056129,
+        "gc_seconds": 0.5,
         "indexes_dolt": 40,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 0.7,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 4277,
-        "stats_bytes": 22531,
+        "statement_error_count": 1,
+        "statement_errors": [
+          "error on line 483 for query CREATE FUNCTION `ufngetsalesorderstatustext`(`status` TINYINT UNSIGNED) RETURNS varchar(15) CHARSET utf8mb4"
+        ],
+        "stats_bytes": 22534,
         "views_dolt": 3
       },
       "rowcommit": {
@@ -143,6 +172,7 @@
     "row_mismatches": {},
     "rows_dolt": 4277,
     "rows_mysql": 4277,
+    "server_stats_bytes": 22534,
     "tables": 12,
     "views_dolt": 3,
     "views_mysql": 3
@@ -168,15 +198,23 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 30195320,
+        "dialect_notes": [
+          "unwrapped 32 version-gated comment block(s)"
+        ],
+        "disk_bytes": 30252620,
+        "gc_seconds": 1.2,
         "indexes_dolt": 8,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 13.8,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 259702,
-        "stats_bytes": 22534,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22532,
         "views_dolt": 0
       },
       "rowinsert": {
@@ -207,6 +245,7 @@
     "row_mismatches": {},
     "rows_dolt": 259702,
     "rows_mysql": 259702,
+    "server_stats_bytes": 22532,
     "tables": 2,
     "views_dolt": 0,
     "views_mysql": 0
@@ -232,15 +271,23 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 629746,
+        "dialect_notes": [
+          "unwrapped 77 version-gated comment block(s)"
+        ],
+        "disk_bytes": 629744,
+        "gc_seconds": 0.4,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 0.5,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 15607,
-        "stats_bytes": 22536,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22532,
         "views_dolt": 0
       },
       "rowcommit": {
@@ -292,6 +339,7 @@
     "row_mismatches": {},
     "rows_dolt": 15607,
     "rows_mysql": 15607,
+    "server_stats_bytes": 22532,
     "tables": 11,
     "views_dolt": 0,
     "views_mysql": 0
@@ -317,15 +365,23 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 41279473,
+        "dialect_notes": [
+          "unwrapped 62 version-gated comment block(s)"
+        ],
+        "disk_bytes": 41178901,
+        "gc_seconds": 1.5,
         "indexes_dolt": 15,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 15.6,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 753467,
-        "stats_bytes": 22536,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22535,
         "views_dolt": 0
       }
     },
@@ -336,6 +392,7 @@
     "row_mismatches": {},
     "rows_dolt": 753467,
     "rows_mysql": 753467,
+    "server_stats_bytes": 22535,
     "tables": 8,
     "views_dolt": 0,
     "views_mysql": 0
@@ -362,15 +419,25 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 12485446,
+        "dialect_notes": [
+          "unwrapped 93 version-gated comment block(s)",
+          "removed 2 `DROP ... IF EXISTS` statement(s) Dolt rejects",
+          "dropped 2 DEFINER clause(s)"
+        ],
+        "disk_bytes": 12489023,
+        "gc_seconds": 0.9,
         "indexes_dolt": 17,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 3.2,
         "routines_dolt": 2,
         "row_mismatches": {},
         "rows_dolt": 174716,
-        "stats_bytes": 22532,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22530,
         "views_dolt": 0
       },
       "rowinsert": {
@@ -403,6 +470,7 @@
     "row_mismatches": {},
     "rows_dolt": 174716,
     "rows_mysql": 174716,
+    "server_stats_bytes": 22530,
     "tables": 9,
     "views_dolt": 0,
     "views_mysql": 0
@@ -433,15 +501,28 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 44568494,
+        "dialect_notes": [
+          "unwrapped 207 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 4 view definition(s)",
+          "removed 7 `DROP ... IF EXISTS` statement(s) Dolt rejects",
+          "dropped 11 DEFINER clause(s)"
+        ],
+        "disk_bytes": 44633352,
+        "gc_seconds": 1.6,
         "indexes_dolt": 9,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 32.5,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 3919015,
-        "stats_bytes": 22532,
+        "statement_error_count": 1,
+        "statement_errors": [
+          "error on line 343 for query CREATE FUNCTION `current_manager`( dept_id char(4) ) RETURNS varchar(32) CHARSET utf8mb4"
+        ],
+        "stats_bytes": 22531,
         "views_dolt": 4
       }
     },
@@ -452,6 +533,7 @@
     "row_mismatches": {},
     "rows_dolt": 3919015,
     "rows_mysql": 3919015,
+    "server_stats_bytes": 22531,
     "tables": 6,
     "views_dolt": 4,
     "views_mysql": 4
@@ -478,15 +560,25 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 35939558,
+        "dialect_notes": [
+          "unwrapped 53 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 1 view definition(s)",
+          "dropped 1 DEFINER clause(s)"
+        ],
+        "disk_bytes": 35916460,
+        "gc_seconds": 1.7,
         "indexes_dolt": 12,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 31.9,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 48778,
-        "stats_bytes": 22536,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22534,
         "views_dolt": 1
       }
     },
@@ -497,6 +589,7 @@
     "row_mismatches": {},
     "rows_dolt": 48778,
     "rows_mysql": 48778,
+    "server_stats_bytes": 22534,
     "tables": 3,
     "views_dolt": 1,
     "views_mysql": 1
@@ -522,15 +615,23 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 38591,
+        "dialect_notes": [
+          "unwrapped 37 version-gated comment block(s)"
+        ],
+        "disk_bytes": 38590,
+        "gc_seconds": 0.4,
         "indexes_dolt": 5,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 0.4,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 312,
-        "stats_bytes": 22531,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22532,
         "views_dolt": 0
       },
       "rowcommit": {
@@ -582,6 +683,7 @@
     "row_mismatches": {},
     "rows_dolt": 312,
     "rows_mysql": 312,
+    "server_stats_bytes": 22532,
     "tables": 3,
     "views_dolt": 0,
     "views_mysql": 0
@@ -607,15 +709,23 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 27777572,
+        "dialect_notes": [
+          "unwrapped 157 version-gated comment block(s)"
+        ],
+        "disk_bytes": 27541982,
+        "gc_seconds": 1.2,
         "indexes_dolt": 28,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 18.5,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 706466,
-        "stats_bytes": 22530,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22531,
         "views_dolt": 0
       }
     },
@@ -626,6 +736,7 @@
     "row_mismatches": {},
     "rows_dolt": 706466,
     "rows_mysql": 706466,
+    "server_stats_bytes": 22531,
     "tables": 27,
     "views_dolt": 0,
     "views_mysql": 0
@@ -652,15 +763,26 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 532065,
+        "dialect_notes": [
+          "unwrapped 421 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 16 view definition(s)",
+          "removed 6 `DROP ... IF EXISTS` statement(s) Dolt rejects",
+          "dropped 22 DEFINER clause(s)"
+        ],
+        "disk_bytes": 532010,
+        "gc_seconds": 0.5,
         "indexes_dolt": 43,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 0.7,
         "routines_dolt": 6,
         "row_mismatches": {},
         "rows_dolt": 3308,
-        "stats_bytes": 22533,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22532,
         "views_dolt": 16
       },
       "rowcommit": {
@@ -718,6 +840,7 @@
     "row_mismatches": {},
     "rows_dolt": 3308,
     "rows_mysql": 3308,
+    "server_stats_bytes": 22532,
     "tables": 13,
     "views_dolt": 16,
     "views_mysql": 16
@@ -744,15 +867,25 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 3165611,
+        "dialect_notes": [
+          "unwrapped 80 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 3 view definition(s)",
+          "dropped 3 DEFINER clause(s)"
+        ],
+        "disk_bytes": 3149109,
+        "gc_seconds": 0.7,
         "indexes_dolt": 6,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 2.8,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 48591,
-        "stats_bytes": 22535,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22532,
         "views_dolt": 3
       }
     },
@@ -763,6 +896,7 @@
     "row_mismatches": {},
     "rows_dolt": 48591,
     "rows_mysql": 48591,
+    "server_stats_bytes": 22532,
     "tables": 2,
     "views_dolt": 3,
     "views_mysql": 3
@@ -792,15 +926,27 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 467268,
+        "dialect_notes": [
+          "unwrapped 105 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 3 view definition(s)",
+          "dropped 3 DEFINER clause(s)"
+        ],
+        "disk_bytes": 467265,
+        "gc_seconds": 0.5,
         "indexes_dolt": 18,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 0.7,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 8783,
-        "stats_bytes": 22536,
+        "statement_error_count": 1,
+        "statement_errors": [
+          "error on line 243 for query CREATE SQL SECURITY DEFINER"
+        ],
+        "stats_bytes": 22531,
         "views_dolt": 2
       },
       "rowcommit": {
@@ -860,6 +1006,7 @@
     "row_mismatches": {},
     "rows_dolt": 8783,
     "rows_mysql": 8783,
+    "server_stats_bytes": 22531,
     "tables": 7,
     "views_dolt": 2,
     "views_mysql": 3
@@ -886,15 +1033,25 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 64330,
+        "dialect_notes": [
+          "unwrapped 73 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 1 view definition(s)",
+          "dropped 1 DEFINER clause(s)"
+        ],
+        "disk_bytes": 64315,
+        "gc_seconds": 0.6,
         "indexes_dolt": 27,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 0.6,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 216,
-        "stats_bytes": 22534,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22526,
         "views_dolt": 1
       },
       "rowcommit": {
@@ -950,6 +1107,7 @@
     "row_mismatches": {},
     "rows_dolt": 216,
     "rows_mysql": 216,
+    "server_stats_bytes": 22526,
     "tables": 7,
     "views_dolt": 1,
     "views_mysql": 1
@@ -980,14 +1138,27 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 4564222,
+        "dialect_notes": [
+          "unwrapped 210 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 8 view definition(s)",
+          "dropped 9 DEFINER clause(s)",
+          "dropped 3 cross-database foreign key(s): CONSTRAINT `customers_account_manager_fk` FOREIGN KEY (`account_mgr_id`) REFEREN; CONSTRAINT `orders_sales_rep_fk` FOREIGN KEY (`sales_rep_id`) REFERENCES `oracle; CONSTRAINT `warehouses_location_fk` FOREIGN KEY (`location_id`) REFERENCES `orac"
+        ],
+        "disk_bytes": 4563863,
+        "gc_seconds": 0.9,
         "indexes_dolt": 26,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 3.5,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 11518,
+        "statement_error_count": 1,
+        "statement_errors": [
+          "error on line 370 for query CREATE SQL SECURITY DEFINER"
+        ],
         "stats_bytes": 22528,
         "views_dolt": 7
       },
@@ -1050,6 +1221,7 @@
     "row_mismatches": {},
     "rows_dolt": 11518,
     "rows_mysql": 11518,
+    "server_stats_bytes": 22528,
     "tables": 9,
     "views_dolt": 7,
     "views_mysql": 8
@@ -1076,15 +1248,25 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 150381726,
+        "dialect_notes": [
+          "unwrapped 115 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 3 view definition(s)",
+          "dropped 3 DEFINER clause(s)"
+        ],
+        "disk_bytes": 150525009,
+        "gc_seconds": 3.2,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 46.1,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 1063396,
-        "stats_bytes": 22536,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22531,
         "views_dolt": 3
       }
     },
@@ -1095,6 +1277,7 @@
     "row_mismatches": {},
     "rows_dolt": 1063396,
     "rows_mysql": 1063396,
+    "server_stats_bytes": 22531,
     "tables": 9,
     "views_dolt": 3,
     "views_mysql": 3
@@ -1125,15 +1308,28 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 78863,
+        "dialect_notes": [
+          "unwrapped 145 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 1 view definition(s)",
+          "removed 4 `DROP ... IF EXISTS` statement(s) Dolt rejects",
+          "dropped 5 DEFINER clause(s)"
+        ],
+        "disk_bytes": 78864,
+        "gc_seconds": 0.5,
         "indexes_dolt": 20,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 0.5,
         "routines_dolt": 1,
         "row_mismatches": {},
         "rows_dolt": 255,
-        "stats_bytes": 22534,
+        "statement_error_count": 1,
+        "statement_errors": [
+          "error on line 293 for query CREATE PROCEDURE `reptq1`()"
+        ],
+        "stats_bytes": 22532,
         "views_dolt": 1
       },
       "rowcommit": {
@@ -1195,6 +1391,7 @@
     "row_mismatches": {},
     "rows_dolt": 255,
     "rows_mysql": 255,
+    "server_stats_bytes": 22532,
     "tables": 11,
     "views_dolt": 1,
     "views_mysql": 1
@@ -1225,15 +1422,28 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 2146439,
+        "dialect_notes": [
+          "unwrapped 383 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 7 view definition(s)",
+          "removed 6 `DROP ... IF EXISTS` statement(s) Dolt rejects",
+          "dropped 19 DEFINER clause(s)"
+        ],
+        "disk_bytes": 2089402,
+        "gc_seconds": 0.7,
         "indexes_dolt": 42,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 1.4,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 47268,
-        "stats_bytes": 22531,
+        "statement_error_count": 1,
+        "statement_errors": [
+          "error on line 565 for query CREATE FUNCTION `get_customer_balance`(p_customer_id INT, p_effective_date DATETIME) RETURNS decimal(5,2)"
+        ],
+        "stats_bytes": 22532,
         "views_dolt": 7
       }
     },
@@ -1244,6 +1454,7 @@
     "row_mismatches": {},
     "rows_dolt": 47268,
     "rows_mysql": 47268,
+    "server_stats_bytes": 22532,
     "tables": 16,
     "views_dolt": 7,
     "views_mysql": 7
@@ -1269,15 +1480,23 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 168207,
+        "dialect_notes": [
+          "unwrapped 42 version-gated comment block(s)"
+        ],
+        "disk_bytes": 168204,
+        "gc_seconds": 0.5,
         "indexes_dolt": 4,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 0.5,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 2147,
-        "stats_bytes": 22532,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22536,
         "views_dolt": 0
       },
       "rowcommit": {
@@ -1329,6 +1548,7 @@
     "row_mismatches": {},
     "rows_dolt": 2147,
     "rows_mysql": 2147,
+    "server_stats_bytes": 22536,
     "tables": 4,
     "views_dolt": 0,
     "views_mysql": 0
@@ -1355,15 +1575,25 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 14922758,
+        "dialect_notes": [
+          "unwrapped 109 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 2 view definition(s)",
+          "dropped 2 DEFINER clause(s)"
+        ],
+        "disk_bytes": 14653714,
+        "gc_seconds": 0.9,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 9.4,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 62523,
-        "stats_bytes": 22535,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22534,
         "views_dolt": 2
       }
     },
@@ -1374,6 +1604,7 @@
     "row_mismatches": {},
     "rows_dolt": 62523,
     "rows_mysql": 62523,
+    "server_stats_bytes": 22534,
     "tables": 11,
     "views_dolt": 2,
     "views_mysql": 2
@@ -1400,15 +1631,25 @@
     "indexes_only_mysql": [],
     "modes": {
       "oneshot": {
+        "commit_ok": true,
         "commits": 3,
-        "disk_bytes": 129690083,
+        "dialect_notes": [
+          "unwrapped 131 version-gated comment block(s)",
+          "removed ALGORITHM/SQL SECURITY from 4 view definition(s)",
+          "dropped 4 DEFINER clause(s)"
+        ],
+        "disk_bytes": 129185000,
+        "gc_seconds": 3.7,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
         "indexes_only_mysql": [],
+        "load_seconds": 113.4,
         "routines_dolt": 0,
         "row_mismatches": {},
         "rows_dolt": 1167112,
-        "stats_bytes": 22532,
+        "statement_error_count": 0,
+        "statement_errors": [],
+        "stats_bytes": 22533,
         "views_dolt": 4
       }
     },
@@ -1419,6 +1660,7 @@
     "row_mismatches": {},
     "rows_dolt": 1167112,
     "rows_mysql": 1167112,
+    "server_stats_bytes": 22533,
     "tables": 9,
     "views_dolt": 4,
     "views_mysql": 4

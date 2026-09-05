@@ -21,7 +21,7 @@ numbers do *not* support, and what went wrong along the way.
 
 ## The result
 
-![All 21 databases: MySQL 1,523 MB against Dolt 526 MB](docs/img/totals.png)
+![All 21 databases: MySQL 1,523 MB against Dolt 525 MB](docs/img/totals.png)
 
 The same 9,056,697 rows cost **a third as much in Dolt** as in MySQL — but that headline is the least
 useful number here, because the per-database ratio varies by more than ten to one.
@@ -33,28 +33,28 @@ useful number here, because the per-database ratio varies by more than ten to on
 <!-- results:start -->
 | database | rows | MySQL | Dolt<br>one commit | Dolt<br>row INSERTs | Dolt<br>commit per row | Dolt ÷ MySQL |
 |---|---:|---:|---:|---:|---:|---:|
-| `adventureworks` | 759,240 | 292.2 MB | 48.8 MB | — | — | **0.17×** |
-| `wikipedia_simple` | 1,167,112 | 208.2 MB | 123.7 MB | — | — | **0.59×** |
-| `oracle_sh` | 1,063,396 | 188.4 MB | 143.4 MB | — | — | **0.76×** |
-| `lahman` | 706,466 | 178.9 MB | 26.5 MB | — | — | **0.15×** |
-| `employees` | 3,919,015 | 176.3 MB | 42.5 MB | — | — | **0.24×** |
-| `contoso` | 753,467 | 135.3 MB | 39.4 MB | — | — | **0.29×** |
-| `stackexchange_beer` | 62,523 | 73.6 MB | 14.2 MB | — | — | **0.19×** |
-| `chicago_crimes` | 259,702 | 72.1 MB | 28.8 MB | 28.8 MB | — | **0.40×** |
+| `adventureworks` | 759,240 | 292.2 MB | 48.7 MB | — | — | **0.17×** |
+| `wikipedia_simple` | 1,167,112 | 208.2 MB | 123.2 MB | — | — | **0.59×** |
+| `oracle_sh` | 1,063,396 | 188.4 MB | 143.6 MB | — | — | **0.76×** |
+| `lahman` | 706,466 | 178.9 MB | 26.3 MB | — | — | **0.15×** |
+| `employees` | 3,919,015 | 176.3 MB | 42.6 MB | — | — | **0.24×** |
+| `contoso` | 753,467 | 135.3 MB | 39.3 MB | — | — | **0.29×** |
+| `stackexchange_beer` | 62,523 | 73.6 MB | 14.0 MB | — | — | **0.19×** |
+| `chicago_crimes` | 259,702 | 72.1 MB | 28.9 MB | 28.8 MB | — | **0.40×** |
 | `enron` | 48,778 | 66.2 MB | 34.3 MB | — | — | **0.52×** |
 | `dvdstore` | 174,716 | 50.0 MB | 11.9 MB | 11.9 MB | — | **0.24×** |
 | `sakila` | 47,268 | 22.3 MB | 2.0 MB | — | — | **0.09×** |
 | `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | 4.2 MB | 815.6 MB | **0.22×** |
 | `nyc_taxi` | 48,591 | 16.1 MB | 3.0 MB | — | — | **0.19×** |
 | `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | 1.0 MB | 37.5 MB | **0.08×** |
-| `northwind` | 3,308 | 2.8 MB | 519.6 KB | 519.5 KB | 26.6 MB | **0.18×** |
+| `northwind` | 3,308 | 2.8 MB | 519.5 KB | 519.5 KB | 26.6 MB | **0.18×** |
 | `chinook` | 15,607 | 2.6 MB | 615.0 KB | 615.0 KB | 112.4 MB | **0.23×** |
 | `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 456.3 KB | 68.4 MB | **0.25×** |
 | `pubs` | 255 | 1.5 MB | 77.0 KB | 77.0 KB | 758.3 KB | **0.05×** |
 | `oracle_hr` | 216 | 1.2 MB | 62.8 KB | 62.8 KB | 786.1 KB | **0.05×** |
 | `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 164.3 KB | 8.3 MB | **0.26×** |
 | `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 37.7 KB | 738.6 KB | **0.10×** |
-| **all 21** | **9,056,697** | **1.5 GB** | **525.7 MB** | **47.8 MB** | — | **0.35×** |
+| **all 21** | **9,056,697** | **1.5 GB** | **524.8 MB** | **47.8 MB** | — | **0.34×** |
 <!-- results:end -->
 
 [`REPORT.md`](REPORT.md) has the full table, including what `information_schema` thinks MySQL is
@@ -69,11 +69,12 @@ of the same data, one question each.
 ![The same rows written four ways](docs/img/commit-granularity.png)
 
 **One `INSERT` per row instead of extended `INSERT`s changes nothing that is stored** — every green
-bar sits on its orange one, within 0.3% for ten of the eleven databases measured. Statement batching
+bar sits on its orange one: within 0.5% for ten of the eleven databases measured, eight of them
+byte-identical, and 4.1% for the one outlier. Statement batching
 is a load-time concern, not a storage one.
 
 **One commit per row changes everything.** The same rows cost **10× to 187×** the single-commit load,
-and for six of the nine databases Dolt then uses *more* disk than MySQL — `chinook` goes from 615 KB
+and for seven of the nine databases Dolt then uses *more* disk than MySQL — `chinook` goes from 615 KB
 to 112 MB. In a controlled check, 1,000 rows in one commit is 16,202 bytes and the same 1,000 rows in
 1,000 commits is 2,929,110 bytes: **181× for identical data**.
 
@@ -171,16 +172,17 @@ A size comparison is worthless if the two sides are not holding the same thing, 
 * **The history is the least Dolt can hold**: one data commit per database, and `dolt_status` clean
   afterwards so nothing sits uncommitted and unmeasured. Rows are *not* committed individually. A
   branch or a week of edits would store more — this is the floor, not a typical repository.
-* **A running server's statistics are excluded and reported separately.** `dolt sql-server` writes a
-  per-database statistics repository at `.dolt/stats` the first time it serves that database;
-  `dolt gc` does not reclaim it. It totals 68.6 MB here, and for `adventureworks` it reached
-  **71.5 MB — more than the 48.8 MB of data it describes**. Counting it would make the answer depend
-  on whether anyone had started a server first; ignoring it silently would hide real disk. So it is
-  in `REPORT.md` in its own table.
+* **Everything is measured with no server running**, and what a server adds is measured separately
+  on a copy. `dolt sql-server` writes a per-database statistics repository at `.dolt/stats` that
+  `dolt gc` does not reclaim. A controlled pass — start a server, read every table — writes 22 KB per
+  database. Sustained use writes far more: during this project's own console browsing,
+  `adventureworks`'s statistics reached **68.2 MB — more than the 48.7 MB of data they describe**,
+  which a single pass does not reproduce. Mixing served and unserved directories is what made an
+  earlier total move by 68 MB for no visible reason.
 * **Dolt is committed and garbage-collected before measuring.** Dolt is a versioned database; data
   left in the working set is not yet in the commit graph, and Dolt writes through a journal until
-  told to pack. Measuring before either step flatters it — `jaffle_shop` is 34,926 bytes before
-  `dolt gc` and 15,673 after.
+  told to pack. Measuring before either step flatters it — `jaffle_shop` is 35,550 bytes after its
+  commit and 16,951 after `dolt gc`.
 * **Both sides are measured the same way**: `du -sb` of the directory the engine keeps the database
   in. Not `information_schema`, which under-reports MySQL by ignoring free pages in the tablespace.
 * **The dumps are transformed only where Dolt cannot parse mysqldump's output**, never in a way that

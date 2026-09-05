@@ -12,8 +12,8 @@ Two steps after the load matter for the comparison to be fair:
   graph, so measuring there would flatter Dolt by omitting the history it exists to keep. Every
   database gets exactly one commit, which is the smallest honest amount of history.
 * **gc.** Dolt writes through a journal and only packs chunks when told to. Measuring before
-  `dolt gc` reports the write-ahead state rather than the stored state: jaffle_shop is 34,926 bytes
-  before and 15,673 after, so the difference is not a rounding error.
+  `dolt gc` reports the write-ahead state rather than the stored state: jaffle_shop is 35,550 bytes
+  after its commit and 16,951 after `dolt gc`, so the difference is not a rounding error.
 
 Anything the dump does that Dolt rejects is recorded per database rather than swallowed -- a size
 comparison between a complete database and a partial one would be worthless.
