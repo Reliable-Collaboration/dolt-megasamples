@@ -2,10 +2,13 @@
 # Every target is a thin shim over a script in scripts/, so the experiment can be run without make.
 PY ?= python3
 
-.PHONY: help all export load measure report charts experiment check up down status clean clean-data verify
+.PHONY: help all run progress watch export load measure report charts experiment check up down status clean clean-data verify
 
 help:
-	@echo "make all        the whole experiment: export -> load -> measure -> report"
+	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
+	@echo "make progress   what the run has done, is doing, and has left"
+	@echo "make watch      the same, redrawn every minute"
+	@echo "make all        the size-only pipeline: export -> load -> measure -> report"
 	@echo "make export     mysqldump every database out of a running mysql-megasamples"
 	@echo "make load       load those dumps into Dolt, commit and gc"
 	@echo "make measure    size both engines and check they hold the same rows"
@@ -41,6 +44,15 @@ charts: .venv/bin/python
 	@uv venv .venv >/dev/null 2>&1 || python3 -m venv .venv
 	@(uv pip install -q matplotlib >/dev/null 2>&1 || .venv/bin/pip install -q matplotlib)
 	@echo "  . created .venv with matplotlib"
+
+# The whole experiment, timed: five loads of every database across both engines, resumable and
+# observable. Expect many hours -- the per-row-commit phase alone is most of it.
+run:
+	@$(PY) scripts/run_all.py
+progress:
+	@$(PY) scripts/progress.py
+watch:
+	@$(PY) scripts/progress.py --watch
 
 # The two extra loads: one INSERT per row, and one commit per row. Each writes into its own data
 # directory, so the one-shot results they are compared against are never disturbed. The per-row
