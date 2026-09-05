@@ -20,8 +20,8 @@ For every database this records:
 import argparse, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (DATA, DOLT_IMAGE, DUMPS, MYSQL_CONTAINER, databases, dolt, human,  # noqa: E402
-                    load_results, mysql, run, save_results)
+from common import (DOLT_IMAGE, DUMPS, MODES, MYSQL_CONTAINER, data_dir, databases,  # noqa: E402
+                    dolt, human, load_results, mysql, run, save_results)
 
 
 def mysql_disk_bytes(db):
@@ -29,7 +29,7 @@ def mysql_disk_bytes(db):
     return int(p.stdout.split()[0]) if p.returncode == 0 and p.stdout.split() else None
 
 
-def dolt_disk_bytes(db):
+def dolt_disk_bytes(db, mode="oneshot"):
     """The stored database, and separately the statistics a *running server* leaves behind.
 
     `.dolt/stats` is not the database: it is a per-database repository of table statistics that the
@@ -40,7 +40,7 @@ def dolt_disk_bytes(db):
     whether anyone had happened to start the server first. So the headline excludes it and reports
     it beside, which is also the honest way to show it: it is real disk either way.
     """
-    p = run("docker", "run", "--rm", "-v", f"{DATA}:/var/lib/dolt", "--entrypoint", "sh",
+    p = run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt", "--entrypoint", "sh",
             DOLT_IMAGE, "-c",
             f"du -sb /var/lib/dolt/{db}; du -sb /var/lib/dolt/{db}/.dolt/stats 2>/dev/null || echo 0")
     lines = [l.split()[0] for l in p.stdout.splitlines() if l.split()]
@@ -65,11 +65,11 @@ def mysql_rows(db, tables):
     return sum(per.values()), per
 
 
-def dolt_rows(db, tables):
+def dolt_rows(db, tables, mode="oneshot"):
     if not tables:
         return 0, {}
     sql = " UNION ALL ".join(f"SELECT '{t}', COUNT(*) FROM `{t}`" for t in tables)
-    p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv", "-q", sql)
+    p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv", "-q", sql, mode=mode)
     if p.returncode != 0:
         return None, {}
     per = {}
@@ -85,7 +85,7 @@ INDEX_SQL = ("SELECT table_name, index_name, seq_in_index, column_name, non_uniq
              "ORDER BY table_name, index_name, seq_in_index")
 
 
-def indexes(db):
+def indexes(db, mode="oneshot"):
     """Every index on both sides, compared by definition and not by count.
 
     Indexes are a large part of what a database costs on disk -- sakila's 16 tables carry 42 of
@@ -99,7 +99,7 @@ def indexes(db):
 
     my = norm(mysql(INDEX_SQL.format(db=db)))
     p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv", "-q",
-             INDEX_SQL.format(db=db))
+             INDEX_SQL.format(db=db), mode=mode)
     rows = []
     for line in p.stdout.splitlines()[1:]:            # skip the csv header
         parts = [x.strip().strip('"') for x in line.split(",")]
@@ -112,18 +112,18 @@ def indexes(db):
                 indexes_only_dolt=sorted(f"{t}.{i}({c})" for t, i, _, c, _ in (do - my))[:20])
 
 
-def dolt_commits(db):
+def dolt_commits(db, mode="oneshot"):
     """How much history Dolt is storing. The load makes exactly one data commit per database, so
     this measures Dolt at its most favourable: the least history it can hold and still be Dolt."""
     p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv",
-             "-q", "SELECT COUNT(*) FROM dolt_log")
+             "-q", "SELECT COUNT(*) FROM dolt_log", mode=mode)
     for line in p.stdout.splitlines():
         if line.strip().isdigit():
             return int(line.strip())
     return None
 
 
-def object_counts(db):
+def object_counts(db, mode="oneshot"):
     """Views and routines on each side.
 
     mysqldump wraps them in MySQL's version-gated comments (`/*!50001 CREATE ALGORITHM ... */`),
@@ -147,41 +147,46 @@ def object_counts(db):
                 routines_mysql=my_routines, routines_dolt=do_routines)
 
 
-def measure(db, results):
+def measure(db, results, mode="oneshot"):
     entry = results.setdefault(db, {})
+    m = entry.setdefault("modes", {}).setdefault(mode, {})
     tables = mysql_tables(db)
     my_rows, my_per = mysql_rows(db, tables)
-    do_rows, do_per = dolt_rows(db, tables)
+    do_rows, do_per = dolt_rows(db, tables, mode)
 
     mismatched = sorted(t for t in tables if my_per.get(t) != do_per.get(t))
     entry["tables"] = len(tables)
     entry["rows_mysql"] = my_rows
-    entry["rows_dolt"] = do_rows
-    entry["row_mismatches"] = {t: {"mysql": my_per.get(t), "dolt": do_per.get(t)}
-                               for t in mismatched[:20]}
+    m["rows_dolt"] = do_rows
+    m["row_mismatches"] = {t: {"mysql": my_per.get(t), "dolt": do_per.get(t)}
+                           for t in mismatched[:20]}
     entry["mysql_disk_bytes"] = mysql_disk_bytes(db)
     entry["mysql_logical_bytes"] = int(mysql(
         f"SELECT COALESCE(SUM(data_length+index_length),0) FROM information_schema.tables "
         f"WHERE table_schema='{db}'")[0][0])
-    entry["dolt_disk_bytes"], entry["dolt_stats_bytes"] = dolt_disk_bytes(db)
+    m["disk_bytes"], m["stats_bytes"] = dolt_disk_bytes(db, mode)
     dump = os.path.join(DUMPS, f"{db}.sql")
     entry["dump_bytes"] = os.path.getsize(dump) if os.path.exists(dump) else None
-    entry.update(object_counts(db))
-    entry.update(indexes(db))
-    entry["dolt_commits"] = dolt_commits(db)
+    counts = object_counts(db, mode)
+    entry["views_mysql"], entry["routines_mysql"] = counts["views_mysql"], counts["routines_mysql"]
+    m["views_dolt"], m["routines_dolt"] = counts["views_dolt"], counts["routines_dolt"]
+    idx = indexes(db, mode)
+    entry["indexes_mysql"] = idx["indexes_mysql"]
+    m.update({k: v for k, v in idx.items() if k != "indexes_mysql"})
+    m["commits"] = dolt_commits(db, mode)
 
-    md, dd = entry["mysql_disk_bytes"], entry["dolt_disk_bytes"]
+    md, dd = entry["mysql_disk_bytes"], m["disk_bytes"]
     ratio = f"{dd / md:5.2f}x" if md and dd else "    -"
     flag = "x" if mismatched else "."
-    missing = ((entry["views_mysql"] - (entry["views_dolt"] or 0))
-               + (entry["routines_mysql"] - (entry["routines_dolt"] or 0)))
-    idx_diff = entry["indexes_only_mysql"] or entry["indexes_only_dolt"]
+    missing = ((entry["views_mysql"] - (m["views_dolt"] or 0))
+               + (entry["routines_mysql"] - (m["routines_dolt"] or 0)))
+    idx_diff = m["indexes_only_mysql"] or m["indexes_only_dolt"]
     if idx_diff:
         flag = "x"
     print(f"  {flag} {db:<24} MySQL {human(md or 0):>10}   Dolt {human(dd or 0):>10}   {ratio}"
           + (f"   {len(mismatched)} table(s) differ" if mismatched else "")
           + (f"   {missing} view/routine(s) missing in Dolt" if missing > 0 else "")
-          + (f"   INDEXES DIFFER: {entry['indexes_mysql']} vs {entry['indexes_dolt']}"
+          + (f"   INDEXES DIFFER: {entry['indexes_mysql']} vs {m['indexes_dolt']}"
              if idx_diff else ""))
     return entry
 
@@ -189,27 +194,31 @@ def measure(db, results):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--only", action="append")
+    ap.add_argument("--mode", choices=sorted(MODES), default="oneshot")
     a = ap.parse_args()
 
     results = load_results()
-    names = a.only or [d for d in databases() if os.path.isdir(os.path.join(DATA, d))]
-    print(f"measuring {len(names)} database(s)")
+    names = a.only or [d for d in databases() if os.path.isdir(os.path.join(data_dir(a.mode), d))]
+    print(f"measuring {len(names)} database(s) — mode {a.mode}")
     for db in names:
-        measure(db, results)
+        measure(db, results, a.mode)
         save_results(results)
 
-    bad = [d for d in names if results[d].get("row_mismatches")]
+    def mode_of(d):
+        return results[d].get("modes", {}).get(a.mode, {})
+
+    bad = [d for d in names if mode_of(d).get("row_mismatches")]
     idx_bad = [d for d in names
-               if results[d].get("indexes_only_mysql") or results[d].get("indexes_only_dolt")]
+               if mode_of(d).get("indexes_only_mysql") or mode_of(d).get("indexes_only_dolt")]
     my = sum(results[d].get("mysql_disk_bytes") or 0 for d in names)
-    do = sum(results[d].get("dolt_disk_bytes") or 0 for d in names)
-    st = sum(results[d].get("dolt_stats_bytes") or 0 for d in names)
+    do = sum(mode_of(d).get("disk_bytes") or 0 for d in names)
+    st = sum(mode_of(d).get("stats_bytes") or 0 for d in names)
     print(f"\ntotal   MySQL {human(my)}   Dolt {human(do)}"
           + (f"   {do / my:.2f}x" if my else ""))
     if st:
         print(f"        server-collected statistics, not counted above: {human(st)}")
     tot_my = sum(results[d].get("indexes_mysql") or 0 for d in names)
-    tot_do = sum(results[d].get("indexes_dolt") or 0 for d in names)
+    tot_do = sum(mode_of(d).get("indexes_dolt") or 0 for d in names)
     print(f"indexes  MySQL {tot_my}   Dolt {tot_do}"
           + ("   identical" if not idx_bad else f"   DIFFER in {len(idx_bad)} database(s)"))
     if bad:

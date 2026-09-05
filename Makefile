@@ -2,14 +2,16 @@
 # Every target is a thin shim over a script in scripts/, so the experiment can be run without make.
 PY ?= python3
 
-.PHONY: help all export load measure report check up down status clean clean-data verify
+.PHONY: help all export load measure report charts experiment check up down status clean clean-data verify
 
 help:
 	@echo "make all        the whole experiment: export -> load -> measure -> report"
 	@echo "make export     mysqldump every database out of a running mysql-megasamples"
 	@echo "make load       load those dumps into Dolt, commit and gc"
 	@echo "make measure    size both engines and check they hold the same rows"
-	@echo "make report     regenerate REPORT.md and the README results table"
+	@echo "make report     regenerate REPORT.md, the README tables and the figures"
+	@echo "make charts     regenerate the figures only (matplotlib, in .venv)"
+	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
 	@echo "make check      fail if REPORT.md or the README is stale"
 	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
 	@echo "make down       all of it down again"
@@ -28,6 +30,31 @@ measure:
 report:
 	@$(PY) scripts/report.py
 	@$(PY) scripts/console_page.py
+	@$(MAKE) --no-print-directory charts
+
+# The figures. matplotlib lives in .venv because it is this repository's only dependency; the rest
+# of the pipeline runs on the system python and shells out to docker.
+charts: .venv/bin/python
+	@.venv/bin/python scripts/charts.py
+
+.venv/bin/python:
+	@uv venv .venv >/dev/null 2>&1 || python3 -m venv .venv
+	@(uv pip install -q matplotlib >/dev/null 2>&1 || .venv/bin/pip install -q matplotlib)
+	@echo "  . created .venv with matplotlib"
+
+# The two extra loads: one INSERT per row, and one commit per row. Each writes into its own data
+# directory, so the one-shot results they are compared against are never disturbed. The per-row
+# commit load runs on the smallest databases only -- at the measured rate the full corpus would need
+# tens of gigabytes and several hours, and the per-commit cost is already plain from these.
+SMALL ?= oracle_hr pubs jaffle_shop smallsets northwind adventureworks_lt oracle_co oracle_oe chinook
+MID   ?= dvdstore chicago_crimes
+experiment:
+	@$(PY) scripts/export_mysql.py --per-row $(foreach d,$(SMALL) $(MID),--only $(d))
+	@$(PY) scripts/load_dolt.py  --mode rowinsert $(foreach d,$(SMALL) $(MID),--only $(d))
+	@$(PY) scripts/measure.py    --mode rowinsert $(foreach d,$(SMALL) $(MID),--only $(d))
+	@$(PY) scripts/load_dolt.py  --mode rowcommit --force $(foreach d,$(SMALL),--only $(d))
+	@$(PY) scripts/measure.py    --mode rowcommit $(foreach d,$(SMALL),--only $(d))
+	@$(MAKE) --no-print-directory report
 check:
 	@$(PY) scripts/report.py --check
 

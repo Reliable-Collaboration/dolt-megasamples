@@ -10,6 +10,23 @@ import json, os, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DUMPS = os.path.join(ROOT, "build", "dumps")
 DATA = os.path.join(ROOT, "data", "dolt")
+
+# The three ways the same rows are put into Dolt. They differ only in how the load is written, never
+# in what ends up being stored logically -- same tables, same rows, same indexes -- which is what
+# makes the sizes comparable.
+MODES = {
+    "oneshot":   "mysqldump's extended INSERTs; one Dolt commit for the whole database",
+    "rowinsert": "one INSERT statement per row; still one Dolt commit for the whole database",
+    "rowcommit": "one INSERT statement per row, and one Dolt commit after every row",
+}
+
+
+def data_dir(mode="oneshot"):
+    return DATA if mode == "oneshot" else f"{DATA}-{mode}"
+
+
+def dumps_dir(per_row=False):
+    return os.path.join(DUMPS, "rowwise") if per_row else DUMPS
 RESULTS = os.path.join(ROOT, "build", "results.json")
 
 MYSQL_CONTAINER = os.environ.get("MEGASAMPLES_CONTAINER", "megasamples-mysql")
@@ -43,11 +60,11 @@ def databases(container=None):
     return [r[0] for r in rows if r[0] not in SKIP]
 
 
-def dolt(*args, mounts=(), workdir=None):
-    """Run a dolt CLI command in a throwaway container over the shared data directory."""
+def dolt(*args, mounts=(), workdir=None, mode="oneshot"):
+    """Run a dolt CLI command in a throwaway container over one mode's data directory."""
     cmd = ["docker", "run", "--rm",
            "--label", "doltsamples.transient=true",
-           "-v", f"{DATA}:/var/lib/dolt",
+           "-v", f"{data_dir(mode)}:/var/lib/dolt",
            "-v", f"{DUMPS}:/dumps"]
     for host, inside in mounts:
         cmd += ["-v", f"{host}:{inside}"]

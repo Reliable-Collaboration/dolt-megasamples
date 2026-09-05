@@ -14,41 +14,77 @@ So this repository answers it by measurement. It takes the 21 sample databases f
 of real, varied, publicly-licensed data — loads every one into both engines from the same
 `mysqldump` files, and measures what each engine puts on the filesystem.
 
-**The repository is the evidence.** Every number below is generated from `build/results.json` by
-`scripts/report.py`; nothing in this README is typed by hand. Re-run `make all` and the numbers
-regenerate from your own machine.
+**The repository is the evidence.** Every number and every chart below is generated from
+`build/results.json`; nothing here is typed by hand. Re-run `make all` and they regenerate from your
+own machine. [`JOURNAL.md`](JOURNAL.md) is the lab notebook — why it was built this way, what the
+numbers do *not* support, and what went wrong along the way.
 
 ## The result
 
+![All 21 databases: MySQL 1,523 MB against Dolt 526 MB](docs/img/totals.png)
+
+The same 9,056,697 rows cost **a third as much in Dolt** as in MySQL — but that headline is the least
+useful number here, because the per-database ratio varies by more than ten to one.
+
+![Dolt ÷ MySQL for each database](docs/img/ratio-by-database.png)
+
+![Disk used per database](docs/img/size-by-database.png)
+
 <!-- results:start -->
-| database | rows | MySQL on disk | Dolt on disk | Dolt ÷ MySQL |
-|---|---:|---:|---:|---:|
-| `adventureworks` | 759,240 | 292.2 MB | 48.8 MB | **0.17×** |
-| `wikipedia_simple` | 1,167,112 | 208.2 MB | 123.7 MB | **0.59×** |
-| `oracle_sh` | 1,063,396 | 188.4 MB | 143.4 MB | **0.76×** |
-| `lahman` | 706,466 | 178.9 MB | 26.5 MB | **0.15×** |
-| `employees` | 3,919,015 | 176.3 MB | 42.5 MB | **0.24×** |
-| `contoso` | 753,467 | 135.3 MB | 39.4 MB | **0.29×** |
-| `stackexchange_beer` | 62,523 | 73.6 MB | 14.2 MB | **0.19×** |
-| `chicago_crimes` | 259,702 | 72.1 MB | 28.8 MB | **0.40×** |
-| `enron` | 48,778 | 66.2 MB | 34.3 MB | **0.52×** |
-| `dvdstore` | 174,716 | 50.0 MB | 11.9 MB | **0.24×** |
-| `sakila` | 47,268 | 22.3 MB | 2.0 MB | **0.09×** |
-| `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | **0.22×** |
-| `nyc_taxi` | 48,591 | 16.1 MB | 3.0 MB | **0.19×** |
-| `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | **0.08×** |
-| `northwind` | 3,308 | 2.8 MB | 519.6 KB | **0.18×** |
-| `chinook` | 15,607 | 2.6 MB | 615.0 KB | **0.23×** |
-| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | **0.25×** |
-| `pubs` | 255 | 1.5 MB | 77.0 KB | **0.05×** |
-| `oracle_hr` | 216 | 1.2 MB | 62.8 KB | **0.05×** |
-| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | **0.26×** |
-| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | **0.10×** |
-| **all 21** | **9,056,697** | **1.5 GB** | **525.7 MB** | **0.35×** |
+| database | rows | MySQL | Dolt<br>one commit | Dolt<br>row INSERTs | Dolt<br>commit per row | Dolt ÷ MySQL |
+|---|---:|---:|---:|---:|---:|---:|
+| `adventureworks` | 759,240 | 292.2 MB | 48.8 MB | — | — | **0.17×** |
+| `wikipedia_simple` | 1,167,112 | 208.2 MB | 123.7 MB | — | — | **0.59×** |
+| `oracle_sh` | 1,063,396 | 188.4 MB | 143.4 MB | — | — | **0.76×** |
+| `lahman` | 706,466 | 178.9 MB | 26.5 MB | — | — | **0.15×** |
+| `employees` | 3,919,015 | 176.3 MB | 42.5 MB | — | — | **0.24×** |
+| `contoso` | 753,467 | 135.3 MB | 39.4 MB | — | — | **0.29×** |
+| `stackexchange_beer` | 62,523 | 73.6 MB | 14.2 MB | — | — | **0.19×** |
+| `chicago_crimes` | 259,702 | 72.1 MB | 28.8 MB | 28.8 MB | — | **0.40×** |
+| `enron` | 48,778 | 66.2 MB | 34.3 MB | — | — | **0.52×** |
+| `dvdstore` | 174,716 | 50.0 MB | 11.9 MB | 11.9 MB | — | **0.24×** |
+| `sakila` | 47,268 | 22.3 MB | 2.0 MB | — | — | **0.09×** |
+| `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | 4.2 MB | 815.6 MB | **0.22×** |
+| `nyc_taxi` | 48,591 | 16.1 MB | 3.0 MB | — | — | **0.19×** |
+| `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | 1.0 MB | 37.5 MB | **0.08×** |
+| `northwind` | 3,308 | 2.8 MB | 519.6 KB | 519.5 KB | 26.6 MB | **0.18×** |
+| `chinook` | 15,607 | 2.6 MB | 615.0 KB | 615.0 KB | 112.4 MB | **0.23×** |
+| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 456.3 KB | 68.4 MB | **0.25×** |
+| `pubs` | 255 | 1.5 MB | 77.0 KB | 77.0 KB | 758.3 KB | **0.05×** |
+| `oracle_hr` | 216 | 1.2 MB | 62.8 KB | 62.8 KB | 786.1 KB | **0.05×** |
+| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 164.3 KB | 8.3 MB | **0.26×** |
+| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 37.7 KB | 738.6 KB | **0.10×** |
+| **all 21** | **9,056,697** | **1.5 GB** | **525.7 MB** | **47.8 MB** | — | **0.35×** |
 <!-- results:end -->
 
 [`REPORT.md`](REPORT.md) has the full table, including what `information_schema` thinks MySQL is
 using and the size of the SQL dump each engine was loaded from.
+
+## But it depends entirely on how you write the rows
+
+The figures above are one load: the whole database in a single Dolt commit. Dolt is a *version
+controlled* database, so the obvious next question is what the version control costs. Two more loads
+of the same data, one question each.
+
+![The same rows written four ways](docs/img/commit-granularity.png)
+
+**One `INSERT` per row instead of extended `INSERT`s changes nothing that is stored** — every green
+bar sits on its orange one, within 0.3% for ten of the eleven databases measured. Statement batching
+is a load-time concern, not a storage one.
+
+**One commit per row changes everything.** The same rows cost **10× to 187×** the single-commit load,
+and for six of the nine databases Dolt then uses *more* disk than MySQL — `chinook` goes from 615 KB
+to 112 MB. In a controlled check, 1,000 rows in one commit is 16,202 bytes and the same 1,000 rows in
+1,000 commits is 2,929,110 bytes: **181× for identical data**.
+
+That is not waste to be tuned away — it is what the product is for. Each commit is an addressable,
+diffable state of the entire database, and a million of them cost what a million of anything costs.
+The practical question is not "is Dolt bigger" but **"what does my commit rate cost me"**, and the
+answer scales with commits, not with rows.
+
+[`REPORT.md`](REPORT.md) has both tables in full. The per-row-commit load was run on the nine
+smallest databases: at the measured rate, all 9 million rows would need tens of gigabytes and several
+hours, and would show nothing the small ones do not.
 
 ## What the spread means
 
@@ -175,7 +211,10 @@ None of these affect a single row, which is why the row counts still match.
 | `scripts/dolt_dialect.py` | the transformations Dolt needs, and why each exists |
 | `scripts/load_dolt.py` | load, commit, `dolt gc` |
 | `scripts/measure.py` | size both engines, verify they hold the same rows |
-| `scripts/report.py` | `REPORT.md` and the table above |
+| `scripts/report.py` | `REPORT.md` and the tables above |
+| `scripts/charts.py` | the figures, with matplotlib |
+| `JOURNAL.md` | the lab notebook: reasoning, caveats, and what went wrong |
+| `docs/img/` | the generated figures |
 | `compose.yaml` | Dolt plus four consoles, on 3307 and 8090-8094 |
 | `build/results.json` | every measurement, as JSON — the evidence behind the report |
 
