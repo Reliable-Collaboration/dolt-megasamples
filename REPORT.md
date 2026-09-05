@@ -5,7 +5,7 @@
 
 The same 21 sample databases, 9,056,697 rows, loaded into both engines from the same `mysqldump` files and measured the same way: `du -sb` of the directory each engine keeps the database in.
 
-**Dolt uses 526.2 MB where MySQL uses 1.5 GB — 0.35× overall.** The ratio is not uniform: it ranges from 0.06× (`pubs`) to 0.76× (`oracle_sh`).
+**Dolt uses 525.7 MB where MySQL uses 1.5 GB — 0.35× overall.** The ratio is not uniform: it ranges from 0.05× (`pubs`) to 0.76× (`oracle_sh`).
 
 ## Every database
 
@@ -23,27 +23,76 @@ point for how much data is actually there.
 | `lahman` | 27 | 706,466 | 52.5 MB | 75.6 MB | 178.9 MB | 26.5 MB | **0.15×** |
 | `employees` | 6 | 3,919,015 | 160.6 MB | 146.8 MB | 176.3 MB | 42.5 MB | **0.24×** |
 | `contoso` | 8 | 753,467 | 65.1 MB | 103.3 MB | 135.3 MB | 39.4 MB | **0.29×** |
-| `stackexchange_beer` | 11 | 62,523 | 15.0 MB | 6.1 MB | 73.6 MB | 14.3 MB | **0.19×** |
+| `stackexchange_beer` | 11 | 62,523 | 15.0 MB | 6.1 MB | 73.6 MB | 14.2 MB | **0.19×** |
 | `chicago_crimes` | 2 | 259,702 | 51.2 MB | 65.7 MB | 72.1 MB | 28.8 MB | **0.40×** |
 | `enron` | 3 | 48,778 | 23.4 MB | 38.0 MB | 66.2 MB | 34.3 MB | **0.52×** |
 | `dvdstore` | 9 | 174,716 | 7.4 MB | 16.3 MB | 50.0 MB | 11.9 MB | **0.24×** |
-| `sakila` | 16 | 47,268 | 3.2 MB | 432.0 KB | 22.3 MB | 2.1 MB | **0.09×** |
+| `sakila` | 16 | 47,268 | 3.2 MB | 432.0 KB | 22.3 MB | 2.0 MB | **0.09×** |
 | `oracle_oe` | 9 | 11,518 | 1.8 MB | 3.2 MB | 19.7 MB | 4.4 MB | **0.22×** |
 | `nyc_taxi` | 2 | 48,591 | 6.6 MB | 10.1 MB | 16.1 MB | 3.0 MB | **0.19×** |
 | `adventureworks_lt` | 12 | 4,277 | 1.9 MB | 4.1 MB | 12.6 MB | 1.0 MB | **0.08×** |
-| `northwind` | 13 | 3,308 | 636.2 KB | 1.4 MB | 2.8 MB | 541.6 KB | **0.19×** |
-| `chinook` | 11 | 15,607 | 457.0 KB | 1.6 MB | 2.6 MB | 637.0 KB | **0.24×** |
-| `oracle_co` | 7 | 8,783 | 374.2 KB | 1.1 MB | 1.8 MB | 478.3 KB | **0.26×** |
-| `pubs` | 11 | 255 | 122.0 KB | 176.0 KB | 1.5 MB | 99.0 KB | **0.06×** |
-| `oracle_hr` | 7 | 216 | 29.7 KB | 112.0 KB | 1.2 MB | 84.8 KB | **0.07×** |
-| `smallsets` | 4 | 2,147 | 231.2 KB | 64.0 KB | 644.0 KB | 186.3 KB | **0.29×** |
-| `jaffle_shop` | 3 | 312 | 11.4 KB | 80.0 KB | 372.0 KB | 59.7 KB | **0.16×** |
-| **total** | 248 | 9,056,697 | 603.5 MB | 660.0 MB | **1.5 GB** | **526.2 MB** | **0.35×** |
+| `northwind` | 13 | 3,308 | 636.2 KB | 1.4 MB | 2.8 MB | 519.6 KB | **0.18×** |
+| `chinook` | 11 | 15,607 | 457.0 KB | 1.6 MB | 2.6 MB | 615.0 KB | **0.23×** |
+| `oracle_co` | 7 | 8,783 | 374.2 KB | 1.1 MB | 1.8 MB | 456.3 KB | **0.25×** |
+| `pubs` | 11 | 255 | 122.0 KB | 176.0 KB | 1.5 MB | 77.0 KB | **0.05×** |
+| `oracle_hr` | 7 | 216 | 29.7 KB | 112.0 KB | 1.2 MB | 62.8 KB | **0.05×** |
+| `smallsets` | 4 | 2,147 | 231.2 KB | 64.0 KB | 644.0 KB | 164.3 KB | **0.26×** |
+| `jaffle_shop` | 3 | 312 | 11.4 KB | 80.0 KB | 372.0 KB | 37.7 KB | **0.10×** |
+| **total** | 248 | 9,056,697 | 603.5 MB | 660.0 MB | **1.5 GB** | **525.7 MB** | **0.35×** |
 
 ## Is the comparison valid?
 
-Every table was counted with `COUNT(*)` on both sides before any size was recorded.
-**Every table matches**, so both engines are holding the same rows.
+Three things have to be true before a size ratio means anything. All three were checked on every database, not assumed.
+
+**The same rows.** Every table counted with `COUNT(*)` on both sides before any size was recorded; `information_schema.table_rows` is an InnoDB estimate and is not used. **Every table matches.**
+
+**The same indexes.** Indexes are a large part of what a database costs on disk, so each one is compared by definition — table, index name, column position, column, uniqueness — and not by count. **613 indexes in MySQL, 613 in Dolt, identical in every database.**
+
+**The least history Dolt can hold.** Dolt is a versioned database, so how much history it keeps changes what it stores. The load makes exactly **one data commit per database** — `dolt_log` shows 3 commits, of which two are Dolt's own `Initialize data repository` and `CREATE DATABASE` — and `dolt_status` is clean afterwards, so nothing is sitting uncommitted where it would go unmeasured. Rows are not committed individually: the whole database arrives in one commit. **These numbers are therefore Dolt at its most favourable.** A branch, or a week of changes, would store more; this measures the floor.
+
+## What is deliberately not counted
+
+A running `dolt sql-server` writes a per-database **statistics repository** at `.dolt/stats` the first time it serves that database. Across these 21 databases it comes to **68.6 MB**, and `dolt gc` does not reclaim it. The largest is `adventureworks` at 68.2 MB — **more than the 48.8 MB of data it describes**.
+
+It is excluded from every figure above, for two reasons: it is the query planner's working notes rather than the database, and it does not exist until someone starts a server — so counting it would make the answer depend on whether anyone had happened to connect first. It is real disk all the same, which is why it is stated here.
+
+| database | data | server statistics |
+|---|---:|---:|
+| `adventureworks` | 48.8 MB | 68.2 MB |
+| `chinook` | 615.0 KB | 22.0 KB |
+| `contoso` | 39.4 MB | 22.0 KB |
+| `enron` | 34.3 MB | 22.0 KB |
+| `oracle_co` | 456.3 KB | 22.0 KB |
+| `oracle_sh` | 143.4 MB | 22.0 KB |
+| `nyc_taxi` | 3.0 MB | 22.0 KB |
+| `stackexchange_beer` | 14.2 MB | 22.0 KB |
+| `chicago_crimes` | 28.8 MB | 22.0 KB |
+| `oracle_hr` | 62.8 KB | 22.0 KB |
+| `pubs` | 77.0 KB | 22.0 KB |
+| `northwind` | 519.6 KB | 22.0 KB |
+| `dvdstore` | 11.9 MB | 22.0 KB |
+| `employees` | 42.5 MB | 22.0 KB |
+| `smallsets` | 164.3 KB | 22.0 KB |
+| `wikipedia_simple` | 123.7 MB | 22.0 KB |
+| `adventureworks_lt` | 1.0 MB | 22.0 KB |
+| `jaffle_shop` | 37.7 KB | 22.0 KB |
+| `sakila` | 2.0 MB | 22.0 KB |
+| `lahman` | 26.5 MB | 22.0 KB |
+| `oracle_oe` | 4.4 MB | 22.0 KB |
+
+## Schema objects Dolt would not take
+
+Views load once mysqldump's `ALGORITHM=` and `SQL SECURITY` clauses are removed. Stored functions do not load at all: Dolt rejects `CREATE FUNCTION`, and because one rejected statement aborts the rest of the routine section, a database loses all of its routines to the first function. None of this affects a row, which is why the counts above still match.
+
+| database | views MySQL → Dolt | routines MySQL → Dolt |
+|---|---|---|
+| `adventureworks` | 13 → 12 | 0 → 0 |
+| `adventureworks_lt` | 3 → 3 | 1 → 0 |
+| `employees` | 4 → 4 | 7 → 0 |
+| `oracle_co` | 3 → 2 | 0 → 0 |
+| `oracle_oe` | 8 → 7 | 0 → 0 |
+| `pubs` | 1 → 1 | 4 → 1 |
+| `sakila` | 7 → 7 | 6 → 0 |
 
 Some statements in the dumps were rejected by Dolt. These are schema objects, not rows — the row counts above still match — but they are listed in `build/results.json` per database and summarised here:
 

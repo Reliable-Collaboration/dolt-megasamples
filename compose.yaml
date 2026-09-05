@@ -9,6 +9,7 @@
 #
 #   3307  Dolt (MySQL wire protocol)        8090  landing page
 #   8091  phpMyAdmin   8092  Adminer        8093  DbGate      8094  CloudBeaver
+#   8095  Dolt Workbench (+ 9002, its GraphQL API, which the browser calls directly)
 #
 # Everything binds to 127.0.0.1. Images are pinned by digest.
 #
@@ -107,6 +108,26 @@ services:
       USER_admin: admin
       PASSWORD_admin: ${ADMIN_PASSWORD:-admin}
       ENGINE_admin: mysql@dbgate-plugin-mysql
+    depends_on: { dolt: { condition: service_healthy } }
+    restart: unless-stopped
+
+  # Dolt's own browsing product. The other four consoles see Dolt as a MySQL server and so cannot
+  # show what makes it Dolt -- branches, commits, diffs between them. This one can.
+  #
+  # It is the only console here that cannot be preconfigured: it reads no connection from the
+  # environment (`GRAPHQLAPI_URL` is the only variable its bundle looks at, and that is where the
+  # browser finds its own API, not the database). The connection is entered once in the UI; the
+  # landing page states exactly what to type. Its GraphQL server runs inside this container and
+  # reaches the database at `dolt:3306` on the compose network, while the browser reaches the
+  # GraphQL server on the published 9002.
+  workbench:
+    image: dolthub/dolt-workbench@sha256:acba96fe224c7be44ce1c5f283691230608fdf917167e4e5548f6669f2c23855
+    container_name: doltsamples-workbench
+    ports:
+      - "127.0.0.1:8095:3000"
+      - "127.0.0.1:9002:9002"
+    environment:
+      GRAPHQLAPI_URL: http://127.0.0.1:9002/graphql
     depends_on: { dolt: { condition: service_healthy } }
     restart: unless-stopped
 

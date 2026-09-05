@@ -29,22 +29,22 @@ regenerate from your own machine.
 | `lahman` | 706,466 | 178.9 MB | 26.5 MB | **0.15×** |
 | `employees` | 3,919,015 | 176.3 MB | 42.5 MB | **0.24×** |
 | `contoso` | 753,467 | 135.3 MB | 39.4 MB | **0.29×** |
-| `stackexchange_beer` | 62,523 | 73.6 MB | 14.3 MB | **0.19×** |
+| `stackexchange_beer` | 62,523 | 73.6 MB | 14.2 MB | **0.19×** |
 | `chicago_crimes` | 259,702 | 72.1 MB | 28.8 MB | **0.40×** |
 | `enron` | 48,778 | 66.2 MB | 34.3 MB | **0.52×** |
 | `dvdstore` | 174,716 | 50.0 MB | 11.9 MB | **0.24×** |
-| `sakila` | 47,268 | 22.3 MB | 2.1 MB | **0.09×** |
+| `sakila` | 47,268 | 22.3 MB | 2.0 MB | **0.09×** |
 | `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | **0.22×** |
 | `nyc_taxi` | 48,591 | 16.1 MB | 3.0 MB | **0.19×** |
 | `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | **0.08×** |
-| `northwind` | 3,308 | 2.8 MB | 541.6 KB | **0.19×** |
-| `chinook` | 15,607 | 2.6 MB | 637.0 KB | **0.24×** |
-| `oracle_co` | 8,783 | 1.8 MB | 478.3 KB | **0.26×** |
-| `pubs` | 255 | 1.5 MB | 99.0 KB | **0.06×** |
-| `oracle_hr` | 216 | 1.2 MB | 84.8 KB | **0.07×** |
-| `smallsets` | 2,147 | 644.0 KB | 186.3 KB | **0.29×** |
-| `jaffle_shop` | 312 | 372.0 KB | 59.7 KB | **0.16×** |
-| **all 21** | **9,056,697** | **1.5 GB** | **526.2 MB** | **0.35×** |
+| `northwind` | 3,308 | 2.8 MB | 519.6 KB | **0.18×** |
+| `chinook` | 15,607 | 2.6 MB | 615.0 KB | **0.23×** |
+| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | **0.25×** |
+| `pubs` | 255 | 1.5 MB | 77.0 KB | **0.05×** |
+| `oracle_hr` | 216 | 1.2 MB | 62.8 KB | **0.05×** |
+| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | **0.26×** |
+| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | **0.10×** |
+| **all 21** | **9,056,697** | **1.5 GB** | **525.7 MB** | **0.35×** |
 <!-- results:end -->
 
 [`REPORT.md`](REPORT.md) has the full table, including what `information_schema` thinks MySQL is
@@ -93,9 +93,34 @@ query side by side against the same data in two engines.
 | Adminer | 8082 | 8092 |
 | DbGate | 8083 | 8093 |
 | CloudBeaver | 8084 | 8094 |
+| **Dolt Workbench** | — | **8095** |
 
 The accounts are the same on both sides: `demo` / `demo` can only read, `admin` / `admin` can do
 anything. Each console opens on the read-only one.
+
+### Dolt Workbench, for the part the others cannot show
+
+phpMyAdmin, Adminer, DbGate and CloudBeaver all see Dolt as a MySQL server, which means they show
+tables and rows and nothing of what makes it Dolt. [Dolt
+Workbench](https://github.com/dolthub/dolt-workbench) at <http://127.0.0.1:8095/> shows the branches,
+the commit log and the diff between any two commits.
+
+It is the only console here that cannot be preconfigured — it reads no connection from the
+environment — so enter it once:
+
+| field | value |
+|---|---|
+| type | MySQL |
+| connection URL | `mysql://admin:admin@dolt:3306/sakila` |
+| name | anything |
+
+`dolt`, not `127.0.0.1`: the Workbench's own API makes the connection from inside the compose
+network, and only your browser talks to `127.0.0.1`.
+
+Every database here has one branch, `main`, and three commits — Dolt's `Initialize data repository`
+and `CREATE DATABASE`, then the single `import from mysql-megasamples` that carries the whole
+database. That is deliberate, and it is why the sizes below are Dolt's floor rather than a typical
+working repository.
 
 ## How the comparison is kept honest
 
@@ -103,6 +128,19 @@ A size comparison is worthless if the two sides are not holding the same thing, 
 
 * **Every table is counted on both sides** with `COUNT(*)` before any size is recorded.
   `information_schema.table_rows` is an InnoDB estimate and is not used. All 21 databases match.
+* **Every index is compared by definition** — table, index name, column position, column,
+  uniqueness — not by count. Indexes are a large part of what a database costs on disk, so a
+  comparison where one engine had quietly dropped some would be worthless. **613 in MySQL, 613 in
+  Dolt, identical in every database.**
+* **The history is the least Dolt can hold**: one data commit per database, and `dolt_status` clean
+  afterwards so nothing sits uncommitted and unmeasured. Rows are *not* committed individually. A
+  branch or a week of edits would store more — this is the floor, not a typical repository.
+* **A running server's statistics are excluded and reported separately.** `dolt sql-server` writes a
+  per-database statistics repository at `.dolt/stats` the first time it serves that database;
+  `dolt gc` does not reclaim it. It totals 68.6 MB here, and for `adventureworks` it reached
+  **71.5 MB — more than the 48.8 MB of data it describes**. Counting it would make the answer depend
+  on whether anyone had started a server first; ignoring it silently would hide real disk. So it is
+  in `REPORT.md` in its own table.
 * **Dolt is committed and garbage-collected before measuring.** Dolt is a versioned database; data
   left in the working set is not yet in the commit graph, and Dolt writes through a journal until
   told to pack. Measuring before either step flatters it — `jaffle_shop` is 34,926 bytes before

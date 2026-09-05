@@ -17,7 +17,10 @@ OUT = os.path.join(ROOT, "docker", "console", "index.html")
 CONSOLES = [("phpMyAdmin", 8091, "Signed in already; the server menu switches account."),
             ("Adminer", 8092, "Its login form remains; use either account below."),
             ("DbGate", 8093, "Both connections are preconfigured in the sidebar."),
-            ("CloudBeaver", 8094, "Open as a guest; both connections are in the sidebar.")]
+            ("CloudBeaver", 8094, "Open as a guest; both connections are in the sidebar."),
+            ("Dolt Workbench", 8095,
+             "Branches, commits and diffs \u2014 the part the others cannot show. "
+             "Connect once with mysql://admin:admin@dolt:3306/sakila")]
 DEEP = (("phpMyAdmin", "P", "http://127.0.0.1:8091/index.php?route=/database/structure&db={db}&server=1"),
         ("Adminer", "A", "http://127.0.0.1:8092/?server=dolt&username=demo&db={db}"))
 

@@ -28,6 +28,12 @@ def rows(results):
         if not my or not do:
             continue
         out.append(dict(db=db, mysql=my, dolt=do, ratio=do / my,
+                        stats=r.get("dolt_stats_bytes") or 0,
+                        idx_my=r.get("indexes_mysql") or 0, idx_do=r.get("indexes_dolt") or 0,
+                        idx_diff=bool(r.get("indexes_only_mysql") or r.get("indexes_only_dolt")),
+                        commits=r.get("dolt_commits"),
+                        views_my=r.get("views_mysql") or 0, views_do=r.get("views_dolt") or 0,
+                        rout_my=r.get("routines_mysql") or 0, rout_do=r.get("routines_dolt") or 0,
                         logical=r.get("mysql_logical_bytes") or 0,
                         dump=r.get("dump_bytes") or 0,
                         tables=r.get("tables") or 0, rows=r.get("rows_mysql") or 0,
@@ -76,11 +82,61 @@ def report(items):
              f"| **{human(my)}** | **{human(do)}** | **{do / my:.2f}×** |")
 
     bad = [i for i in items if i["mismatch"]]
+    idx_bad = [i for i in items if i["idx_diff"]]
+    idx_my, idx_do = sum(i["idx_my"] for i in items), sum(i["idx_do"] for i in items)
+    stats = sum(i["stats"] for i in items)
+    commits = sorted({i["commits"] for i in items if i["commits"]})
     L += ["", "## Is the comparison valid?", "",
-          "Every table was counted with `COUNT(*)` on both sides before any size was recorded.",
-          (f"**{len(bad)} database(s) disagree** and their ratios cannot be trusted: "
-           + ", ".join(f"`{i['db']}`" for i in bad) if bad else
-           "**Every table matches**, so both engines are holding the same rows."), ""]
+          "Three things have to be true before a size ratio means anything. All three were checked "
+          "on every database, not assumed.", "",
+          "**The same rows.** Every table counted with `COUNT(*)` on both sides before any size was "
+          "recorded; `information_schema.table_rows` is an InnoDB estimate and is not used. "
+          + (f"**{len(bad)} database(s) disagree**: " + ", ".join(f"`{i['db']}`" for i in bad)
+             if bad else "**Every table matches.**"), "",
+          "**The same indexes.** Indexes are a large part of what a database costs on disk, so each "
+          "one is compared by definition — table, index name, column position, column, uniqueness — "
+          "and not by count. "
+          + (f"**{len(idx_bad)} database(s) differ**: "
+             + ", ".join(f"`{i['db']}`" for i in idx_bad) if idx_bad else
+             f"**{idx_my} indexes in MySQL, {idx_do} in Dolt, identical in every database.**"), "",
+          "**The least history Dolt can hold.** Dolt is a versioned database, so how much history it "
+          "keeps changes what it stores. The load makes exactly **one data commit per database** — "
+          f"`dolt_log` shows {', '.join(str(c) for c in commits)} commits, of which two are Dolt's "
+          "own `Initialize data repository` and `CREATE DATABASE` — and `dolt_status` is clean "
+          "afterwards, so nothing is sitting uncommitted where it would go unmeasured. Rows are not "
+          "committed individually: the whole database arrives in one commit. **These numbers are "
+          "therefore Dolt at its most favourable.** A branch, or a week of changes, would store "
+          "more; this measures the floor.", ""]
+    if stats:
+        worst = max(items, key=lambda x: x["stats"])
+        L += ["## What is deliberately not counted", "",
+              f"A running `dolt sql-server` writes a per-database **statistics repository** at "
+              f"`.dolt/stats` the first time it serves that database. Across these {len(items)} "
+              f"databases it comes to **{human(stats)}**, and `dolt gc` does not reclaim it. The "
+              f"largest is `{worst['db']}` at {human(worst['stats'])} — **more than the "
+              f"{human(worst['dolt'])} of data it describes**.", "",
+              "It is excluded from every figure above, for two reasons: it is the query planner's "
+              "working notes rather than the database, and it does not exist until someone starts a "
+              "server — so counting it would make the answer depend on whether anyone had happened "
+              "to connect first. It is real disk all the same, which is why it is stated here.", "",
+              "| database | data | server statistics |", "|---|---:|---:|"]
+        L += [f"| `{i['db']}` | {human(i['dolt'])} | {human(i['stats'])} |"
+              for i in sorted(items, key=lambda x: -x["stats"]) if i["stats"]]
+        L.append("")
+
+    missing = [i for i in items if (i["views_my"] - i["views_do"]) or (i["rout_my"] - i["rout_do"])]
+    if missing:
+        L += ["## Schema objects Dolt would not take", "",
+              "Views load once mysqldump's `ALGORITHM=` and `SQL SECURITY` clauses are removed. "
+              "Stored functions do not load at all: Dolt rejects `CREATE FUNCTION`, and because one "
+              "rejected statement aborts the rest of the routine section, a database loses all of "
+              "its routines to the first function. None of this affects a row, which is why the "
+              "counts above still match.", "",
+              "| database | views MySQL → Dolt | routines MySQL → Dolt |", "|---|---|---|"]
+        L += [f"| `{i['db']}` | {i['views_my']} → {i['views_do']} | {i['rout_my']} → {i['rout_do']} |"
+              for i in missing]
+        L.append("")
+
     errs = [i for i in items if i["errors"]]
     if errs:
         L += ["Some statements in the dumps were rejected by Dolt. These are schema objects, not "
