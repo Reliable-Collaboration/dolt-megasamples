@@ -1,0 +1,127 @@
+# The Dolt side of the experiment: the same 21 sample databases, the same two accounts, the same
+# four consoles -- on different ports, so both stacks can run at once and be compared side by side.
+#
+#   docker compose up -d           Dolt plus its UIs and landing page
+#   docker compose down            all of it down again
+#   docker compose up -d dolt      just the database
+#
+# Ports are deliberately one range above mysql-megasamples, which uses 3306 and 8080-8084:
+#
+#   3307  Dolt (MySQL wire protocol)        8090  landing page
+#   8091  phpMyAdmin   8092  Adminer        8093  DbGate      8094  CloudBeaver
+#
+# Everything binds to 127.0.0.1. Images are pinned by digest.
+#
+# `data/dolt` is written by scripts/load_dolt.py before this stack ever starts, so the image's
+# /docker-entrypoint-initdb.d hook -- which only fires on an empty data directory -- never runs.
+# The `dolt-init` service applies the accounts instead, on every `up`, idempotently.
+
+name: dolt-megasamples
+
+services:
+  dolt:
+    image: dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6
+    container_name: doltsamples-dolt
+    ports: ["127.0.0.1:3307:3306"]
+    environment:
+      DOLT_ROOT_PASSWORD: ${DOLT_ROOT_PASSWORD:-root}
+      DOLT_ROOT_HOST: "%"
+    volumes:
+      - ./data/dolt:/var/lib/dolt
+    # No `command:`. The image's entrypoint already starts `dolt sql-server` with its own --host,
+    # and its WORKDIR is /var/lib/dolt, which is where the volume is mounted. Adding flags here got
+    # "multiple values provided for `host'" and the server printed usage instead of starting.
+    healthcheck:
+      # The port, not the CLI. `dolt sql -q` answers from the data directory whether or not the
+      # server is listening, so a CLI healthcheck goes green immediately and dolt-init then fails
+      # with "Can't connect to MySQL server on 'dolt:3306'". bash's /dev/tcp tests the real thing.
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/3306' 2>/dev/null"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+    restart: unless-stopped
+
+  # One-shot: creates `demo` and `admin` once the server answers, then exits. Uses the MySQL client
+  # from the megasamples image because Dolt's own image ships no client.
+  dolt-init:
+    image: ${MEGASAMPLES_IMAGE:-mysql-megasamples:dev}
+    container_name: doltsamples-init
+    depends_on: { dolt: { condition: service_healthy } }
+    volumes:
+      - ./docker/dolt/init.sql:/init.sql:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - 'for i in $$(seq 30); do mysql -hdolt -P3306 -uroot -p"$$DOLT_ROOT_PASSWORD" < /init.sql && exit 0; sleep 2; done; echo "could not apply the accounts"; exit 1'
+    environment:
+      DOLT_ROOT_PASSWORD: ${DOLT_ROOT_PASSWORD:-root}
+    restart: "no"
+
+  console:
+    image: nginx@sha256:3bcf852aed06467cf075c6105892e4d5a6ebbbafa0ce22d35062db9e90ddef4c
+    container_name: doltsamples-console
+    ports: ["127.0.0.1:8090:80"]
+    volumes:
+      - ./docker/console:/usr/share/nginx/html:ro
+    depends_on: { dolt: { condition: service_healthy } }
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin@sha256:20fa6f724ba77d41abc25b1aeb4d97692ce344c7ace305594e57c5893f60f0f7
+    container_name: doltsamples-phpmyadmin
+    ports: ["127.0.0.1:8091:80"]
+    environment:
+      PMA_HOST: dolt
+      PMA_PORT: "3306"
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      UPLOAD_LIMIT: 256M
+    volumes:
+      - ./docker/phpmyadmin/config.user.inc.php:/etc/phpmyadmin/config.user.inc.php:ro
+    depends_on: { dolt: { condition: service_healthy } }
+    restart: unless-stopped
+
+  adminer:
+    image: adminer@sha256:f1e2ba27b10a565ac77b2d8555d803be4ddb3232f4216dcf0ea85bcd8f2f1343
+    container_name: doltsamples-adminer
+    ports: ["127.0.0.1:8092:8080"]
+    environment:
+      ADMINER_DEFAULT_SERVER: dolt
+    depends_on: { dolt: { condition: service_healthy } }
+    restart: unless-stopped
+
+  dbgate:
+    image: dbgate/dbgate@sha256:14fce4ece52df514e0d320dc82cbfbca5e8f18f98464a6389b1c126f783a6b7e
+    container_name: doltsamples-dbgate
+    ports: ["127.0.0.1:8093:3000"]
+    environment:
+      CONNECTIONS: demo,admin
+      LABEL_demo: dolt-megasamples (read-only)
+      SERVER_demo: dolt
+      PORT_demo: "3306"
+      USER_demo: demo
+      PASSWORD_demo: ${DEMO_PASSWORD:-demo}
+      ENGINE_demo: mysql@dbgate-plugin-mysql
+      LABEL_admin: dolt-megasamples (full access)
+      SERVER_admin: dolt
+      PORT_admin: "3306"
+      USER_admin: admin
+      PASSWORD_admin: ${ADMIN_PASSWORD:-admin}
+      ENGINE_admin: mysql@dbgate-plugin-mysql
+    depends_on: { dolt: { condition: service_healthy } }
+    restart: unless-stopped
+
+  cloudbeaver:
+    image: dbeaver/cloudbeaver@sha256:3b4bf82287cf4febe0d335873f1346a01100f3951d266cd6a78c27fe30429cbc
+    container_name: doltsamples-cloudbeaver
+    ports: ["127.0.0.1:8094:8978"]
+    environment:
+      CLOUDBEAVER_APP_GRANT_CONNECTIONS_ACCESS_TO_ANONYMOUS_TEAM: "true"
+      CLOUDBEAVER_APP_READ_ONLY_CONNECTION_INFO: "true"
+      CLOUDBEAVER_SYSTEM_VARIABLES_RESOLVING_ENABLED: "true"
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./docker/cloudbeaver/.cloudbeaver.auto.conf:/opt/cloudbeaver/conf/.cloudbeaver.auto.conf:ro
+      - ./docker/cloudbeaver/initial-data-sources.conf:/opt/cloudbeaver/conf/initial-data-sources.conf:ro
+    depends_on: { dolt: { condition: service_healthy } }
+    restart: unless-stopped

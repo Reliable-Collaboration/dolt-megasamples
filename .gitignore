@@ -1,0 +1,7 @@
+# The experiment's inputs and outputs are reproducible from the scripts; the repository keeps the
+# evidence (results.json, the report, the README) and not the bulk.
+build/dumps/
+data/
+.venv/
+__pycache__/
+.env

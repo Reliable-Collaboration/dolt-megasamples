@@ -1,0 +1,91 @@
+<!doctype html>
+<meta charset="utf-8"><title>dolt-megasamples</title>
+<style>
+ :root { color-scheme: light dark; --line:#8883; --fill:#69f; }
+ body { font:15px/1.5 system-ui,sans-serif; margin:0 auto; padding:2rem 1.25rem; max-width:64rem; }
+ h1 { font-size:1.5rem; margin:0 0 .25rem; }
+ p.sub { margin:0 0 1.5rem; opacity:.7; }
+ .headline { border:1px solid var(--line); border-radius:.5rem; padding:1rem 1.25rem; margin:0 0 1.5rem;
+              font-size:1.05em; }
+ .headline b { font-size:1.3em; }
+ .consoles { display:grid; gap:.75rem; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));
+              margin-bottom:1.5rem; }
+ a.console { display:block; padding:.85rem 1rem; border:1px solid var(--line); border-radius:.5rem;
+              text-decoration:none; color:inherit; }
+ a.console:hover { border-color:var(--fill); }
+ a.console span { display:block; font-size:.85em; opacity:.7; margin-top:.2rem; }
+ table { border-collapse:collapse; width:100%; font-size:.9em; }
+ th,td { text-align:left; padding:.35rem .6rem; border-bottom:1px solid var(--line); }
+ td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; }
+ .bar { background:#8882; border-radius:.2rem; height:.6rem; width:8rem; }
+ .bar i { display:block; height:100%; background:var(--fill); border-radius:.2rem; }
+ .opens { margin-left:.45rem; white-space:nowrap; }
+ a.go { display:inline-block; width:1.25rem; height:1.25rem; line-height:1.25rem; text-align:center;
+         border:1px solid var(--line); border-radius:.25rem; font-size:.72em; font-weight:600;
+         text-decoration:none; color:inherit; opacity:.65; margin-left:.15rem; }
+ a.go:hover { opacity:1; border-color:var(--fill); }
+ .creds { border:1px solid var(--line); border-radius:.5rem; padding:.75rem 1rem; margin:1.5rem 0;
+           font-size:.9em; }
+ footer { margin-top:2rem; font-size:.85em; opacity:.7; }
+</style>
+
+<h1>dolt-megasamples</h1>
+<p class="sub">21 databases · 9,056,697 rows · Dolt 2.3.2 on 127.0.0.1:3307</p>
+
+<div class="headline">
+  The same data in both engines: MySQL keeps it in <b>1.5 GB</b>, Dolt in <b>526.2 MB</b> —
+  <b>0.35×</b>. Per database the ratio runs from
+  0.06× to
+  0.76×, which is the point of
+  the experiment: the number is not one number.
+</div>
+
+<div class="consoles">
+      <a class="console" href="http://127.0.0.1:8091/"><b>phpMyAdmin</b><span>Signed in already; the server menu switches account.</span></a>
+      <a class="console" href="http://127.0.0.1:8092/"><b>Adminer</b><span>Its login form remains; use either account below.</span></a>
+      <a class="console" href="http://127.0.0.1:8093/"><b>DbGate</b><span>Both connections are preconfigured in the sidebar.</span></a>
+      <a class="console" href="http://127.0.0.1:8094/"><b>CloudBeaver</b><span>Open as a guest; both connections are in the sidebar.</span></a>
+</div>
+
+<table>
+  <thead><tr><th>database — <b>P</b> opens it in phpMyAdmin, <b>A</b> in Adminer</th>
+  <th class="n">rows</th><th class="n">MySQL</th><th class="n">Dolt</th><th class="n">Dolt ÷ MySQL</th>
+  <th></th></tr></thead>
+  <tbody>
+      <tr><td><code>adventureworks</code><span class="opens"><a class="go" title="Open adventureworks in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=adventureworks&amp;server=1">P</a><a class="go" title="Open adventureworks in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=adventureworks">A</a></span></td><td class="n">759,240</td><td class="n">292.2 MB</td><td class="n">48.8 MB</td><td class="n">0.17×</td><td><div class="bar"><i style="width:16.7%"></i></div></td></tr>
+      <tr><td><code>wikipedia_simple</code><span class="opens"><a class="go" title="Open wikipedia_simple in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=wikipedia_simple&amp;server=1">P</a><a class="go" title="Open wikipedia_simple in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=wikipedia_simple">A</a></span></td><td class="n">1,167,112</td><td class="n">208.2 MB</td><td class="n">123.7 MB</td><td class="n">0.59×</td><td><div class="bar"><i style="width:59.4%"></i></div></td></tr>
+      <tr><td><code>oracle_sh</code><span class="opens"><a class="go" title="Open oracle_sh in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=oracle_sh&amp;server=1">P</a><a class="go" title="Open oracle_sh in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=oracle_sh">A</a></span></td><td class="n">1,063,396</td><td class="n">188.4 MB</td><td class="n">143.4 MB</td><td class="n">0.76×</td><td><div class="bar"><i style="width:76.1%"></i></div></td></tr>
+      <tr><td><code>lahman</code><span class="opens"><a class="go" title="Open lahman in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=lahman&amp;server=1">P</a><a class="go" title="Open lahman in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=lahman">A</a></span></td><td class="n">706,466</td><td class="n">178.9 MB</td><td class="n">26.5 MB</td><td class="n">0.15×</td><td><div class="bar"><i style="width:14.8%"></i></div></td></tr>
+      <tr><td><code>employees</code><span class="opens"><a class="go" title="Open employees in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=employees&amp;server=1">P</a><a class="go" title="Open employees in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=employees">A</a></span></td><td class="n">3,919,015</td><td class="n">176.3 MB</td><td class="n">42.5 MB</td><td class="n">0.24×</td><td><div class="bar"><i style="width:24.1%"></i></div></td></tr>
+      <tr><td><code>contoso</code><span class="opens"><a class="go" title="Open contoso in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=contoso&amp;server=1">P</a><a class="go" title="Open contoso in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=contoso">A</a></span></td><td class="n">753,467</td><td class="n">135.3 MB</td><td class="n">39.4 MB</td><td class="n">0.29×</td><td><div class="bar"><i style="width:29.1%"></i></div></td></tr>
+      <tr><td><code>stackexchange_beer</code><span class="opens"><a class="go" title="Open stackexchange_beer in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=stackexchange_beer&amp;server=1">P</a><a class="go" title="Open stackexchange_beer in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=stackexchange_beer">A</a></span></td><td class="n">62,523</td><td class="n">73.6 MB</td><td class="n">14.3 MB</td><td class="n">0.19×</td><td><div class="bar"><i style="width:19.4%"></i></div></td></tr>
+      <tr><td><code>chicago_crimes</code><span class="opens"><a class="go" title="Open chicago_crimes in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=chicago_crimes&amp;server=1">P</a><a class="go" title="Open chicago_crimes in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=chicago_crimes">A</a></span></td><td class="n">259,702</td><td class="n">72.1 MB</td><td class="n">28.8 MB</td><td class="n">0.40×</td><td><div class="bar"><i style="width:39.9%"></i></div></td></tr>
+      <tr><td><code>enron</code><span class="opens"><a class="go" title="Open enron in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=enron&amp;server=1">P</a><a class="go" title="Open enron in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=enron">A</a></span></td><td class="n">48,778</td><td class="n">66.2 MB</td><td class="n">34.3 MB</td><td class="n">0.52×</td><td><div class="bar"><i style="width:51.8%"></i></div></td></tr>
+      <tr><td><code>dvdstore</code><span class="opens"><a class="go" title="Open dvdstore in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=dvdstore&amp;server=1">P</a><a class="go" title="Open dvdstore in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=dvdstore">A</a></span></td><td class="n">174,716</td><td class="n">50.0 MB</td><td class="n">11.9 MB</td><td class="n">0.24×</td><td><div class="bar"><i style="width:23.9%"></i></div></td></tr>
+      <tr><td><code>sakila</code><span class="opens"><a class="go" title="Open sakila in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=sakila&amp;server=1">P</a><a class="go" title="Open sakila in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=sakila">A</a></span></td><td class="n">47,268</td><td class="n">22.3 MB</td><td class="n">2.1 MB</td><td class="n">0.09×</td><td><div class="bar"><i style="width:9.3%"></i></div></td></tr>
+      <tr><td><code>oracle_oe</code><span class="opens"><a class="go" title="Open oracle_oe in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=oracle_oe&amp;server=1">P</a><a class="go" title="Open oracle_oe in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=oracle_oe">A</a></span></td><td class="n">11,518</td><td class="n">19.7 MB</td><td class="n">4.4 MB</td><td class="n">0.22×</td><td><div class="bar"><i style="width:22.2%"></i></div></td></tr>
+      <tr><td><code>nyc_taxi</code><span class="opens"><a class="go" title="Open nyc_taxi in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=nyc_taxi&amp;server=1">P</a><a class="go" title="Open nyc_taxi in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=nyc_taxi">A</a></span></td><td class="n">48,591</td><td class="n">16.1 MB</td><td class="n">3.0 MB</td><td class="n">0.19×</td><td><div class="bar"><i style="width:18.9%"></i></div></td></tr>
+      <tr><td><code>adventureworks_lt</code><span class="opens"><a class="go" title="Open adventureworks_lt in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=adventureworks_lt&amp;server=1">P</a><a class="go" title="Open adventureworks_lt in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=adventureworks_lt">A</a></span></td><td class="n">4,277</td><td class="n">12.6 MB</td><td class="n">1.0 MB</td><td class="n">0.08×</td><td><div class="bar"><i style="width:8.2%"></i></div></td></tr>
+      <tr><td><code>northwind</code><span class="opens"><a class="go" title="Open northwind in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=northwind&amp;server=1">P</a><a class="go" title="Open northwind in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=northwind">A</a></span></td><td class="n">3,308</td><td class="n">2.8 MB</td><td class="n">541.6 KB</td><td class="n">0.19×</td><td><div class="bar"><i style="width:19.1%"></i></div></td></tr>
+      <tr><td><code>chinook</code><span class="opens"><a class="go" title="Open chinook in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=chinook&amp;server=1">P</a><a class="go" title="Open chinook in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=chinook">A</a></span></td><td class="n">15,607</td><td class="n">2.6 MB</td><td class="n">637.0 KB</td><td class="n">0.24×</td><td><div class="bar"><i style="width:23.7%"></i></div></td></tr>
+      <tr><td><code>oracle_co</code><span class="opens"><a class="go" title="Open oracle_co in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=oracle_co&amp;server=1">P</a><a class="go" title="Open oracle_co in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=oracle_co">A</a></span></td><td class="n">8,783</td><td class="n">1.8 MB</td><td class="n">478.3 KB</td><td class="n">0.26×</td><td><div class="bar"><i style="width:25.7%"></i></div></td></tr>
+      <tr><td><code>pubs</code><span class="opens"><a class="go" title="Open pubs in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=pubs&amp;server=1">P</a><a class="go" title="Open pubs in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=pubs">A</a></span></td><td class="n">255</td><td class="n">1.5 MB</td><td class="n">99.0 KB</td><td class="n">0.06×</td><td><div class="bar"><i style="width:6.5%"></i></div></td></tr>
+      <tr><td><code>oracle_hr</code><span class="opens"><a class="go" title="Open oracle_hr in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=oracle_hr&amp;server=1">P</a><a class="go" title="Open oracle_hr in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=oracle_hr">A</a></span></td><td class="n">216</td><td class="n">1.2 MB</td><td class="n">84.8 KB</td><td class="n">0.07×</td><td><div class="bar"><i style="width:7.1%"></i></div></td></tr>
+      <tr><td><code>smallsets</code><span class="opens"><a class="go" title="Open smallsets in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=smallsets&amp;server=1">P</a><a class="go" title="Open smallsets in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=smallsets">A</a></span></td><td class="n">2,147</td><td class="n">644.0 KB</td><td class="n">186.3 KB</td><td class="n">0.29×</td><td><div class="bar"><i style="width:28.9%"></i></div></td></tr>
+      <tr><td><code>jaffle_shop</code><span class="opens"><a class="go" title="Open jaffle_shop in phpMyAdmin" href="http://127.0.0.1:8091/index.php?route=/database/structure&amp;db=jaffle_shop&amp;server=1">P</a><a class="go" title="Open jaffle_shop in Adminer" href="http://127.0.0.1:8092/?server=dolt&amp;username=demo&amp;db=jaffle_shop">A</a></span></td><td class="n">312</td><td class="n">372.0 KB</td><td class="n">59.7 KB</td><td class="n">0.16×</td><td><div class="bar"><i style="width:16.0%"></i></div></td></tr>
+  </tbody>
+</table>
+
+<div class="creds">
+  <b>Two accounts</b>, the same as mysql-megasamples, on host <code>127.0.0.1</code> port
+  <code>3307</code>.<br>
+  <code>demo</code> / <code>demo</code> — read only. <code>admin</code> / <code>admin</code> — full
+  privileges. Each console opens on the read-only one.
+</div>
+
+<footer>
+  Generated by <code>scripts/console_page.py</code> from <code>build/results.json</code> — the same
+  measurements as <code>REPORT.md</code>, so this page cannot disagree with the report. The MySQL
+  side of the comparison lives in <code>mysql-megasamples</code> and serves 3306 and 8080–8084;
+  nothing here uses those ports.
+</footer>
