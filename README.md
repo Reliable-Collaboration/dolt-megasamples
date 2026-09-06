@@ -156,8 +156,10 @@ adds.
 
 ## The machine
 
-Timings mean nothing without it. Neither engine is tuned; both run their published images with
-default settings.
+Timings mean nothing without it. Neither engine is performance-tuned: both run their published
+images with stock storage settings. MySQL is started with two flags, which the table names — calling
+that "default settings" while listing the flags would be a small dishonesty in the middle of a
+methods section.
 
 <!-- environment:start -->
 | | |

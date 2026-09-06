@@ -13,12 +13,12 @@
     ],
     "mysql_image": "mysql:9.7.2",
     "mysql_version": "/usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL)",
-    "tuning": "none \u2014 both engines run their published images with default settings"
+    "tuning": "no performance tuning \u2014 stock images, stock storage settings; MySQL is started with the two flags below"
   },
   "host": {
     "cpu": "Intel(R) Core(TM) i9-14900KF",
     "cpu_threads": 32,
-    "disk_free_at_capture": "759.7 GB",
+    "disk_free_at_capture": "903.3 GB",
     "disk_total": "1,006.9 GB",
     "filesystem": "ext4",
     "kernel": "6.18.33.2-microsoft-standard-WSL2",

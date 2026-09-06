@@ -7,7 +7,8 @@ Timings are meaningless without the machine that produced them, and sizes are on
 engine versions and settings are known. This writes `build/environment.json` and prints a table for
 the README, generated rather than typed so it describes the machine that actually ran the tests.
 
-Nothing here is tuned. Both engines run their published images with default settings; the only
+Neither engine is performance-tuned. Both run their published images with stock storage settings,
+and MySQL is started with two flags, recorded here rather than described away; the only
 non-default flags are the ones needed to load at all (`--local-infile=1`, `--skip-log-bin` on the
 timing MySQL). A tuned MySQL — compressed row format, a different page size, a larger buffer pool —
 would produce different numbers, and so would a Dolt with a different chunk store configuration.
@@ -63,7 +64,11 @@ def main():
             "dolt_image": DOLT_IMAGE,
             "dolt_version": image_version(DOLT_IMAGE, "dolt", "version"),
             "dolt_flags": [],
-            "tuning": "none — both engines run their published images with default settings",
+            # Not "default settings": MySQL is started with two flags, and the row below
+            # names them. Saying both are untuned while listing the flags that make one of them
+            # not untuned is the kind of small contradiction that costs a reader their trust.
+            "tuning": "no performance tuning — stock images, stock storage settings; "
+                      "MySQL is started with the two flags below",
         },
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
