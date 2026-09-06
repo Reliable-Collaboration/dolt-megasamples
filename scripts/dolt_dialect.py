@@ -99,6 +99,101 @@ def transform(text, database):
     return b"".join(out), notes
 
 
+SECONDARY = re.compile(rb"^\s*(UNIQUE\s+KEY|FULLTEXT\s+KEY|SPATIAL\s+KEY|KEY|CONSTRAINT)\s", re.I)
+CREATE_TABLE = re.compile(rb"^CREATE TABLE\s+`([^`]+)`", re.I)
+
+
+def defer_indexes(sql):
+    """Take secondary indexes and foreign keys out of `CREATE TABLE` and add them back at the end.
+
+    This is what anyone loading a large table actually does, and it is the standard advice for both
+    engines: an index maintained row by row is rebuilt on every insert, while an index built once
+    over finished data is built once. Removing it from the load isolates how much of the row-by-row
+    cost is index maintenance rather than the writing itself.
+
+    The primary key stays inline. It is not an optimisation to defer it — it is the row's identity,
+    Dolt stores tables as a prolly tree keyed by it, and a table loaded without one is a different
+    table. Everything else — `KEY`, `UNIQUE KEY`, `FULLTEXT KEY`, `SPATIAL KEY`, and the foreign key
+    constraints — is deferred and re-added by `ALTER TABLE` after the last row, so the final state is
+    the same schema either way. For Dolt that means the indexes land in the last commit, which is
+    what makes the commit history comparable: the rows arrive one at a time, the indexes once.
+
+    `UNIQUE_CHECKS` and `FOREIGN_KEY_CHECKS` are turned off for the load and restored afterwards,
+    which is the other half of the same technique.
+    """
+    out, deferred, table, in_create = [], [], None, False
+    for line in sql.splitlines(keepends=True):
+        m = CREATE_TABLE.match(line)
+        if m:
+            table, in_create = m.group(1), True
+            out.append(line)
+            continue
+        if in_create:
+            if line.lstrip().startswith(b")"):
+                in_create = False
+                # the last kept line must not end with a comma now that lines have been removed
+                for i in range(len(out) - 1, -1, -1):
+                    if out[i].strip():
+                        if out[i].rstrip().endswith(b","):
+                            out[i] = out[i].rstrip()[:-1] + b"\n"
+                        break
+                out.append(line)
+                continue
+            if SECONDARY.match(line):
+                clause = line.strip().rstrip(b",")
+                deferred.append((table, clause))
+                continue
+        out.append(line)
+
+    if not deferred:
+        return b"".join(out), []
+    head = (b"SET UNIQUE_CHECKS=0;\nSET FOREIGN_KEY_CHECKS=0;\n")
+    tail = [b"\n-- indexes and constraints deferred to the end of the load\n"]
+    for t, clause in deferred:
+        tail.append(b"ALTER TABLE `" + t + b"` ADD " + clause + b";\n")
+    tail.append(b"SET UNIQUE_CHECKS=1;\nSET FOREIGN_KEY_CHECKS=1;\n")
+
+    # After the rows, but *before* the routines. Dolt rejects `CREATE FUNCTION` and one rejected
+    # statement aborts the rest of the file, so indexes appended to the very end were silently never
+    # built: sakila finished with 16 of its 42. Placed after the rows they are always built, and for
+    # a per-row-commit load they still land in the final commit, which is the point.
+    #
+    # "After the rows" means after the `UNLOCK TABLES` that closes the last table, not merely after
+    # the last INSERT. mysqldump wraps each table's inserts in `LOCK TABLES <that table> WRITE`, and
+    # MySQL refuses to touch any other table while a lock is held: dropping the block straight after
+    # the last INSERT produced `ERROR 1100: Table 'album' was not locked with LOCK TABLES`. Dolt does
+    # not enforce it and loaded the same file happily, which is exactly the kind of difference that
+    # would have made the two engines run different SQL without anyone noticing.
+    body = b"".join(out)
+    cut = _end_of_rows(body)
+    if cut is None:
+        return head + body + b"".join(tail), [note_text(deferred)]
+    return head + body[:cut] + b"".join(tail) + body[cut:], [note_text(deferred)]
+
+
+def _end_of_rows(body):
+    """Byte offset just past the last row-loading statement, outside any LOCK TABLES block."""
+    last_insert = body.rfind(b"\nINSERT INTO ")
+    if last_insert == -1:
+        return None
+    unlock = body.find(b"\nUNLOCK TABLES", last_insert)
+    if unlock != -1:
+        end = body.find(b"\n", unlock + 1)
+        return end + 1 if end != -1 else len(body)
+    # no LOCK TABLES in this dump: end of the last INSERT statement instead
+    end = body.find(b"\n", last_insert + 1)
+    while end != -1 and not body[last_insert + 1:end].rstrip().endswith(b";"):
+        last_insert = end
+        end = body.find(b"\n", last_insert + 1)
+    return end + 1 if end != -1 else len(body)
+
+
+def note_text(deferred):
+    return (f"deferred {len(deferred)} secondary index/constraint definition(s) to ALTER TABLE "
+            f"after the last row, with UNIQUE_CHECKS and FOREIGN_KEY_CHECKS off during the load")
+
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("source")

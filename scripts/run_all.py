@@ -34,7 +34,7 @@ import argparse, json, os, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (DOLT_IMAGE, DUMPS, MYSQL_CONTAINER, ROOT, data_dir, databases,  # noqa: E402
                     dumps_dir, human, run)
-from dolt_dialect import transform  # noqa: E402
+from dolt_dialect import defer_indexes, transform  # noqa: E402
 from load_dolt import per_row_commits  # noqa: E402
 
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
@@ -42,6 +42,8 @@ MYSQL_IMAGE = os.environ.get("MYSQL_TIMING_IMAGE", "mysql:9.7.2")
 MYSQL_NAME = "doltsamples-mysql-timing"
 MYSQL_DATA = os.path.join(ROOT, "data", "mysql")
 MYSQL_PW = "timing"
+DOLT_HOST_BASE = "doltsamples-dolt-runner"
+DOLT_HOST = DOLT_HOST_BASE
 
 # cheapest first, so the table fills in early and an interrupted run still says something
 PHASES = ["mysql", "dolt_oneshot", "mysql_rowwise", "dolt_rowinsert", "dolt_rowcommit"]
@@ -119,31 +121,95 @@ def mysql_up():
     sys.exit("the timing MySQL never became ready")
 
 
-def mysql_load(db, per_row):
-    """Drop and reload one database, timing only the load itself."""
-    mysql_up()
-    run("docker", "exec", MYSQL_NAME, "mysql", f"-p{MYSQL_PW}", "-uroot",
-        "-e", f"DROP DATABASE IF EXISTS `{db}`")
-    inside = f"/dumps/{'rowwise/' if per_row else ''}{db}.sql"
+def mysql_load(db, per_row, indexes="deferred"):
+    """Drop and reload one database, timing only the load itself.
+
+    Three things here are deliberate:
+
+    * **the same SQL Dolt gets.** MySQL used to load mysqldump's original while Dolt loaded a
+      transformed copy, so the engines were not given the same input. Both now load the transformed
+      file, which is still valid MySQL — it only has clauses removed that Dolt cannot parse.
+    * **no `--force`.** Continuing past errors is what let loads look successful while being short.
+    * **the whole data directory is measured**, not the database's folder. InnoDB keeps shared files
+      — ibdata1, undo, redo — that belong to no database and came to 5.4% of the total; measuring one
+      database at a time against an empty-server baseline charges them to the database that caused
+      them, which is what Dolt's per-database directory already does.
+    """
+    # MySQL now loads the same transformed file Dolt does, so it has to exist before the MySQL
+    # phase runs — and the MySQL phases run first.
+    phase = "dolt_rowinsert" if per_row else "dolt_oneshot"
+    inside, _ = dolt_prepare(db, phase, indexes)
+    mysql_fresh()
+    baseline = mysql_datadir_bytes()
     started = time.time()
-    p = run("docker", "exec", MYSQL_NAME, "sh", "-c",
-            f"mysql -p{MYSQL_PW} -uroot --force < {inside}")
+    p = run("docker", "exec", MYSQL_NAME, "sh", "-c", f"mysql -p{MYSQL_PW} -uroot < {inside}")
     seconds = time.time() - started
-    if p.returncode != 0 and "ERROR" in (p.stderr or ""):
-        return {"error": p.stderr.strip()[:300], "seconds": round(seconds, 1)}
+    if p.returncode != 0:
+        return {"error": mysql_error(p), "seconds": round(seconds, 1)}
     run("docker", "exec", MYSQL_NAME, "mysql", f"-p{MYSQL_PW}", "-uroot", "-e", "FLUSH TABLES")
-    size = run("docker", "exec", MYSQL_NAME, "du", "-sb", f"/var/lib/mysql/{db}")
     return {"seconds": round(seconds, 1),
-            "bytes": int(size.stdout.split()[0]) if size.stdout.split() else None}
+            "bytes": mysql_datadir_bytes() - baseline,
+            "database_dir_bytes": mysql_dir_bytes(db),
+            "baseline_bytes": baseline}
+
+
+def mysql_error(p):
+    """The real message, not the password warning.
+
+    `mysql` writes "[Warning] Using a password on the command line interface can be insecure" to
+    stderr on every single invocation. Truncating stderr to a few hundred characters therefore
+    recorded the warning and threw the actual error away."""
+    lines = [l for l in ((p.stderr or "") + "\n" + (p.stdout or "")).splitlines()
+             if l.strip() and "Using a password on the command line" not in l]
+    return " / ".join(lines).strip()[:300] or f"exit {p.returncode} with no message"
+
+
+def mysql_datadir_bytes():
+    p = run("docker", "exec", MYSQL_NAME, "du", "-sb", "/var/lib/mysql")
+    return int(p.stdout.split()[0]) if p.stdout.split() else 0
+
+
+def mysql_dir_bytes(db):
+    p = run("docker", "exec", MYSQL_NAME, "du", "-sb", f"/var/lib/mysql/{db}")
+    return int(p.stdout.split()[0]) if p.stdout.split() else None
+
+
+def mysql_fresh():
+    """A brand-new empty server for every database, so shared files are attributable."""
+    run("docker", "rm", "-f", MYSQL_NAME)
+    run("docker", "run", "--rm", "-v", f"{MYSQL_DATA}:/d", "--entrypoint", "sh", DOLT_IMAGE,
+        "-c", "rm -rf /d/* /d/.[!.]* 2>/dev/null || true")
+    mysql_up()
 
 
 # ------------------------------------------------------------------- Dolt ---
-def dolt_prepare(db, phase):
-    mode = MODE[phase]
+def dolt_host_up(mode):
+    """One long-lived Dolt container per data directory, so loads are `docker exec` like MySQL's.
+
+    The name is always built from the constant, never from the current value of DOLT_HOST: doing the
+    latter appended the mode once per call and left a trail of containers named
+    `doltsamples-dolt-runner-oneshot-oneshot-rowinsert-...`, one leaked per mode change."""
+    want = f"{DOLT_HOST_BASE}-{mode}"
+    state = run("docker", "inspect", "-f", "{{.State.Status}}", want).stdout.strip()
+    if state != "running":
+        run("docker", "rm", "-f", want)
+        run("docker", "run", "-d", "--name", want, "--label", "doltsamples.transient=true",
+            "-v", f"{data_dir(mode)}:/var/lib/dolt", "-v", f"{DUMPS}:/dumps",
+            "--entrypoint", "sh", DOLT_IMAGE, "-c", "sleep infinity")
+    globals()["DOLT_HOST"] = want
+
+def dolt_prepare(db, phase, indexes="deferred"):
+    mode = MODE[phase] + ("" if indexes == "deferred" or phase not in PER_ROW else "_inline")
     src = os.path.join(dumps_dir(phase in PER_ROW), f"{db}.sql")
     out_dir = os.path.join(DUMPS, "dolt", mode)
     os.makedirs(out_dir, exist_ok=True)
     sql, notes = transform(open(src, "rb").read(), db)
+    # Deferring the indexes only means anything for a row-by-row load: with extended INSERTs the
+    # index is built over batches anyway, and the point of the variant is to separate the cost of
+    # writing rows one at a time from the cost of maintaining an index while doing it.
+    if indexes == "deferred" and phase in PER_ROW:
+        sql, more = defer_indexes(sql)
+        notes += more
     if phase == "dolt_rowcommit":
         sql, n = per_row_commits(sql)
         notes.append(f"a DOLT_COMMIT after each of {n:,} INSERT statements")
@@ -151,20 +217,68 @@ def dolt_prepare(db, phase):
     return f"/dumps/dolt/{mode}/{db}.sql", notes
 
 
-def dolt_load(db, phase):
-    mode = MODE[phase]
+def chunk_sql(path, statements_per_chunk=150_000):
+    """Split a prepared dump into files of at most N statements.
+
+    The per-row-commit loads were killed by the kernel — exit 137 — on the three largest databases,
+    every time, because one `dolt sql` process builds the whole commit history in memory and this
+    host has 15.5 GB. `oracle_sh` died at 262,915 of 918,843 rows on the retry, at the same kind of
+    point as the first attempt. Splitting the file lets each process exit and give its memory back;
+    the data directory is the only thing carried between them, and Dolt picks up where it left off.
+
+    It changes the timing slightly — a process start per chunk — and that is disclosed rather than
+    hidden: the alternative is a measurement that cannot be taken at all on this machine.
+    """
+    out, chunk, n, count = [], [], 0, 0
+    head = []
+    with open(path, "rb") as fh:
+        for line in fh:
+            if not out and not chunk and (line.startswith(b"/*") or line.startswith(b"SET ")
+                                          or line.startswith(b"CREATE DATABASE")
+                                          or line.startswith(b"USE ")):
+                head.append(line)
+                continue
+            chunk.append(line)
+            if line.rstrip().endswith(b";"):
+                count += 1
+            if count >= statements_per_chunk:
+                out.append(head + chunk)
+                chunk, count = [], 0
+    if chunk:
+        out.append(head + chunk)
+    paths = []
+    for i, body in enumerate(out):
+        q = f"{path}.part{i:03d}"
+        with open(q, "wb") as fh:
+            fh.writelines(body)
+        paths.append(q)
+    return paths
+
+
+def dolt_load(db, phase, indexes="deferred"):
+    mode = MODE[phase] + ("" if indexes == "deferred" or phase not in PER_ROW else "_inline")
     target = os.path.join(data_dir(mode), db)
     if os.path.isdir(target):
         run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt", "--entrypoint", "sh",
             DOLT_IMAGE, "-c", f"rm -rf /var/lib/dolt/{db}")
     os.makedirs(data_dir(mode), exist_ok=True)
-    inside, notes = dolt_prepare(db, phase)
+    inside, notes = dolt_prepare(db, phase, indexes)
+    host_path = os.path.join(DUMPS, "dolt", mode, f"{db}.sql")
+    parts = ([os.path.join("/dumps/dolt", mode, os.path.basename(q))
+              for q in chunk_sql(host_path)] if phase == "dolt_rowcommit" else [inside])
+    if len(parts) > 1:
+        notes.append(f"loaded in {len(parts)} chunks so no single process is OOM-killed")
 
+    # `docker exec` into a container that is already up, exactly as the MySQL loads do. Creating a
+    # container per load cost a measured 0.36s twice over, which was most of the smallest Dolt
+    # timings and nothing of MySQL's.
+    dolt_host_up(mode)
     started = time.time()
-    p = run("docker", "run", "--rm", "--label", "doltsamples.transient=true",
-            "-v", f"{data_dir(mode)}:/var/lib/dolt", "-v", f"{DUMPS}:/dumps",
-            "-w", "/var/lib/dolt", "--entrypoint", "dolt", DOLT_IMAGE,
-            "--data-dir", "/var/lib/dolt", "sql", "--file", inside)
+    for part in parts:
+        p = run("docker", "exec", "-w", "/var/lib/dolt", DOLT_HOST,
+                "dolt", "--data-dir", "/var/lib/dolt", "sql", "--file", part)
+        if p.returncode != 0:
+            break
     load_s = time.time() - started
     if not os.path.isdir(target):
         return {"error": (p.stderr or p.stdout).strip()[:300], "seconds": round(load_s, 1)}
@@ -175,12 +289,12 @@ def dolt_load(db, phase):
     outcome = {"exit_code": p.returncode,
                "output_tail": ((p.stderr or "") + (p.stdout or "")).strip()[-400:]}
 
+    final_started = time.time()
     final = ("dolt gc" if phase == "dolt_rowcommit" else
              'dolt add -A && dolt commit -m "import from mysql-megasamples" '
              '--author "megasamples <megasamples@localhost>" ; dolt gc')
     started = time.time()
-    run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt",
-        "-w", f"/var/lib/dolt/{db}", "--entrypoint", "sh", DOLT_IMAGE, "-c", final)
+    run("docker", "exec", "-w", f"/var/lib/dolt/{db}", DOLT_HOST, "sh", "-c", final)
     settle_s = time.time() - started
 
     size = run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/d", "--entrypoint", "sh",
@@ -192,10 +306,15 @@ def dolt_load(db, phase):
     outcome.update({"seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
                     "bytes": (total - stats) if total else None, "stats_bytes": stats,
                     "notes": notes})
+    if p.returncode != 0:
+        outcome["error"] = f"load exited {p.returncode}: {outcome['output_tail'][-200:]}"
+        return outcome
+    if outcome["bytes"] is None:
+        outcome["error"] = "the loaded directory could not be measured"
+        return outcome
     short = truncated(db, mode)
     if short:
-        outcome["error"] = ("the load did not finish: " + short
-                            + (f" (exit {p.returncode})" if p.returncode else ""))
+        outcome["error"] = "the load did not finish: " + short
     return outcome
 
 
@@ -208,12 +327,18 @@ def truncated(db, mode):
     tables = [r[0] for r in mysql_rows_query(
         f"SELECT table_name FROM information_schema.tables "
         f"WHERE table_schema='{db}' AND table_type='BASE TABLE' ORDER BY table_name")]
+    # No tables means the reference server did not answer, not that the load is clean. Returning
+    # None here once let a load that never ran at all be recorded as successful.
+    if not tables:
+        raise RuntimeError(f"cannot verify {db}: the reference MySQL returned no table list")
     for t in tables:
         want = int(mysql_rows_query(f"SELECT COUNT(*) FROM `{db}`.`{t}`")[0][0])
         p = run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt",
                 "-w", "/var/lib/dolt", "--entrypoint", "dolt", DOLT_IMAGE,
                 "--use-db", db, "sql", "-r", "csv", "-q", f"SELECT COUNT(*) FROM `{t}`")
         got = next((int(l.strip()) for l in p.stdout.splitlines() if l.strip().isdigit()), None)
+        if got is None and p.returncode != 0 and not p.stdout.strip():
+            raise RuntimeError(f"cannot verify {db}.{t}: {(p.stderr or '').strip()[:200]}")
         if got != want:
             return f"{db}.{t} has {got if got is not None else 'no'} rows, expected {want:,}"
     return None
@@ -231,9 +356,28 @@ def main():
     ap.add_argument("--only", action="append")
     ap.add_argument("--phase", action="append", choices=PHASES)
     ap.add_argument("--restart", action="store_true", help="forget previous progress and redo all")
+    ap.add_argument("--indexes", choices=["deferred", "inline"], default="deferred",
+                    help="deferred (default): for the row-by-row loads, drop secondary indexes and "
+                         "foreign keys during the load and rebuild them afterwards, with unique and "
+                         "foreign-key checks off — the way anyone actually bulk-loads. inline: "
+                         "maintain every index on every row, which is the slow way and the one the "
+                         "first runs measured")
+    ap.add_argument("--allow-busy", action="store_true",
+                    help="time the loads even with other stacks running (they will compete)")
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="run each unit N times and keep the median, for the cheap phases")
     ap.add_argument("--resume", action="store_true",
                     help="continue a run recorded on another machine (normally refused)")
     a = ap.parse_args()
+
+    busy = [l for l in run("docker", "ps", "--format", "{{.Names}}").stdout.splitlines()
+            if l.startswith(("megasamples-", "doltsamples-")) and "mysql-timing" not in l
+            and "dolt-runner" not in l and l != "megasamples-mysql"]
+    if busy and not a.allow_busy:
+        sys.exit("These containers are running and will compete with the measurements:\n  "
+                 + "\n  ".join(busy)
+                 + "\n\nStop them first — `make down` here and in ../mysql-megasamples, keeping\n"
+                   "megasamples-mysql, which is the source of the dumps. --allow-busy overrides.")
 
     dbs = a.only or databases()
     phases = a.phase or PHASES
@@ -262,14 +406,30 @@ def main():
           f"({len(units) - len(todo)} already recorded)\n", flush=True)
 
     for i, (phase, db) in enumerate(todo, 1):
-        key = f"{phase}/{db}"
+        # A run outlives most things, including the Docker daemon. A restart mid-run once left a
+        # unit recorded `done` with no size and no verification, so stop at the first unit that
+        # cannot reach the daemon rather than recording 100 more of the same.
+        if run("docker", "version", "-f", "{{.Server.Version}}").returncode != 0:
+            print("\ndocker is not answering; stopping so no unit is recorded unverified. "
+                  "restart it and run the same command again; recorded progress is kept.",
+                  flush=True)
+            return 2
+        key = f"{phase}/{db}" + ("" if a.indexes == "deferred" else "/inline")
         note(p, key, status="running", started=time.time(), phase=phase, database=db)
         started = time.time()
+        runs = []
         try:
-            if phase.startswith("mysql"):
-                res = mysql_load(db, phase in PER_ROW)
-            else:
-                res = dolt_load(db, phase)
+            for _ in range(max(1, a.repeat)):
+                runs.append(mysql_load(db, phase in PER_ROW, a.indexes)
+                            if phase.startswith("mysql") else dolt_load(db, phase, a.indexes))
+                if "error" in runs[-1]:
+                    break
+            res = dict(runs[-1])
+            if len(runs) > 1 and all("error" not in x for x in runs):
+                times = sorted(x["seconds"] for x in runs)
+                res["seconds"] = times[len(times) // 2]
+                res["seconds_all"] = times
+                res["repeats"] = len(times)
         except Exception as exc:                                   # noqa: BLE001
             res = {"error": f"{type(exc).__name__}: {exc}"[:300]}
         res["status"] = "error" if "error" in res else "done"
