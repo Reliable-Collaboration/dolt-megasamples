@@ -35,7 +35,13 @@ VERSIONED = re.compile(rb"/\*!\d{5}\s?(.*?)\*/", re.S)
 DEFINER = re.compile(rb"\s*DEFINER\s*=\s*[^\s]+@[^\s]+", re.I)
 # mysqldump writes `CREATE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW ...`; Dolt parses neither
 # clause. Both are MySQL execution hints, not part of what the view computes.
-VIEW_CLAUSES = re.compile(rb"CREATE\s+ALGORITHM\s*=\s*\w+\s*(SQL SECURITY\s+\w+\s*)?", re.I)
+# Two clauses, stripped independently, because mysqldump puts DEFINER between them:
+# `CREATE ALGORITHM=UNDEFINED DEFINER=`x`@`y` SQL SECURITY DEFINER VIEW ...`. A single pattern
+# expecting SQL SECURITY to follow ALGORITHM only removed the first, and once DEFINER went too the
+# statement read `CREATE  SQL SECURITY DEFINER VIEW`, which Dolt rejects -- so oracle_co's three
+# views failed the load outright while MySQL, which accepts the clause, kept all three.
+VIEW_ALGORITHM = re.compile(rb"CREATE\s+ALGORITHM\s*=\s*\w+\s*", re.I)
+VIEW_SECURITY = re.compile(rb"\s*SQL\s+SECURITY\s+(DEFINER|INVOKER)\s*", re.I)
 # `DROP FUNCTION IF EXISTS x` is Dolt-unsupported, and mysqldump emits one before every routine.
 # The failure aborts the rest of the routine section, which is why one rejected DROP costs sakila
 # all 6 of its routines and employees all 7.
@@ -123,9 +129,10 @@ def transform(text, database, known_databases=()):
         notes.append(f"unwrapped {before} version-gated comment block(s)")
 
     # 1b. drop the view clauses Dolt cannot parse, and the DROP ... IF EXISTS lines it rejects
-    text, n = VIEW_CLAUSES.subn(b"CREATE ", text)
-    if n:
-        notes.append(f"removed ALGORITHM/SQL SECURITY from {n} view definition(s)")
+    text, n = VIEW_ALGORITHM.subn(b"CREATE ", text)
+    text, n2 = VIEW_SECURITY.subn(b" ", text)
+    if n or n2:
+        notes.append(f"removed ALGORITHM from {n} and SQL SECURITY from {n2} view definition(s)")
     text, n = DROP_ROUTINE.subn(b"", text)
     if n:
         notes.append(f"removed {n} `DROP ... IF EXISTS` statement(s) Dolt rejects")

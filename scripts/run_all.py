@@ -29,7 +29,7 @@ is left. The run is resumable: a unit already recorded is skipped, so it can be 
 up. Units run cheapest-first and smallest-first within a phase, so the results table fills in from
 the top rather than arriving all at once at the end.
 """
-import argparse, json, os, shutil, subprocess, sys, time
+import argparse, json, os, re, shutil, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (DOLT_IMAGE, DUMPS, MYSQL_CONTAINER, RESULTS, ROOT, data_dir, databases,  # noqa: E402
@@ -364,29 +364,56 @@ def dolt_load(db, phase, indexes="deferred"):
     outcome.update({"seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
                     "bytes": (total - stats) if total else None, "stats_bytes": stats,
                     "notes": notes})
-    if p.returncode != 0:
-        outcome["error"] = f"load exited {p.returncode}: {outcome['output_tail'][-200:]}"
-        return outcome
+    # A nonzero exit is not automatically a failed load, and Dolt's message cannot be used to tell
+    # the difference: it names the statement it choked on only when writing to a TTY, so under
+    # `docker exec` all that arrives is "syntax error at position 383 near 'character'".
+    #
+    # The row check is the arbiter instead, and it is a better one. `truncated()` walks MySQL's
+    # table list and counts every table on both sides, so a load that dropped a table or stopped
+    # early fails it. If every table is present and complete, the load delivered the data, and
+    # whatever Dolt refused was a schema object after the rows -- stored routines, which it does not
+    # implement, or a view whose body it cannot parse: `oracle_co.product_reviews` selects through a
+    # JSON_TABLE whose column carries a `character set`, and Dolt stops at that word. That shortfall
+    # is real and is counted in the report's "Schema objects Dolt would not take", not hidden.
     if outcome["bytes"] is None:
         outcome["error"] = "the loaded directory could not be measured"
         return outcome
     short = truncated(db, mode)
     if short:
-        outcome["error"] = "the load did not finish: " + short
+        outcome["error"] = ("the load did not finish: " + short
+                            + (f" (exit {p.returncode})" if p.returncode else ""))
+    elif p.returncode != 0:
+        notes.append("Dolt refused something after the rows and exited "
+                     f"{p.returncode}; every table matches MySQL, so the shortfall is in the "
+                     "schema objects the report counts separately. It said: "
+                     + outcome["output_tail"][:200])
+        outcome["schema_object_error"] = outcome["output_tail"][:300]
     return outcome
 
 
-def dolt_error_tail(p):
-    """The lines that look like an error, not the last 400 characters.
+def dolt_output(p):
+    """Everything Dolt said, with the noise removed.
 
-    `dolt sql --file` prints a result table for every `CALL DOLT_COMMIT`, so the tail of a failed
-    per-row-commit load was 400 characters of `+------+` and nothing about what went wrong."""
-    text = ((p.stderr or "") + "\n" + (p.stdout or ""))
-    lines = [l.strip() for l in text.splitlines()
-             if l.strip() and not set(l.strip()) <= set("+-| ")]
-    hits = [l for l in lines if "error" in l.lower() or "cannot" in l.lower()
-            or "unsupported" in l.lower() or "not found" in l.lower()]
-    return " / ".join(hits[-6:] or lines[-6:])[-600:]
+    `dolt sql --file` writes "Processed N% of the file" thousands of times and a result table for
+    every `CALL DOLT_COMMIT`, so a failed per-row-commit load's raw tail is progress bars and
+    `+------+` and nothing about what went wrong."""
+    text = ((p.stderr or "") + "\n" + (p.stdout or "")).replace("\r", "\n")
+    return [l.strip() for l in text.splitlines()
+            if l.strip() and not set(l.strip()) <= set("+-| ") and "of the file" not in l]
+
+
+def dolt_error_tail(p):
+    """The error and the statement that caused it.
+
+    Keeping only lines that contain the word "error" threw away the statement on the next line --
+    which is the half that says *what* Dolt would not take, and the half the caller needs to tell a
+    rejected stored routine from a real failure. The tail now runs from the last error line to the
+    end of the output."""
+    lines = dolt_output(p)
+    starts = [i for i, l in enumerate(lines)
+              if any(w in l.lower() for w in ("error", "cannot", "unsupported", "not found"))]
+    chosen = lines[starts[-1]:] if starts else lines[-6:]
+    return " / ".join(chosen)[-600:]
 
 
 def truncated(db, mode):
