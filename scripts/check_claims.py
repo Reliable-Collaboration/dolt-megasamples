@@ -16,7 +16,7 @@ in a table.
 import json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, load_results  # noqa: E402
+from common import ROOT, human, load_results  # noqa: E402
 
 MB = 1024 * 1024
 DOCS = ("README.md", "JOURNAL.md")
@@ -89,6 +89,9 @@ def spread_facts(r):
 METHOD_CLAIMS = [
     # measured by scripts/method_checks.py into build/method.json
     ("a measured {overhead} s that was under 1% of the large loads", ["README.md"]),
+    ("data directory is **{empty_mysql}** — measured {empty_samples} times during this run, with "
+     "{empty_spread} bytes between the largest and the smallest", ["README.md"]),
+    ("InnoDB shared files grew by **{shared_growth}**", ["README.md"]),
 ]
 
 CLAIMS = [
@@ -132,13 +135,14 @@ def main():
     method_path = os.path.join(ROOT, "build", "method.json")
     if os.path.exists(method_path):
         m = json.load(open(method_path, encoding="utf-8"))
+        e = m.get("empty_footprint") or {}
         f.update({
             "overhead": f"{m['dolt_container_overhead']['seconds']:.2f}",
-            "shared_mb": f"{m['mysql_shared_files']['unattributed_bytes'] / 1024 ** 2:.0f}",
-            "shared_pct": str(m["mysql_shared_files"]["unattributed_percent"]),
-            "repeat_median": f"+{m['timing_repeatability']['median_percent']}",
-            "repeat_min": f"{m['timing_repeatability']['min_percent']}",
-            "repeat_max": f"+{m['timing_repeatability']['max_percent']}",
+            "empty_mysql": human(e["mysql_empty_datadir_bytes"]) if e else "n/a",
+            "empty_samples": e.get("mysql_empty_datadir_samples", 0),
+            "empty_spread": e.get("mysql_empty_datadir_spread_bytes", 0),
+            "shared_growth": human(e["mysql_shared_growth_bytes"]) if e.get(
+                "mysql_shared_growth_bytes") else "0 bytes",
         })
         globals()["CLAIMS"] = CLAIMS + METHOD_CLAIMS
     text = {d: open(os.path.join(ROOT, d), encoding="utf-8").read() for d in DOCS}

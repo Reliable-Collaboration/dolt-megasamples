@@ -1,27 +1,28 @@
 {
   "dolt_container_overhead": {
-    "note": "two containers per Dolt load: the load, then commit and gc",
-    "per_load": 2,
+    "note": "zero per load: both engines now load by `docker exec` into a long-lived container. Dolt used to pay this twice per load and MySQL not at all",
+    "per_load": 0,
     "samples": 5,
-    "seconds": 0.38
+    "seconds": 0.32
   },
-  "mysql_shared_files": {
-    "datadir_bytes": 2117061494,
-    "per_database_bytes": 2003794606,
-    "unattributed_bytes": 113266888,
-    "unattributed_percent": 5.4
+  "empty_footprint": {
+    "databases_checked": 19,
+    "mysql_empty_datadir_bytes": 215374878,
+    "mysql_empty_datadir_samples": 19,
+    "mysql_empty_datadir_spread_bytes": 145,
+    "mysql_shared_growth_bytes": 0,
+    "note": "every MySQL figure in this report excludes the empty-server baseline: it is a per-server cost, not a per-database one, and it does not grow as data is loaded"
   },
-  "timing_repeatability": {
-    "max_percent": 132,
-    "measured": "2026-09-06",
-    "median_percent": 17,
-    "method": "every database reloaded into the timing MySQL a second time and compared",
-    "min_percent": -20,
-    "note": "the spread is in the sub-second loads; everything over five seconds repeats within -20% to +8%",
-    "stable_above_seconds": 5,
-    "stable_range_percent": [
-      -20,
-      8
-    ]
+  "repeatability_from_run": {
+    "bytes": {
+      "median_spread_percent": 0.0,
+      "units_repeated": 11,
+      "worst_spread_percent": 0.4
+    },
+    "seconds": {
+      "median_spread_percent": 0.0,
+      "units_repeated": 11,
+      "worst_spread_percent": 50.0
+    }
   }
 }

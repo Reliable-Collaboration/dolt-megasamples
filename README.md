@@ -146,6 +146,16 @@ multi-million-commit history is killed by the kernel on this host — `employees
 give its memory back. That adds a process start per chunk to the timing, which is disclosed rather
 than hidden; the alternative is a measurement that cannot be taken on this machine at all.
 
+**Every MySQL figure here excludes what an empty MySQL costs.** Each database is loaded into its own
+fresh server, and the size charged to it is the growth over that server's empty data directory. An
+empty MySQL 9.7.2 data directory is **205.4 MB** — measured 19 times during this run, with 145 bytes
+between the largest and the smallest — and none of it is charged to any database. That is the right
+call for comparing *data*, because it is a per-server cost that does not grow: across 19 loads the
+InnoDB shared files grew by **0 bytes**, so the bytes charged to a database equal that database's own
+directory, exactly. But it is worth knowing before quoting a ratio, because Dolt has no equivalent —
+its cost is the database directory and there is nothing outside it. For `jaffle_shop` at 372 KB, the
+server it needs is over five hundred times the size of the data in it.
+
 **MySQL runs with two non-default flags**, `--local-infile=1` and `--skip-log-bin`. The second
 favours MySQL by not writing a binary log.
 
