@@ -241,59 +241,86 @@ def fig_cost_by_mode(results):
 
 
 def fig_index_policy(results):
-    """Deferred against inline, over every database, for the three row-by-row loads.
+    """What keeping the indexes during the load costs, as a change from dropping them.
 
-    One variable changes between the two bars of a pair: whether the secondary indexes and foreign
-    keys were dropped for the load and rebuilt at the end, or maintained on every row. The one-shot
-    loads are absent because the policy does not apply to them -- mysqldump's extended INSERTs build
-    an index over batches either way, and both policies produced byte-identical files."""
+    The question is a polarity -- more or less -- so the form is a diverging bar against a zero
+    line, and the colour is a diverging pair with a neutral midpoint rather than two arbitrary
+    hues. Absolute sizes and times for both policies are in the report's tables; drawing them
+    here as paired bars on a log axis made a 47% difference look like nothing at all, which is
+    the opposite of what the figure is for.
+
+    The one-shot loads are absent because the policy does not apply to them: mysqldump's extended
+    INSERTs build an index over batches either way, and the two policies produced byte-identical
+    files."""
     dbs = sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
-    have = [(t, ax_) for ax_ in ("bytes", "seconds") for t in POLICY_TESTS
-            if any(value(results[d], t, ax_, "inline") for d in dbs)]
-    if not have:
+    if not any(value(results[d], t, "bytes", "inline") for d in dbs for t in POLICY_TESTS):
         print("  ! index-policy skipped: no load has been measured with indexes left inline")
         return
 
-    fig, axes = plt.subplots(2, 3, figsize=(15, 0.42 * len(dbs) + 3.4), sharey=True)
+    fig, axes = plt.subplots(2, 3, figsize=(14, 0.34 * len(dbs) + 3.2), sharey=True)
     for col, t in enumerate(POLICY_TESTS):
-        for row, (axis, scale, unit) in enumerate((("bytes", MB, "megabytes"),
-                                                   ("seconds", 1, "seconds"))):
+        for row, (axis, unit) in enumerate((("bytes", "disk"), ("seconds", "time"))):
             ax = axes[row][col]
-            h = 0.34
-            for k, policy in enumerate(("deferred", "inline")):
-                vals, ys, errs = [], [], []
-                for i, d in enumerate(dbs):
-                    v = value(results[d], t, axis, policy)
-                    if v:
-                        vals.append(v / scale)
-                        ys.append(i + (0.5 - k) * h)
-                        errs.append(whisker(results[d], t, axis, policy, scale, v / scale))
-                if vals:
-                    ax.barh(ys, vals, h, color=POLICY_COLOURS[policy],
-                            label="indexes dropped for the load" if policy == "deferred"
-                            else "indexes maintained throughout")
-                    for yy, vv, e in zip(ys, vals, errs):
-                        if e:
-                            ax.errorbar(vv, yy, xerr=e, fmt="none", ecolor=INK, elinewidth=.8,
-                                        capsize=1.6, alpha=.85)
-            ax.set_xscale("log")
-            style(ax, LABELS[t] if row == 0 else "", f"{unit} (log scale)", pad=8)
+            vals, ys, cols = [], [], []
+            for i, d in enumerate(dbs):
+                a = value(results[d], t, axis, "deferred")
+                b = value(results[d], t, axis, "inline")
+                if a and b:
+                    pct = 100.0 * (b - a) / a
+                    vals.append(pct)
+                    ys.append(len(dbs) - 1 - i)
+                    cols.append(POLICY_MORE if pct > 0.5 else
+                                POLICY_LESS if pct < -0.5 else POLICY_NONE)
+            if vals:
+                ax.barh(ys, vals, 0.66, color=cols)
+                # Label only the extremes, so the eye goes to the result rather than to 126 numbers,
+                # and offset them in points rather than in data units. A panel where every value is
+                # zero -- which is exactly what Dolt's one-INSERT-per-row disk does -- autoscales to
+                # a range of hundredths, and a label offset by 1.5 *data* units then sits thirty
+                # axis-widths off the plot. `bbox_inches="tight"` duly grew the canvas to include
+                # it, turning a 14-inch figure into a 50-inch one.
+                for yy, vv in sorted(zip(ys, vals), key=lambda z: -abs(z[1]))[:2]:
+                    if abs(vv) >= 1:
+                        ax.annotate(f"{vv:+.0f}%", (vv, yy), textcoords="offset points",
+                                    xytext=(4 if vv >= 0 else -4, 0), va="center",
+                                    ha="left" if vv >= 0 else "right",
+                                    fontsize=7.5, color=INK, fontweight="bold")
+                # a panel with nothing to show should look like nothing, not like noise magnified
+                if max(abs(v) for v in vals) < 1:
+                    ax.set_xlim(-1, 1)
+            ax.axvline(0, color=INK, linewidth=1.1)
+            ax.set_xlabel(f"% change in {unit} when the indexes are kept", color=INK, fontsize=8.5)
+            ax.set_title(LABELS[t] if row == 0 else "", color=INK, fontsize=11,
+                         pad=10, loc="left", fontweight="bold")
+            ax.tick_params(colors=INK, labelsize=7)
+            for side in ("top", "right", "left"):
+                ax.spines[side].set_visible(False)
+            ax.spines["bottom"].set_color(GRID)
+            ax.grid(axis="x", color=GRID, linewidth=.6, alpha=.7)
+            ax.set_axisbelow(True)
             if col == 0:
                 ax.set_yticks(range(len(dbs)),
-                              [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
+                              [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1],
                               fontsize=6.5)
+
     n = len(dbs)
-    covered = {t: sum(1 for d in dbs if value(results[d], t, "bytes", "inline")) for t in POLICY_TESTS}
-    gaps = ", ".join(f"{SHORT[t].replace(chr(10), ' ')}: {c}/{n}"
-                     for t, c in covered.items() if c < n)
-    axes[0][0].legend(fontsize=8, frameon=False, ncol=2, loc="lower left",
-                      bbox_to_anchor=(0.0, 1.12))
-    fig.suptitle("Does dropping the indexes for the load change anything? "
-                 f"{n} databases, disk above, time below",
-                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.005)
-    if gaps:
-        fig.text(.02, -0.012, f"a gap means that pair has no inline result yet — {gaps}",
-                 fontsize=7.5, color=INK, alpha=.75)
+    covered = {t: sum(1 for d in dbs if value(results[d], t, "bytes", "inline")
+                      and value(results[d], t, "bytes", "deferred")) for t in POLICY_TESTS}
+    gaps = ", ".join(f"{LABELS[t]}: {c}/{n}" for t, c in covered.items() if c < n)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in
+               (POLICY_MORE, POLICY_LESS, POLICY_NONE)]
+    axes[0][0].legend(handles,
+                      ["keeping them costs more", "keeping them costs less", "no difference"],
+                      fontsize=8, frameon=False, ncol=3, loc="lower left",
+                      bbox_to_anchor=(0.0, 1.16))
+    fig.suptitle("What maintaining the indexes during a row-by-row load costs — "
+                 f"all {n} databases, against dropping them and rebuilding at the end",
+                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.0)
+    fig.text(.02, -0.014,
+             (f"a missing bar means that pair has no result yet — {gaps}" if gaps
+              else f"every database has both policies for all {len(POLICY_TESTS)} loads")
+             + ".  Absolute sizes and times for both policies are tabulated in REPORT.md.",
+             fontsize=7.5, color=INK, alpha=.75)
     fig.tight_layout()
     save(fig, "index-policy.png")
 
