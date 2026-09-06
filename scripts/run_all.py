@@ -107,6 +107,13 @@ def note(p, key, replace=False, **fields):
 
 
 # ------------------------------------------------------------------ MySQL ---
+def ensure_data_root(*paths):
+    """Make the data directories exist as the invoking user, before Docker can make them as root."""
+    os.makedirs(os.path.join(ROOT, "data"), exist_ok=True)
+    for p in paths:
+        os.makedirs(p, exist_ok=True)
+
+
 def mysql_up():
     state = run("docker", "inspect", "-f", "{{.State.Status}}", MYSQL_NAME).stdout.strip()
     if state == "running":
@@ -195,6 +202,12 @@ def mysql_dir_bytes(db):
 
 def mysql_fresh():
     """A brand-new empty server for every database, so shared files are attributable."""
+    # Create the directory as this user before anything bind-mounts it. Docker creates a missing
+    # bind-mount source itself, as root -- and the cleanup container below mounts data/mysql, so on
+    # the first run after `make clean-data` it created data/ root-owned. Every later
+    # `os.makedirs(data/dolt-...)` then failed with EACCES and the entire Dolt phase errored out,
+    # 21 units in a row, with the load never attempted.
+    ensure_data_root(MYSQL_DATA)
     run("docker", "rm", "-f", MYSQL_NAME)
     run("docker", "run", "--rm", "-v", f"{MYSQL_DATA}:/d", "--entrypoint", "sh", DOLT_IMAGE,
         "-c", "rm -rf /d/* /d/.[!.]* 2>/dev/null || true")
@@ -210,6 +223,12 @@ def dolt_host_up(mode):
     `doltsamples-dolt-runner-oneshot-oneshot-rowinsert-...`, one leaked per mode change."""
     want = f"{DOLT_HOST_BASE}-{mode}"
     state = run("docker", "inspect", "-f", "{{.State.Status}}", want).stdout.strip()
+    # "running" is not the same as usable. These containers outlive the directories they mount: if
+    # data/ is deleted and recreated between runs, the container keeps a mount on the old inode,
+    # `docker inspect` still reports it running, and every `docker exec` into it fails with "OCI
+    # runtime exec failed". Ask it to do something trivial rather than trusting its status.
+    if state == "running" and run("docker", "exec", want, "true").returncode != 0:
+        state = "stale"
     if state == "running":
         # Stopping the harness kills the Python process, not the `dolt sql` it started inside this
         # container. That orphan keeps writing while the next load clears the directory underneath
@@ -438,6 +457,7 @@ def main():
                  + "\n\nStop them first — `make down` here and in ../mysql-megasamples, keeping\n"
                    "megasamples-mysql, which is the source of the dumps. --allow-busy overrides.")
 
+    ensure_data_root()
     dbs = a.only or databases()
     phases = a.phase or PHASES
     if a.indexes == "inline" and not a.phase:
