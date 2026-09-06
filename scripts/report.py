@@ -391,8 +391,14 @@ def report(items):
     idx_my, idx_do = sum(i["idx_my"] for i in items), sum(i["idx_do"] for i in items)
     commits = sorted({i["commits"] for i in items if i["commits"]})
     L += ["## Is the comparison valid?", "",
-          "Three things have to be true before a size ratio means anything. All three were checked "
-          "on every database, not assumed.", "",
+          "Six things have to be true before a size ratio means anything. All six were checked on "
+          "every database, not assumed. Three of them are checks on the data, below; the other "
+          "three are properties of how the load is run, and each is here because it was once "
+          "false: both engines are given the identical transformed dump (MySQL used to read "
+          "mysqldump's original), every Dolt load ends with a commit and a clean `dolt_status` "
+          "(the per-row-commit load used to end with `dolt gc` alone, leaving the index rebuild "
+          "uncommitted), and every size is taken after `dolt gc` so a journal is never measured in "
+          "place of a store.", "",
           "**The same rows.** `COUNT(*)` on both sides, per table, before any size was recorded; "
           "`information_schema.table_rows` is an InnoDB estimate and is not used. "
           + (f"**{len(bad)} database(s) disagree**: " + ", ".join(f"`{i['db']}`" for i in bad)
