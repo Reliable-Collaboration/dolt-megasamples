@@ -419,6 +419,16 @@ def report(items):
           "measures the other end.", ""]
 
     served = sum(r.get("server_stats_bytes") or 0 for r in RAW.values())
+    # The size adventureworks actually is, not a number typed in beside it. A hand-written figure
+    # inside generated prose is the exact drift the claim checker exists to catch, and this one had
+    # already drifted: 48.7 MB here against 49.0 MB in the journal, for the same database.
+    aw_bytes = next((i["dolt"] for i in items if i["db"] == "adventureworks"), None)
+    aw = human(aw_bytes) if aw_bytes else "the data"
+    # 68.2 MB is an observation from this project's own console use, not something results.json
+    # holds, so it stays as prose. The comparison against it must not be: "more than the 97.4 MB of
+    # data they describe" is what the sentence said the moment the data was larger than the figure.
+    aw_cmp = ("more than the" if aw_bytes and aw_bytes < 68.2 * 1000 * 1000
+              else "against the")
     L += ["## What a running server adds, and why it is not in the figures", "",
           "Every size above was measured with **no server running**: the load is done by the `dolt` "
           "CLI and nothing serves the data afterwards. That is deliberate. A `dolt sql-server` "
@@ -429,7 +439,7 @@ def report(items):
           f"**{human(served)}** in total, an even 22 KB per database.", "",
           "**That is a floor, not the cost.** During this project's own console use — four web "
           "clients browsing the data over a working session — `adventureworks`'s statistics reached "
-          "**68.2 MB, more than the 48.7 MB of data they describe**. A single pass over every table "
+          f"**68.2 MB, {aw_cmp} {aw} of data they describe**. A single pass over every table "
           "does not reproduce that, so the growth is driven by sustained querying in a way this "
           "experiment has not characterised. It is recorded because it is real disk that a real "
           "deployment will use, and because 22 KB would be a misleading thing to remember.", ""]

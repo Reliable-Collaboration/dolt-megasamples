@@ -97,7 +97,8 @@ METHOD_CLAIMS = [
 CLAIMS = [
     # `adventureworks`'s statistics figure is deliberately not pinned: it was observed during
     # console use and a controlled probe does not reproduce it, so it is prose, not a measurement.
-    ("more than the {aw_data} of data they describe", DOCS),
+    # the comparison word varies with the measurement, so only the figure is pinned
+    ("{aw_data} of data they describe", DOCS),
     ("for {rowcommit_worse} of the {rowcommit_dbs} databases", DOCS),
     ("within 0.5% for {within_05} of the {rowinsert_dbs} databases", DOCS),
     ("{mult_low} to {mult_high} the single-commit load", DOCS),
