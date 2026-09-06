@@ -229,15 +229,22 @@ def chunk_sql(path, statements_per_chunk=150_000):
     It changes the timing slightly — a process start per chunk — and that is disclosed rather than
     hidden: the alternative is a measurement that cannot be taken at all on this machine.
     """
-    out, chunk, n, count = [], [], 0, 0
-    head = []
+    # Every chunk is a separate `dolt sql` process with its own session, so each one needs the
+    # preamble: the character set, the checks, and above all `USE <db>` — the INSERTs are
+    # unqualified. Blank lines are skipped rather than ending the preamble; when they ended it, a
+    # `SET` added at the very top of the file cut `USE` out of every chunk after the first.
+    out, chunk, count = [], [], 0
+    head, in_head = [], True
     with open(path, "rb") as fh:
         for line in fh:
-            if not out and not chunk and (line.startswith(b"/*") or line.startswith(b"SET ")
-                                          or line.startswith(b"CREATE DATABASE")
-                                          or line.startswith(b"USE ")):
-                head.append(line)
-                continue
+            if in_head:
+                if not line.strip():
+                    continue
+                if (line.startswith(b"/*") or line.startswith(b"--") or line.startswith(b"SET ")
+                        or line.startswith(b"CREATE DATABASE") or line.startswith(b"USE ")):
+                    head.append(line)
+                    continue
+                in_head = False
             chunk.append(line)
             if line.rstrip().endswith(b";"):
                 count += 1
