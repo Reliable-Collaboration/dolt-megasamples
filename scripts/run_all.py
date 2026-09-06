@@ -120,10 +120,22 @@ def mysql_up():
             MYSQL_IMAGE, "mysqld", "--local-infile=1", "--skip-log-bin")
     if p.returncode != 0:
         sys.exit(f"could not start {MYSQL_IMAGE}: {p.stderr.strip()[:200]}")
-    for _ in range(300):
+    # Probe over TCP, not the socket. On a fresh data directory the MySQL entrypoint initialises the
+    # database using a *temporary* server started with --skip-networking, then shuts it down and
+    # starts the real one. A socket probe connects to that temporary server, so readiness was
+    # declared during initialisation and the load that followed hit "ERROR 2002: Can't connect to
+    # local MySQL server through socket". The temporary server refuses TCP, so this waits for the
+    # real one. Two consecutive successes, because the moment between the two servers also passes a
+    # single check.
+    good = 0
+    for _ in range(600):
         if run("docker", "exec", MYSQL_NAME, "mysql", f"-p{MYSQL_PW}", "-uroot",
-               "-e", "SELECT 1").returncode == 0:
-            return
+               "--protocol=TCP", "-h", "127.0.0.1", "-e", "SELECT 1").returncode == 0:
+            good += 1
+            if good >= 2:
+                return
+        else:
+            good = 0
         time.sleep(1)
     sys.exit("the timing MySQL never became ready")
 
@@ -216,7 +228,7 @@ def dolt_prepare(db, phase, indexes="deferred"):
     src = os.path.join(dumps_dir(phase in PER_ROW), f"{db}.sql")
     out_dir = os.path.join(DUMPS, "dolt", mode)
     os.makedirs(out_dir, exist_ok=True)
-    sql, notes = transform(open(src, "rb").read(), db)
+    sql, notes = transform(open(src, "rb").read(), db, databases())
     # Deferring the indexes only means anything for a row-by-row load: with extended INSERTs the
     # index is built over batches anyway, and the point of the variant is to separate the cost of
     # writing rows one at a time from the cost of maintaining an index while doing it.

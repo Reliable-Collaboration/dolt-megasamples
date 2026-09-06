@@ -45,10 +45,71 @@ DROP_ROUTINE = re.compile(rb"^\s*DROP\s+(FUNCTION|PROCEDURE|TRIGGER)\s+IF\s+EXIS
 CROSS_FK = re.compile(
     rb"^\s*CONSTRAINT\s+`[^`]+`\s+FOREIGN KEY\s*\([^)]*\)\s*REFERENCES\s+`([^`]+)`\.`[^`]+`.*?,?\s*$",
     re.I)
+# After the version-gated comments are unwrapped, mysqldump's view lands as `CREATE ... DEFINER ...`
+# on one line and `VIEW `name` AS select ...` on the next, so both openings have to be recognised.
+VIEW_LINE = re.compile(rb"^\s*(?:CREATE\b[^`]*?)?\bVIEW\s+`([^`]+)`", re.I)
+CREATE_LEAD = re.compile(rb"^\s*CREATE\b", re.I)
+QUALIFIED = re.compile(rb"`([A-Za-z0-9_$]+)`\s*\.\s*`")
 
 
-def transform(text, database):
-    """Return (sql, notes) as bytes. `database` is the schema the dump belongs to."""
+def drop_cross_database_views(text, database, known=()):
+    """Remove views that read from another database, and say which.
+
+    `oracle_oe.account_managers` selects from `oracle_hr`.`countries`. Each engine here is given one
+    database at a time -- MySQL a fresh empty server, Dolt a repository per database -- so that view
+    has nothing to resolve against in either. What made it worth catching is that the two engines
+    disagreed about it: MySQL refused the statement outright with `ERROR 1049: Unknown database`,
+    while Dolt accepted the view and stored it. Left alone, the comparison would have had MySQL
+    loading 6 views and Dolt 7 out of the same file, which is not the same file being loaded.
+
+    `known` is the set of sibling database names, and it is what makes this safe. A view body is
+    full of `alias`.`column` references that look identical to `database`.`table` -- matching the
+    shape alone drops every view in the corpus, sakila's seven included, because `c`.`account_mgr_id`
+    parses the same way as `oracle_hr`.`countries`. Only a qualifier that names a database that
+    actually exists counts, and with no list supplied nothing is dropped.
+
+    Same reasoning as the cross-database foreign keys above, and the same disclosure.
+    """
+    known = {k.encode() if isinstance(k, str) else k for k in known} - {database}
+    if not known:
+        return text, []
+    out, dropped = [], []
+    lines = text.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        m = VIEW_LINE.match(lines[i])
+        if not m:
+            out.append(lines[i])
+            i += 1
+            continue
+        # the statement may open on the previous line, which holds only `CREATE ...`
+        block = []
+        if not CREATE_LEAD.match(lines[i]):
+            while out and not out[-1].strip():
+                block.insert(0, out.pop())
+            if out and CREATE_LEAD.match(out[-1]):
+                block.insert(0, out.pop())
+        while i < len(lines):
+            block.append(lines[i])
+            done = lines[i].rstrip().endswith(b";")
+            i += 1
+            if done:
+                break
+        body = b"".join(block)
+        others = {d for d in QUALIFIED.findall(body) if d in known}
+        if others:
+            dropped.append(m.group(1).decode() + " -> "
+                           + ", ".join(sorted(d.decode() for d in others)))
+        else:
+            out.extend(block)
+    return b"".join(out), dropped
+
+
+def transform(text, database, known_databases=()):
+    """Return (sql, notes) as bytes. `database` is the schema the dump belongs to.
+
+    `known_databases` is every database in the corpus; it is what lets a cross-database view be told
+    apart from an ordinary table alias."""
     if isinstance(text, str):
         raise TypeError("pass the dump as bytes: decoding it corrupts _binary literals")
     if isinstance(database, str):
@@ -96,7 +157,12 @@ def transform(text, database):
     if dropped:
         notes.append(f"dropped {len(dropped)} cross-database foreign key(s): "
                      + "; ".join(d[:80] for d in dropped))
-    return b"".join(out), notes
+
+    # 4. drop views that read from another database, for the same reason and with the same notice
+    text, views = drop_cross_database_views(b"".join(out), database, known_databases)
+    if views:
+        notes.append(f"dropped {len(views)} cross-database view(s): " + "; ".join(views))
+    return text, notes
 
 
 SECONDARY = re.compile(rb"^\s*(UNIQUE\s+KEY|FULLTEXT\s+KEY|SPATIAL\s+KEY|KEY|CONSTRAINT)\s", re.I)

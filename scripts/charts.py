@@ -20,6 +20,11 @@ Four figures:
   time-by-database   what each database costs in time, in all five loads
   ratio-by-database  the same as a ratio against MySQL, so the crossover is visible
   cost-by-mode       both axes totalled, one bar per load
+  index-policy       the row-by-row loads with the indexes dropped and with them maintained
+
+Where a load was cheap enough to repeat, its bar carries a whisker spanning every sample. A bar
+without one was measured once, which the figure says by leaving it off rather than by drawing a
+whisker of zero length.
 """
 import json, os, sys
 
@@ -34,8 +39,14 @@ MB = 1024 * 1024
 INK, GRID = "#22252a", "#cfd4dc"
 # the five loads, in the order they are always drawn
 TESTS = ["mysql", "mysql_rowwise", "dolt_oneshot", "dolt_rowinsert", "dolt_rowcommit"]
-COLOURS = {"mysql": "#4c72b0", "mysql_rowwise": "#8fa9d4", "dolt_oneshot": "#dd8452",
-           "dolt_rowinsert": "#55a868", "dolt_rowcommit": "#c44e52"}
+# Categorical hues in fixed slot order, and they are checked rather than chosen by eye. The palette
+# these replaced failed a colour-vision check outright: its green and its orange -- Dolt's one-commit
+# and one-shot loads, drawn as adjacent bars -- came out 4.5 apart under protanopia, which is to say
+# indistinguishable to a red-green colourblind reader looking at the two bars this chart exists to
+# compare. These five pass every check; the three that sit under 3:1 against white are relieved by
+# the report carrying every number as a table.
+COLOURS = {"mysql": "#2a78d6", "mysql_rowwise": "#eb6834", "dolt_oneshot": "#1baf7a",
+           "dolt_rowinsert": "#eda100", "dolt_rowcommit": "#e87ba4"}
 LABELS = {"mysql": "MySQL — extended INSERTs",
           "mysql_rowwise": "MySQL — one INSERT per row",
           "dolt_oneshot": "Dolt — one commit per database",
@@ -44,6 +55,14 @@ LABELS = {"mysql": "MySQL — extended INSERTs",
 SHORT = {"mysql": "MySQL\nextended", "mysql_rowwise": "MySQL\n1 INSERT/row",
          "dolt_oneshot": "Dolt\n1 commit/db", "dolt_rowinsert": "Dolt\n1 INSERT/row",
          "dolt_rowcommit": "Dolt\n1 commit/row"}
+
+# The same three row-by-row loads run a second time with every secondary index and constraint left
+# in place for the whole load. They are a comparison of one variable against the five tests above,
+# not five more tests, so they get their own figure instead of seven bars per database.
+POLICY_TESTS = ["mysql_rowwise", "dolt_rowinsert", "dolt_rowcommit"]
+# Diverging, because the question is a polarity: does keeping the indexes cost more or less than
+# dropping them? Warm and cool poles with a neutral midpoint, so "no difference" reads as nothing.
+POLICY_MORE, POLICY_LESS, POLICY_NONE = "#e34948", "#2a78d6", "#c9c7c2"
 
 
 def style(ax, title, xlabel, pad=12):
@@ -64,19 +83,50 @@ def save(fig, name):
     print(f"  . {os.path.join('docs/img', name)}")
 
 
-def load():
-    with open(os.path.join(ROOT, "build", "results.json"), encoding="utf-8") as fh:
+def load(path=None):
+    with open(path or os.path.join(ROOT, "build", "results.json"), encoding="utf-8") as fh:
         return json.load(fh)
 
 
-def value(r, test, axis):
-    """One measurement, or None. `axis` is 'bytes' or 'seconds'."""
+def value(r, test, axis, policy="deferred"):
+    """One measurement, or None. `axis` is 'bytes' or 'seconds'.
+
+    `policy` picks between the row-by-row loads that dropped their secondary indexes for the load
+    and the ones that kept them. It has no meaning for the one-shot loads, which are unaffected."""
+    sfx = "_inline" if policy == "inline" else ""
     if test == "mysql":
         return r.get("mysql_disk_bytes") if axis == "bytes" else r.get("mysql_load_seconds")
     if test == "mysql_rowwise":
-        return r.get("mysql_rowwise_bytes") if axis == "bytes" else r.get("mysql_rowwise_seconds")
-    m = (r.get("modes", {}) or {}).get(test.replace("dolt_", ""), {}) or {}
+        return (r.get(f"mysql_rowwise_bytes{sfx}") if axis == "bytes"
+                else r.get(f"mysql_rowwise_seconds{sfx}"))
+    m = (r.get("modes", {}) or {}).get(test.replace("dolt_", "") + sfx, {}) or {}
     return m.get("disk_bytes") if axis == "bytes" else m.get("total_seconds")
+
+
+def samples(r, test, axis, policy="deferred"):
+    """Every repeat of one measurement, or None when it was measured once.
+
+    A load cheap enough to repeat carries its own spread, and the figures draw it as a whisker. The
+    expensive loads are single samples and get no whisker, which is the honest distinction: an
+    unrepeated number is not a number that repeated well."""
+    sfx = "_inline" if policy == "inline" else ""
+    key = "bytes_all" if axis == "bytes" else "seconds_all"
+    if test.startswith("dolt_"):
+        m = (r.get("modes", {}) or {}).get(test.replace("dolt_", "") + sfx, {}) or {}
+        got = m.get(key)
+    else:
+        spread = r.get("mysql_spread" if test == "mysql" else f"mysql_rowwise_spread{sfx}") or {}
+        got = spread.get(key)
+    return got if got and len(got) > 1 else None
+
+
+def whisker(r, test, axis, policy, scale, centre):
+    """(lower, upper) error-bar lengths around `centre`, or None."""
+    xs = samples(r, test, axis, policy)
+    if not xs:
+        return None
+    lo, hi = min(xs) / scale, max(xs) / scale
+    return [[max(0.0, centre - lo)], [max(0.0, hi - centre)]]
 
 
 def coverage(results, axis):
@@ -100,14 +150,19 @@ def by_database(results, axis, name, title, xlabel, scale):
     fig, ax = plt.subplots(figsize=(10, 0.78 * len(dbs) + 2.2))
     h, y = 0.16, range(len(dbs))
     for k, t in enumerate(TESTS):
-        vals, ys = [], []
+        vals, ys, errs = [], [], []
         for i, d in enumerate(dbs):
             v = value(results[d], t, axis)
             if v:
                 vals.append(v / scale)
                 ys.append(i + (2 - k) * h)
+                errs.append(whisker(results[d], t, axis, "deferred", scale, v / scale))
         if vals:
             ax.barh(ys, vals, h, label=LABELS[t], color=COLOURS[t])
+            for yy, vv, e in zip(ys, vals, errs):
+                if e:
+                    ax.errorbar(vv, yy, xerr=e, fmt="none", ecolor=INK, elinewidth=.8,
+                                capsize=1.6, alpha=.85)
     ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
                   fontsize=7)
     ax.set_xscale("log")
@@ -132,6 +187,7 @@ def fig_ratio(results):
                 ys.append(i + (1.5 - k) * h)
         if vals:
             ax.barh(ys, vals, h, label=LABELS[t], color=COLOURS[t])
+    drew = bool(ax.containers)
     ax.axvline(1.0, color=COLOURS["mysql"], linewidth=1.4, linestyle="--")
     ax.text(1.1, len(dbs) - .35, "the size MySQL uses", fontsize=8, color=COLOURS["mysql"])
     ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
@@ -139,7 +195,9 @@ def fig_ratio(results):
     ax.set_xscale("log")
     style(ax, "Disk used, as a ratio of MySQL loaded from the same dump",
           "left of the line is smaller than MySQL; right of it is larger (log scale)", pad=30)
-    ax.legend(fontsize=8, frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.005))
+    if drew:
+        ax.legend(fontsize=8, frameon=False, ncol=2, loc="lower center",
+                  bbox_to_anchor=(0.5, 1.005))
     ax.text(0, -0.05, caption(results, "bytes"), transform=ax.transAxes, fontsize=7.5,
             color=INK, alpha=.75)
     save(fig, "ratio-by-database.png")
@@ -182,15 +240,74 @@ def fig_cost_by_mode(results):
     save(fig, "cost-by-mode.png")
 
 
+def fig_index_policy(results):
+    """Deferred against inline, over every database, for the three row-by-row loads.
+
+    One variable changes between the two bars of a pair: whether the secondary indexes and foreign
+    keys were dropped for the load and rebuilt at the end, or maintained on every row. The one-shot
+    loads are absent because the policy does not apply to them -- mysqldump's extended INSERTs build
+    an index over batches either way, and both policies produced byte-identical files."""
+    dbs = sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
+    have = [(t, ax_) for ax_ in ("bytes", "seconds") for t in POLICY_TESTS
+            if any(value(results[d], t, ax_, "inline") for d in dbs)]
+    if not have:
+        print("  ! index-policy skipped: no load has been measured with indexes left inline")
+        return
+
+    fig, axes = plt.subplots(2, 3, figsize=(15, 0.42 * len(dbs) + 3.4), sharey=True)
+    for col, t in enumerate(POLICY_TESTS):
+        for row, (axis, scale, unit) in enumerate((("bytes", MB, "megabytes"),
+                                                   ("seconds", 1, "seconds"))):
+            ax = axes[row][col]
+            h = 0.34
+            for k, policy in enumerate(("deferred", "inline")):
+                vals, ys, errs = [], [], []
+                for i, d in enumerate(dbs):
+                    v = value(results[d], t, axis, policy)
+                    if v:
+                        vals.append(v / scale)
+                        ys.append(i + (0.5 - k) * h)
+                        errs.append(whisker(results[d], t, axis, policy, scale, v / scale))
+                if vals:
+                    ax.barh(ys, vals, h, color=POLICY_COLOURS[policy],
+                            label="indexes dropped for the load" if policy == "deferred"
+                            else "indexes maintained throughout")
+                    for yy, vv, e in zip(ys, vals, errs):
+                        if e:
+                            ax.errorbar(vv, yy, xerr=e, fmt="none", ecolor=INK, elinewidth=.8,
+                                        capsize=1.6, alpha=.85)
+            ax.set_xscale("log")
+            style(ax, LABELS[t] if row == 0 else "", f"{unit} (log scale)", pad=8)
+            if col == 0:
+                ax.set_yticks(range(len(dbs)),
+                              [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
+                              fontsize=6.5)
+    n = len(dbs)
+    covered = {t: sum(1 for d in dbs if value(results[d], t, "bytes", "inline")) for t in POLICY_TESTS}
+    gaps = ", ".join(f"{SHORT[t].replace(chr(10), ' ')}: {c}/{n}"
+                     for t, c in covered.items() if c < n)
+    axes[0][0].legend(fontsize=8, frameon=False, ncol=2, loc="lower left",
+                      bbox_to_anchor=(0.0, 1.12))
+    fig.suptitle("Does dropping the indexes for the load change anything? "
+                 f"{n} databases, disk above, time below",
+                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.005)
+    if gaps:
+        fig.text(.02, -0.012, f"a gap means that pair has no inline result yet — {gaps}",
+                 fontsize=7.5, color=INK, alpha=.75)
+    fig.tight_layout()
+    save(fig, "index-policy.png")
+
+
 def main():
     os.makedirs(IMG, exist_ok=True)
-    results = load()
+    results = load(sys.argv[1] if len(sys.argv) > 1 else None)
     by_database(results, "bytes", "disk-by-database.png",
                 "Disk used, every database, every load", "megabytes on disk (log scale)", MB)
     by_database(results, "seconds", "time-by-database.png",
                 "Time to load, every database, every load", "seconds (log scale)", 1)
     fig_ratio(results)
     fig_cost_by_mode(results)
+    fig_index_policy(results)
     for axis in ("bytes", "seconds"):
         cov = coverage(results, axis)
         gaps = {t: c for t, c in cov.items() if c < len(results)}
