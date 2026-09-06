@@ -5,17 +5,37 @@
 
 The same 21 sample databases, 9,056,697 rows, loaded into both engines from the same `mysqldump` files and measured the same way: `du -sb` of the directory each engine keeps the database in.
 
+## The machine
+
+| | |
+|---|---|
+| CPU | Intel(R) Core(TM) i9-14900KF (32 threads) |
+| Memory | 15.5 GB |
+| Disk | 1,006.9 GB ext4 |
+| Kernel | 6.18.33.2-microsoft-standard-WSL2 |
+| Docker | 29.6.2, storage driver `overlayfs` |
+| MySQL | `mysql:9.7.2` — /usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL) |
+| Dolt | `dolthub/dolt-sql-server` — dolt version 2.3.2 |
+| Tuning | none — both engines run their published images with default settings |
+| MySQL flags | `--local-infile=1`, `--skip-log-bin` |
+
 ## The short answer: it depends on how you write the rows
 
 Dolt is a version-controlled database, so *how* the rows arrive decides what it stores. Three loads of identical data give three different answers, and they are not close:
 
-| load | what it does | against MySQL |
-|---|---|---:|
-| **one commit per database** | the way anyone would load a database | **0.34×** across all 21 |
-| **one `INSERT` per row** | same commit, one statement per row instead of thousands of rows per statement | **0.29×** across 11 |
-| **one commit per row** | a commit for every row | **25×** across 9 |
+Both axes matter and they do not move together, so both are given for every load. MySQL is loaded from the same dumps into a fresh, empty server, and timed the same way.
 
-The first two are the same number. The third is not the same kind of number. Every section below gives each load the same treatment: what it costs, against MySQL, per database.
+| load | databases | disk | ÷ MySQL | time | ÷ MySQL |
+|---|---:|---:|---:|---:|---:|
+| **MySQL**, extended `INSERT`s | 21 | 1.8 GB | — | 87s | — |
+| **Dolt**, one commit per database | 21 | 525.1 MB | **0.29×** | 397s | **4.6×** |
+| **MySQL**, one `INSERT` per row | 21 | 1.9 GB | 1.06× | 1.8h | **75×** |
+| **Dolt**, one `INSERT` per row | 21 | 509.5 MB | **0.28×** | 5.3h | **218×** |
+| **Dolt**, one commit per row | 18 | 58.9 GB | **55×** | 4.5h | **358×** |
+
+![What each load costs](docs/img/cost-by-mode.png)
+
+Read the two columns together. The standard Dolt load is a third of MySQL's disk for several times its load time — a trade, not a free win. Writing row by row is expensive in **both** engines, which is why MySQL is measured that way too: it separates what row-wise writing costs from what Dolt costs. And a commit per row is the one case where both axes go the wrong way at once.
 
 ![Dolt ÷ MySQL for each load](docs/img/modes-vs-mysql.png)
 
@@ -23,7 +43,7 @@ The first two are the same number. The third is not the same kind of number. Eve
 
 ## 1. One commit per database
 
-The standard load. **524.8 MB against MySQL's 1.5 GB — 0.34×** over all 21 databases, and the ratio is not uniform: it runs from 0.05× (`pubs`) to 0.76× (`oracle_sh`), a spread of more than 15 to one.
+The standard load. **525.1 MB against MySQL's 1.8 GB — 0.29×** over all 21 databases, and the ratio is not uniform: it runs from 0.05× (`pubs`) to 0.65× (`oracle_sh`), a spread of more than 13 to one.
 
 ![All databases](docs/img/totals.png)
 
@@ -33,44 +53,63 @@ The shape of the spread is legible. Small databases favour Dolt heavily because 
 
 ## 2. One `INSERT` per row, still one commit
 
-Replacing mysqldump's extended `INSERT`s with one statement per row changes the load completely and the result **not at all**: 10 of the 11 databases land within 0.5% of their one-shot size, and the widest differs by 4.1%. Against MySQL the two loads are indistinguishable — 0.29× against 0.29× on the same databases.
+Replacing mysqldump's extended `INSERT`s with one statement per row changes the load completely and the result **not at all**: 15 of the 21 databases land within 0.5% of their one-shot size, and the widest differs by 11.9%. Against MySQL the two loads are indistinguishable — 0.28× against 0.29× on the same databases.
 
-This is a real result rather than a non-event: statement batching is a load-time concern in Dolt exactly as it is in MySQL, and anyone reasoning about "row by row" storage costs is reasoning about the wrong granularity. It costs time — the largest database here goes through 259,702 separate statements.
+This is a real result rather than a non-event: statement batching is a load-time concern in Dolt exactly as it is in MySQL, and anyone reasoning about "row by row" storage costs is reasoning about the wrong granularity. It costs time — the largest database here goes through 3,919,015 separate statements.
 
 | database | rows | MySQL | one commit | one INSERT per row | difference | vs MySQL |
 |---|---:|---:|---:|---:|---:|---:|
-| `chicago_crimes` | 259,702 | 72.1 MB | 28.9 MB | 28.8 MB | -0.3% | **0.40×** |
-| `dvdstore` | 174,716 | 50.0 MB | 11.9 MB | 11.9 MB | +0.3% | **0.24×** |
-| `chinook` | 15,607 | 2.6 MB | 615.0 KB | 615.0 KB | +0.0% | **0.23×** |
-| `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | 4.2 MB | -4.1% | **0.21×** |
-| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 456.3 KB | +0.0% | **0.25×** |
-| `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | 1.0 MB | -0.0% | **0.08×** |
-| `northwind` | 3,308 | 2.8 MB | 519.5 KB | 519.5 KB | +0.0% | **0.18×** |
+| `employees` | 3,919,015 | 178.3 MB | 42.5 MB | 37.5 MB | -11.9% | **0.21×** |
+| `wikipedia_simple` | 1,167,112 | 318.2 MB | 123.5 MB | 123.0 MB | -0.4% | **0.39×** |
+| `oracle_sh` | 1,063,396 | 220.2 MB | 143.4 MB | 134.0 MB | -6.5% | **0.61×** |
+| `adventureworks` | 759,240 | 335.9 MB | 49.0 MB | 48.5 MB | -0.9% | **0.14×** |
+| `contoso` | 753,467 | 156.3 MB | 39.3 MB | 39.3 MB | -0.0% | **0.25×** |
+| `lahman` | 706,466 | 191.8 MB | 26.3 MB | 26.3 MB | +0.0% | **0.14×** |
+| `chicago_crimes` | 259,702 | 84.1 MB | 28.7 MB | 28.8 MB | +0.4% | **0.34×** |
+| `dvdstore` | 174,716 | 60.0 MB | 11.9 MB | 11.9 MB | +0.1% | **0.20×** |
+| `stackexchange_beer` | 62,523 | 82.6 MB | 14.1 MB | 13.9 MB | -0.9% | **0.17×** |
+| `enron` | 48,778 | 94.2 MB | 34.2 MB | 34.2 MB | +0.0% | **0.36×** |
+| `nyc_taxi` | 48,591 | 19.1 MB | 3.0 MB | 3.0 MB | -0.1% | **0.16×** |
+| `sakila` | 47,268 | 24.1 MB | 2.0 MB | 2.0 MB | -3.0% | **0.08×** |
+| `chinook` | 15,607 | 2.7 MB | 615.0 KB | 615.0 KB | +0.0% | **0.22×** |
+| `oracle_oe` | 11,518 | 27.5 MB | 4.3 MB | 4.2 MB | -4.0% | **0.15×** |
+| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 456.3 KB | +0.0% | **0.24×** |
+| `adventureworks_lt` | 4,277 | 12.5 MB | 1.0 MB | 1.0 MB | +0.0% | **0.08×** |
+| `northwind` | 3,308 | 2.6 MB | 519.5 KB | 519.5 KB | +0.0% | **0.19×** |
 | `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 164.3 KB | +0.0% | **0.26×** |
-| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 37.7 KB | +0.0% | **0.10×** |
-| `pubs` | 255 | 1.5 MB | 77.0 KB | 77.0 KB | +0.0% | **0.05×** |
-| `oracle_hr` | 216 | 1.2 MB | 62.8 KB | 62.8 KB | +0.0% | **0.05×** |
+| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 37.7 KB | -0.0% | **0.10×** |
+| `pubs` | 255 | 1.5 MB | 77.0 KB | 77.0 KB | -0.0% | **0.05×** |
+| `oracle_hr` | 216 | 1.1 MB | 62.8 KB | 62.8 KB | +0.0% | **0.06×** |
 
 ## 3. One commit per row
 
-The same rows with a commit after each one take **1.0 GB where the one-commit load takes 7.2 MB** — 148× more. Against MySQL the comparison **inverts**: those databases are 0.17× MySQL loaded normally and **25× MySQL** loaded a commit at a time, a swing of 148× from nothing but how the rows were written.
+The same rows with a commit after each one take **58.9 GB where the one-commit load takes 215.7 MB** — 280× more. Against MySQL the comparison **inverts**: those databases are 0.20× MySQL loaded normally and **55× MySQL** loaded a commit at a time, a swing of 280× from nothing but how the rows were written.
 
-7 of the 9 end up larger than MySQL. The extreme is `chinook`: 15,607 rows, 2.6 MB in MySQL, 615.0 KB in one Dolt commit, 112.4 MB in 15,609 — **43× MySQL for identical data**.
+16 of the 18 end up larger than MySQL. The extreme is `chicago_crimes`: 259,702 rows, 84.1 MB in MySQL, 28.7 MB in one Dolt commit, 10.3 GB in 259,704 — **125× MySQL for identical data**.
 
 ![What history costs](docs/img/commit-granularity.png)
 
 | database | rows | MySQL | one commit | ÷MySQL | one commit per row | ÷MySQL | × one commit |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `chinook` | 15,607 | 2.6 MB | 615.0 KB | 0.23× | 112.4 MB | **42.8×** | 187× |
-| `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB | 0.22× | 815.6 MB | **41.5×** | 187× |
-| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 0.25× | 68.4 MB | **37.6×** | 153× |
-| `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB | 0.08× | 37.5 MB | **3.0×** | 37× |
-| `northwind` | 3,308 | 2.8 MB | 519.5 KB | 0.18× | 26.6 MB | **9.6×** | 52× |
-| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 0.26× | 8.3 MB | **13.3×** | 52× |
-| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 0.10× | 738.6 KB | **2.0×** | 20× |
-| `pubs` | 255 | 1.5 MB | 77.0 KB | 0.05× | 758.3 KB | **0.5×** | 10× |
-| `oracle_hr` | 216 | 1.2 MB | 62.8 KB | 0.05× | 786.1 KB | **0.7×** | 13× |
-| **these 9** | **46,423** | **43.1 MB** | **7.2 MB** | **0.17×** | **1.0 GB** | **25×** | **148×** |
+| `adventureworks` | 759,240 | 335.9 MB | 49.0 MB | 0.15× | 15.1 GB | **46.1×** | 316× |
+| `contoso` | 753,467 | 156.3 MB | 39.3 MB | 0.25× | 11.2 GB | **73.4×** | 292× |
+| `lahman` | 706,466 | 191.8 MB | 26.3 MB | 0.14× | 8.5 GB | **45.3×** | 331× |
+| `chicago_crimes` | 259,702 | 84.1 MB | 28.7 MB | 0.34× | 10.3 GB | **125.5×** | 368× |
+| `dvdstore` | 174,716 | 60.0 MB | 11.9 MB | 0.20× | 3.3 GB | **56.6×** | 285× |
+| `stackexchange_beer` | 62,523 | 82.6 MB | 14.1 MB | 0.17× | 2.0 GB | **24.4×** | 143× |
+| `enron` | 48,778 | 94.2 MB | 34.2 MB | 0.36× | 5.9 GB | **63.7×** | 176× |
+| `nyc_taxi` | 48,591 | 19.1 MB | 3.0 MB | 0.16× | 928.6 MB | **48.5×** | 308× |
+| `sakila` | 47,268 | 24.1 MB | 2.0 MB | 0.08× | 709.6 MB | **29.4×** | 349× |
+| `chinook` | 15,607 | 2.7 MB | 615.0 KB | 0.22× | 112.8 MB | **41.7×** | 188× |
+| `oracle_oe` | 11,518 | 27.5 MB | 4.3 MB | 0.16× | 818.2 MB | **29.7×** | 189× |
+| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 0.24× | 68.3 MB | **37.3×** | 153× |
+| `adventureworks_lt` | 4,277 | 12.5 MB | 1.0 MB | 0.08× | 37.6 MB | **3.0×** | 37× |
+| `northwind` | 3,308 | 2.6 MB | 519.5 KB | 0.19× | 26.4 MB | **10.0×** | 52× |
+| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 0.26× | 8.2 MB | **13.1×** | 51× |
+| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 0.10× | 721.7 KB | **1.9×** | 19× |
+| `pubs` | 255 | 1.5 MB | 77.0 KB | 0.05× | 945.9 KB | **0.6×** | 12× |
+| `oracle_hr` | 216 | 1.1 MB | 62.8 KB | 0.06× | 858.9 KB | **0.8×** | 14× |
+| **these 18** | **2,907,174** | **1.1 GB** | **215.7 MB** | **0.20×** | **58.9 GB** | **55×** | **280×** |
 
 This is not overhead to be tuned away. Each commit is an addressable, diffable state of the whole database, and keeping a million of them costs what keeping a million of anything costs. The question the number answers is not "is Dolt wasteful" but **"what does my commit rate cost me"**, and it scales with commits, not with rows.
 
@@ -80,35 +119,34 @@ This is not overhead to be tuned away. Each commit is an addressable, diffable s
 
 | database | tables | rows | dump | MySQL logical | MySQL | one commit | one INSERT/row | one commit/row |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `adventureworks` | 69 | 759,240 | 89.6 MB | 119.3 MB | 292.2 MB | 48.7 MB<br>**0.17×** | — | — |
-| `wikipedia_simple` | 9 | 1,167,112 | 73.6 MB | 64.7 MB | 208.2 MB | 123.2 MB<br>**0.59×** | — | — |
-| `oracle_sh` | 9 | 1,063,396 | 49.8 MB | 1.7 MB | 188.4 MB | 143.6 MB<br>**0.76×** | — | — |
-| `lahman` | 27 | 706,466 | 52.5 MB | 75.6 MB | 178.9 MB | 26.3 MB<br>**0.15×** | — | — |
-| `employees` | 6 | 3,919,015 | 160.6 MB | 146.8 MB | 176.3 MB | 42.6 MB<br>**0.24×** | — | — |
-| `contoso` | 8 | 753,467 | 65.1 MB | 103.3 MB | 135.3 MB | 39.3 MB<br>**0.29×** | — | — |
-| `stackexchange_beer` | 11 | 62,523 | 15.0 MB | 6.1 MB | 73.6 MB | 14.0 MB<br>**0.19×** | — | — |
-| `chicago_crimes` | 2 | 259,702 | 51.2 MB | 65.7 MB | 72.1 MB | 28.9 MB<br>**0.40×** | 28.8 MB<br>**0.40×** | — |
-| `enron` | 3 | 48,778 | 23.4 MB | 38.0 MB | 66.2 MB | 34.3 MB<br>**0.52×** | — | — |
-| `dvdstore` | 9 | 174,716 | 7.4 MB | 16.3 MB | 50.0 MB | 11.9 MB<br>**0.24×** | 11.9 MB<br>**0.24×** | — |
-| `sakila` | 16 | 47,268 | 3.2 MB | 432.0 KB | 22.3 MB | 2.0 MB<br>**0.09×** | — | — |
-| `oracle_oe` | 9 | 11,518 | 1.8 MB | 3.2 MB | 19.7 MB | 4.4 MB<br>**0.22×** | 4.2 MB<br>**0.21×** | 815.6 MB<br>**41×** |
-| `nyc_taxi` | 2 | 48,591 | 6.6 MB | 10.1 MB | 16.1 MB | 3.0 MB<br>**0.19×** | — | — |
-| `adventureworks_lt` | 12 | 4,277 | 1.9 MB | 4.1 MB | 12.6 MB | 1.0 MB<br>**0.08×** | 1.0 MB<br>**0.08×** | 37.5 MB<br>**2.97×** |
-| `northwind` | 13 | 3,308 | 636.2 KB | 1.4 MB | 2.8 MB | 519.5 KB<br>**0.18×** | 519.5 KB<br>**0.18×** | 26.6 MB<br>**9.60×** |
-| `chinook` | 11 | 15,607 | 457.0 KB | 1.6 MB | 2.6 MB | 615.0 KB<br>**0.23×** | 615.0 KB<br>**0.23×** | 112.4 MB<br>**43×** |
-| `oracle_co` | 7 | 8,783 | 374.2 KB | 1.1 MB | 1.8 MB | 456.3 KB<br>**0.25×** | 456.3 KB<br>**0.25×** | 68.4 MB<br>**38×** |
-| `pubs` | 11 | 255 | 122.0 KB | 176.0 KB | 1.5 MB | 77.0 KB<br>**0.05×** | 77.0 KB<br>**0.05×** | 758.3 KB<br>**0.50×** |
-| `oracle_hr` | 7 | 216 | 29.7 KB | 112.0 KB | 1.2 MB | 62.8 KB<br>**0.05×** | 62.8 KB<br>**0.05×** | 786.1 KB<br>**0.66×** |
-| `smallsets` | 4 | 2,147 | 231.2 KB | 64.0 KB | 644.0 KB | 164.3 KB<br>**0.26×** | 164.3 KB<br>**0.26×** | 8.3 MB<br>**13×** |
-| `jaffle_shop` | 3 | 312 | 11.4 KB | 80.0 KB | 372.0 KB | 37.7 KB<br>**0.10×** | 37.7 KB<br>**0.10×** | 738.6 KB<br>**1.99×** |
-| **total** | 248 | 9,056,697 | 603.5 MB | 660.0 MB | **1.5 GB** | **524.8 MB<br>0.34×** | | |
+| `adventureworks` | 69 | 759,240 | 89.6 MB | 119.3 MB | 335.9 MB | 49.0 MB<br>**0.15×** | 48.5 MB<br>**0.14×** | 15.1 GB<br>**46×** |
+| `wikipedia_simple` | 9 | 1,167,112 | 73.6 MB | 64.7 MB | 318.2 MB | 123.5 MB<br>**0.39×** | 123.0 MB<br>**0.39×** | — |
+| `oracle_sh` | 9 | 1,063,396 | 49.8 MB | 1.7 MB | 220.2 MB | 143.4 MB<br>**0.65×** | 134.0 MB<br>**0.61×** | — |
+| `lahman` | 27 | 706,466 | 52.5 MB | 75.6 MB | 191.8 MB | 26.3 MB<br>**0.14×** | 26.3 MB<br>**0.14×** | 8.5 GB<br>**45×** |
+| `employees` | 6 | 3,919,015 | 160.6 MB | 146.8 MB | 178.3 MB | 42.5 MB<br>**0.24×** | 37.5 MB<br>**0.21×** | — |
+| `contoso` | 8 | 753,467 | 65.1 MB | 103.3 MB | 156.3 MB | 39.3 MB<br>**0.25×** | 39.3 MB<br>**0.25×** | 11.2 GB<br>**73×** |
+| `enron` | 3 | 48,778 | 23.4 MB | 38.0 MB | 94.2 MB | 34.2 MB<br>**0.36×** | 34.2 MB<br>**0.36×** | 5.9 GB<br>**64×** |
+| `chicago_crimes` | 2 | 259,702 | 51.2 MB | 65.7 MB | 84.1 MB | 28.7 MB<br>**0.34×** | 28.8 MB<br>**0.34×** | 10.3 GB<br>**125×** |
+| `stackexchange_beer` | 11 | 62,523 | 15.0 MB | 6.1 MB | 82.6 MB | 14.1 MB<br>**0.17×** | 13.9 MB<br>**0.17×** | 2.0 GB<br>**24×** |
+| `dvdstore` | 9 | 174,716 | 7.4 MB | 16.3 MB | 60.0 MB | 11.9 MB<br>**0.20×** | 11.9 MB<br>**0.20×** | 3.3 GB<br>**57×** |
+| `oracle_oe` | 9 | 11,518 | 1.8 MB | 3.2 MB | 27.5 MB | 4.3 MB<br>**0.16×** | 4.2 MB<br>**0.15×** | 818.2 MB<br>**30×** |
+| `sakila` | 16 | 47,268 | 3.2 MB | 432.0 KB | 24.1 MB | 2.0 MB<br>**0.08×** | 2.0 MB<br>**0.08×** | 709.6 MB<br>**29×** |
+| `nyc_taxi` | 2 | 48,591 | 6.6 MB | 10.1 MB | 19.1 MB | 3.0 MB<br>**0.16×** | 3.0 MB<br>**0.16×** | 928.6 MB<br>**49×** |
+| `adventureworks_lt` | 12 | 4,277 | 1.9 MB | 4.1 MB | 12.5 MB | 1.0 MB<br>**0.08×** | 1.0 MB<br>**0.08×** | 37.6 MB<br>**3.01×** |
+| `chinook` | 11 | 15,607 | 457.0 KB | 1.6 MB | 2.7 MB | 615.0 KB<br>**0.22×** | 615.0 KB<br>**0.22×** | 112.8 MB<br>**42×** |
+| `northwind` | 13 | 3,308 | 636.2 KB | 1.4 MB | 2.6 MB | 519.5 KB<br>**0.19×** | 519.5 KB<br>**0.19×** | 26.4 MB<br>**10×** |
+| `oracle_co` | 7 | 8,783 | 374.2 KB | 1.1 MB | 1.8 MB | 456.3 KB<br>**0.24×** | 456.3 KB<br>**0.24×** | 68.3 MB<br>**37×** |
+| `pubs` | 11 | 255 | 122.0 KB | 176.0 KB | 1.5 MB | 77.0 KB<br>**0.05×** | 77.0 KB<br>**0.05×** | 945.9 KB<br>**0.63×** |
+| `oracle_hr` | 7 | 216 | 29.7 KB | 112.0 KB | 1.1 MB | 62.8 KB<br>**0.06×** | 62.8 KB<br>**0.06×** | 858.9 KB<br>**0.78×** |
+| `smallsets` | 4 | 2,147 | 231.2 KB | 64.0 KB | 644.0 KB | 164.3 KB<br>**0.26×** | 164.3 KB<br>**0.26×** | 8.2 MB<br>**13×** |
+| `jaffle_shop` | 3 | 312 | 11.4 KB | 80.0 KB | 372.0 KB | 37.7 KB<br>**0.10×** | 37.7 KB<br>**0.10×** | 721.7 KB<br>**1.94×** |
+| **total** | 248 | 9,056,697 | 603.5 MB | 660.0 MB | **1.8 GB** | **525.1 MB<br>0.29×** | | |
 
 ### Coverage
 
 The extra loads are expensive, and where a cell is empty the load has not been run rather than failed. `make experiment` runs them.
 
-* **one `INSERT` per row** — not yet measured for 10: `adventureworks`, `contoso`, `employees`, `enron`, `lahman`, `nyc_taxi`, `oracle_sh`, `sakila`, `stackexchange_beer`, `wikipedia_simple`
-* **one commit per row** — not yet measured for 12: `adventureworks`, `chicago_crimes`, `contoso`, `dvdstore`, `employees`, `enron`, `lahman`, `nyc_taxi`, `oracle_sh`, `sakila`, `stackexchange_beer`, `wikipedia_simple`
+* **one commit per row** — not yet measured for 3: `employees`, `oracle_sh`, `wikipedia_simple`
 
 ## Is the comparison valid?
 

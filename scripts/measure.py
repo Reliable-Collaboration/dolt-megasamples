@@ -160,7 +160,11 @@ def measure(db, results, mode="oneshot"):
     m["rows_dolt"] = do_rows
     m["row_mismatches"] = {t: {"mysql": my_per.get(t), "dolt": do_per.get(t)}
                            for t in mismatched[:20]}
-    entry["mysql_disk_bytes"] = mysql_disk_bytes(db)
+    # Do not clobber the timed run's MySQL size. `run_all.py` loads MySQL from the same dump into
+    # a fresh empty server and records what that costs; this function reads the megasamples image,
+    # which was built by a mysqlsh restore with deferred indexes and is measurably more compact.
+    # Mixing the two would compare Dolt against a differently-built MySQL.
+    entry.setdefault("mysql_disk_bytes", mysql_disk_bytes(db))
     entry["mysql_logical_bytes"] = int(mysql(
         f"SELECT COALESCE(SUM(data_length+index_length),0) FROM information_schema.tables "
         f"WHERE table_schema='{db}'")[0][0])

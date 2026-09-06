@@ -66,6 +66,14 @@ def facts(r):
 # Each claim is a sentence fragment that must appear verbatim in the named documents, with the value
 # filled in from the measurements. If a fragment is reworded the check fails loudly rather than
 # silently passing, which is the intended trade: prose about numbers should be pinned to them.
+METHOD_CLAIMS = [
+    # measured by scripts/method_checks.py into build/method.json
+    ("a measured {overhead} s per container", ["README.md"]),
+    ("{shared_mb} MB, {shared_pct}%, is not attributed to anything", ["README.md"]),
+    ("median of **{repeat_median}%** against the first run, ranging **{repeat_min}% to "
+     "{repeat_max}%**", ["README.md"]),
+]
+
 CLAIMS = [
     # `adventureworks`'s statistics figure is deliberately not pinned: it was observed during
     # console use and a controlled probe does not reproduce it, so it is prose, not a measurement.
@@ -74,14 +82,17 @@ CLAIMS = [
     ("within 0.5% for {within_05} of the {rowinsert_dbs} databases", DOCS),
     ("{mult_low} to {mult_high} the single-commit load", DOCS),
     ("{indexes} in MySQL, {indexes} in Dolt", DOCS),
-    # the three headline ratios, each against the population it was measured on
-    ("| **one `INSERT` per row** | {rowinsert_dbs} | **{ri_ratio}** |", ["README.md"]),
-    ("| **one commit per row** | {rowcommit_dbs} | **{rc_ratio}** | {rc_one_ratio}", ["README.md"]),
 ]
 
 
 WORDS = {0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven",
          8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve"}
+
+
+def normalise(text):
+    """A minus sign is a minus sign. The README renders ranges with U+2212 and the templates emit
+    ASCII, which is a typographic difference, not a disagreement about a number."""
+    return text.replace("\u2212", "-").replace("\u00a0", " ")
 
 
 def variants(template, f):
@@ -101,16 +112,29 @@ def main():
     if not r:
         sys.exit("no measurements; run `make measure` first")
     f = facts(r)
+    method_path = os.path.join(ROOT, "build", "method.json")
+    if os.path.exists(method_path):
+        m = json.load(open(method_path, encoding="utf-8"))
+        f.update({
+            "overhead": f"{m['dolt_container_overhead']['seconds']:.2f}",
+            "shared_mb": f"{m['mysql_shared_files']['unattributed_bytes'] / 1024 ** 2:.0f}",
+            "shared_pct": str(m["mysql_shared_files"]["unattributed_percent"]),
+            "repeat_median": f"+{m['timing_repeatability']['median_percent']}",
+            "repeat_min": f"{m['timing_repeatability']['min_percent']}",
+            "repeat_max": f"+{m['timing_repeatability']['max_percent']}",
+        })
+        globals()["CLAIMS"] = CLAIMS + METHOD_CLAIMS
     text = {d: open(os.path.join(ROOT, d), encoding="utf-8").read() for d in DOCS}
 
     failures = []
     for template, docs in CLAIMS:
         wants = variants(template, f)
-        where = [d for d in docs if any(w in text[d] for w in wants)]
+        where = [d for d in docs if any(normalise(w) in normalise(text[d]) for w in wants)]
         if not where:
             failures.append("no document says " + " or ".join(f'"{w}"' for w in sorted(wants)))
         else:
-            found = next(w for w in sorted(wants) if any(w in text[d] for d in where))
+            found = next(w for w in sorted(wants)
+                         if any(normalise(w) in normalise(text[d]) for d in where))
             print(f'  . "{found}" — in {", ".join(where)}')
 
     for d in failures:

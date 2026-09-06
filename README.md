@@ -1,149 +1,240 @@
 # dolt-megasamples
 
-**An experiment: how much disk does the same data cost in Dolt compared with MySQL?**
+**An experiment: for the same data, what does [Dolt](https://github.com/dolthub/dolt) cost against
+MySQL — in disk, and in time?**
 
-[Dolt](https://github.com/dolthub/dolt) is a SQL database with Git-like versioning — branches,
-commits, diffs and merges over tables — and it speaks the MySQL wire protocol, so the same clients
-work against both. It also stores data in an entirely different way: MySQL's InnoDB writes B-tree
-pages into a tablespace per table, while Dolt writes content-addressed chunks into prolly trees.
-Those are different enough that "how big will it be?" is not a question you can answer by reasoning
-about it.
+Dolt is a SQL database with Git-like versioning that speaks the MySQL wire protocol, so the same
+clients work against both. It stores data in an entirely different way: MySQL's InnoDB writes B-tree
+pages into a tablespace per table, while Dolt writes content-addressed chunks into prolly trees and
+keeps the history of every change. Those are different enough that "how big will it be, and how long
+will it take?" is not answerable by reasoning about it.
 
-So this repository answers it by measurement. It takes the 21 sample databases from
+So this measures it, on the 21 sample databases from
 [`mysql-megasamples`](https://github.com/Reliable-Collaboration/mysql-megasamples) — 9,056,697 rows
-of real, varied, publicly-licensed data — loads every one into both engines from the same
-`mysqldump` files, and measures what each engine puts on the filesystem.
+of real, varied, publicly-licensed data, from 216-row teaching schemas to a million-row star schema.
 
-**The repository is the evidence.** Every number and every chart below is generated from
-`build/results.json`; nothing here is typed by hand. Re-run `make all` and they regenerate from your
-own machine. [`JOURNAL.md`](JOURNAL.md) is the lab notebook — why it was built this way, what the
-numbers do *not* support, and what went wrong along the way.
+**The repository is the evidence.** Every number and figure below is generated from
+`build/results.json`; nothing is typed by hand. [Reproduce it](#reproducing-this) and you get your
+own report, figures included.
 
-## The result: there isn't one number
+## The tests
 
-Dolt is a *version-controlled* database, so how the rows arrive decides what it stores. The same
-9,056,697 rows, loaded three ways, give three answers that are not close to each other:
+The same `mysqldump` files are loaded five ways. Nothing differs but how the rows are written.
 
-Each row below compares a load against MySQL **on the databases that load was run against**, with
-the standard load on the same databases beside it, so the comparison is like for like:
+| # | test | engine | how the rows are written | why it is here |
+|---|---|---|---|---|
+| 1 | `mysql` | MySQL 9.7.2 | mysqldump's extended `INSERT`s — thousands of rows per statement | the baseline anyone would actually use |
+| 2 | `mysql_rowwise` | MySQL 9.7.2 | one `INSERT` per row | isolates what row-by-row writing costs **in MySQL**, so Dolt's row-wise cost can be separated from the cost of row-wise writing at all |
+| 3 | `dolt_oneshot` | Dolt 2.3.2 | extended `INSERT`s, one commit for the whole database | the Dolt equivalent of test 1 |
+| 4 | `dolt_rowinsert` | Dolt 2.3.2 | one `INSERT` per row, still one commit | isolates *statement* granularity from *commit* granularity |
+| 5 | `dolt_rowcommit` | Dolt 2.3.2 | one `INSERT` per row, and one commit **after every row** | isolates what history costs — the thing Dolt exists to keep |
 
-| load | databases | against MySQL | the same databases, loaded in one commit |
-|---|---:|---:|---:|
-| **one commit per database** | all 21 | **0.34×** | — |
-| **one `INSERT` per row** | 11 | **0.29×** | 0.29× — *identical* |
-| **one commit per row** | 9 | **24.8×** | 0.17× — *a 146× swing* |
+Tests 2 and 5 are the closest each engine has to the other's worst case: MySQL commits every
+autocommitted statement, so one `INSERT` per row is one durable transaction per row.
 
-The first two are the same number. The third is not the same *kind* of number: the same nine
-databases go from **a sixth of MySQL's size to twenty-five times it**, from nothing but how the rows
-were written.
+### How each load is performed
 
-![Dolt ÷ MySQL for each load](docs/img/modes-vs-mysql.png)
+* **MySQL** is loaded into a **fresh, empty server** — not read from the megasamples image. The image
+  was built by a `mysqlsh` restore with deferred index builds and is measurably more compact than the
+  same data loaded from SQL; comparing against it would compare Dolt against a differently-built
+  MySQL. Each database is dropped and reloaded from the dump. The server runs the stock image with
+  two flags, `--local-infile=1` and `--skip-log-bin` — not quite "defaults", and `--skip-log-bin`
+  favours MySQL by not writing a binary log.
+* **Dolt** is loaded by the `dolt` CLI into a data directory, one directory per database. The dumps
+  are transformed only where Dolt cannot parse mysqldump's output — `scripts/dolt_dialect.py`
+  documents each rule — and never in a way that touches a row.
+* **Sizes exclude what a server writes.** A `dolt sql-server` writes statistics into the database
+  directory at `.dolt/stats`, and `dolt gc` does not reclaim them, so `du` of a served directory and
+  an unserved one are not comparable. The measurement subtracts `.dolt/stats`, and what a server adds
+  is reported separately.
 
-![Totalled over the databases measured in every mode](docs/img/totals-by-mode.png)
+  This is worth stating precisely, because an earlier version of this file claimed no server was
+  running during measurement and that was **false** — the console stack was serving `data/dolt`
+  throughout, and all 21 databases have a statistics directory as a result. Re-measuring every
+  database with the stack stopped moved **no** size by more than a kilobyte, so the subtraction was
+  doing its job and the numbers stand. The claim was still wrong, and the check is the reason it can
+  be said so.
 
-Each load gets the same treatment below: what it costs, against MySQL, per database.
-[`REPORT.md`](REPORT.md) has every table in full.
+### How each load is measured
+
+* **Disk** — `du -sb` of the directory the engine keeps the database in, after the load has settled:
+  for Dolt, after `dolt add`/`dolt commit` and `dolt gc`, because Dolt writes through a journal and
+  measuring before packing reports the write-ahead state rather than the stored one.
+* **Time** — wall clock around the load itself, excluding the dump, the transform, and the
+  measurement. For Dolt the commit and `gc` are timed separately and included in the total, because
+  they are part of what it costs to get the data stored.
+
+  **The two engines are not timed identically, and it favours MySQL.** MySQL is loaded with
+  `docker exec` into an already-running server, so its timings contain no startup. Dolt is loaded
+  by `docker run`, so each load pays container creation twice — once for the load and once for the
+  commit and `gc`. That is a measured 0.36 s per container: under 1% of 23 of the 60 Dolt loads, but
+  **76–84% of the smallest ones**, where the whole load takes about a second. Read the sub-second
+  Dolt figures as an upper bound; the minutes-and-hours figures are unaffected.
+* **Correctness, before any size is recorded** — every table counted with `COUNT(*)` on both sides,
+  and every index compared by definition: table, index name, column position, column, uniqueness.
+  A load that is short in any table is recorded as a failure, not as a small number. This matters:
+  three per-row-commit loads truncated silently in the first full run and were recorded as
+  successful because their output directory existed.
+
+  Coverage of that check, as run: **tests 1–4 verified on all 21 databases** — 248 tables and 613
+  indexes matching for the Dolt loads, 248 tables matching for the MySQL row-wise load. Test 5 is
+  verified for each database as it completes.
+
+## What would make a reviewer hesitate
+
+Everything here that weakens the result, found by auditing the method against the code rather than
+re-reading the prose. None of it is hidden in a footnote because all of it changes how the numbers
+should be read.
+
+**Each measurement is a single run.** Re-running the MySQL baseline over all 21 databases gives a
+median of **+17%** against the first run, ranging **−20% to +132%**. The spread is almost entirely in
+the sub-second loads: every database that takes more than five seconds repeats within −20% to +8%.
+So treat the fast timings as indicative only, and the slow ones as good to roughly ±20%. There are no
+error bars anywhere in this report, because there is one sample per cell.
+
+**The machine was not idle.** The 18.5-hour run shared the host with the console stack, measurement
+passes, chart generation and this repository's own git operations. That is realistic but it is not a
+benchmark rig, and it is part of why the fast timings scatter.
+
+**The two engines are not given identical SQL.** MySQL loads the dump as mysqldump wrote it. Dolt
+loads a transformed copy, because it cannot parse some of what mysqldump emits — the transformations
+are listed in `scripts/dolt_dialect.py`. Two of them change what Dolt has to store: three
+cross-database foreign keys are dropped from `oracle_oe` (Dolt supports only same-database foreign
+keys), and stored functions do not load at all, so several databases have fewer routines in Dolt than
+in MySQL. Both make Dolt's job slightly smaller. Neither touches a row.
+
+**MySQL's size is undercounted by about 5%.** Sizes are per-database directories, but InnoDB also
+keeps shared files — `ibdata1`, undo tablespaces, redo logs — that belong to no single database. On
+this run the per-database directories total 1,911 MB while the whole data directory is 2,019 MB, so
+**108 MB, 5.4%, is not attributed to anything**. Dolt has no equivalent: everything for a
+database lives in its own directory. Every MySQL figure here is therefore a little generous to MySQL,
+and every Dolt ratio a little pessimistic.
+
+**The MySQL client is run with `--force`**, so a load continues past errors. That is the same failure
+mode that let three Dolt loads truncate silently, which is why every MySQL load is now verified by
+row count too: tests 1 and 2 both check out across all 21 databases, 248 tables each.
+
+**Test 5 is not finished.** Three per-row-commit loads truncated in the first run and are being
+redone. Their cells are blank rather than filled with numbers from partial data, and the totals row
+says which databases it excludes.
+
+**A statistics directory is subtracted from Dolt's size** (`.dolt/stats`, which a running server
+writes and `dolt gc` does not reclaim). MySQL's equivalent statistics live in the `mysql` schema and
+are not counted either, so the treatment is roughly symmetric — but it is a subtraction, and it is
+worth knowing it is there.
+
+## The machine
+
+Timings mean nothing without it. Neither engine is tuned; both run their published images with
+default settings.
+
+<!-- environment:start -->
+| | |
+|---|---|
+| CPU | Intel(R) Core(TM) i9-14900KF (32 threads) |
+| Memory | 15.5 GB |
+| Disk | 1,006.9 GB ext4 |
+| Kernel | 6.18.33.2-microsoft-standard-WSL2 |
+| Docker | 29.6.2, storage driver `overlayfs` |
+| MySQL | `mysql:9.7.2` — /usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL) |
+| Dolt | `dolthub/dolt-sql-server` — dolt version 2.3.2 |
+| Tuning | none — both engines run their published images with default settings |
+| MySQL flags | `--local-infile=1`, `--skip-log-bin` |
+<!-- environment:end -->
+
+## The results
 
 <!-- results:start -->
-| database | rows | MySQL | Dolt<br>one commit | Dolt<br>one INSERT/row | Dolt<br>one commit/row |
-|---|---:|---:|---:|---:|---:|
-| `adventureworks` | 759,240 | 292.2 MB | 48.7 MB<br>**0.17×** | — | — |
-| `wikipedia_simple` | 1,167,112 | 208.2 MB | 123.2 MB<br>**0.59×** | — | — |
-| `oracle_sh` | 1,063,396 | 188.4 MB | 143.6 MB<br>**0.76×** | — | — |
-| `lahman` | 706,466 | 178.9 MB | 26.3 MB<br>**0.15×** | — | — |
-| `employees` | 3,919,015 | 176.3 MB | 42.6 MB<br>**0.24×** | — | — |
-| `contoso` | 753,467 | 135.3 MB | 39.3 MB<br>**0.29×** | — | — |
-| `stackexchange_beer` | 62,523 | 73.6 MB | 14.0 MB<br>**0.19×** | — | — |
-| `chicago_crimes` | 259,702 | 72.1 MB | 28.9 MB<br>**0.40×** | 28.8 MB<br>**0.40×** | — |
-| `enron` | 48,778 | 66.2 MB | 34.3 MB<br>**0.52×** | — | — |
-| `dvdstore` | 174,716 | 50.0 MB | 11.9 MB<br>**0.24×** | 11.9 MB<br>**0.24×** | — |
-| `sakila` | 47,268 | 22.3 MB | 2.0 MB<br>**0.09×** | — | — |
-| `oracle_oe` | 11,518 | 19.7 MB | 4.4 MB<br>**0.22×** | 4.2 MB<br>**0.21×** | 815.6 MB<br>**41×** |
-| `nyc_taxi` | 48,591 | 16.1 MB | 3.0 MB<br>**0.19×** | — | — |
-| `adventureworks_lt` | 4,277 | 12.6 MB | 1.0 MB<br>**0.08×** | 1.0 MB<br>**0.08×** | 37.5 MB<br>**2.97×** |
-| `northwind` | 3,308 | 2.8 MB | 519.5 KB<br>**0.18×** | 519.5 KB<br>**0.18×** | 26.6 MB<br>**9.60×** |
-| `chinook` | 15,607 | 2.6 MB | 615.0 KB<br>**0.23×** | 615.0 KB<br>**0.23×** | 112.4 MB<br>**43×** |
-| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB<br>**0.25×** | 456.3 KB<br>**0.25×** | 68.4 MB<br>**38×** |
-| `pubs` | 255 | 1.5 MB | 77.0 KB<br>**0.05×** | 77.0 KB<br>**0.05×** | 758.3 KB<br>**0.50×** |
-| `oracle_hr` | 216 | 1.2 MB | 62.8 KB<br>**0.05×** | 62.8 KB<br>**0.05×** | 786.1 KB<br>**0.66×** |
-| `smallsets` | 2,147 | 644.0 KB | 164.3 KB<br>**0.26×** | 164.3 KB<br>**0.26×** | 8.3 MB<br>**13×** |
-| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB<br>**0.10×** | 37.7 KB<br>**0.10×** | 738.6 KB<br>**1.99×** |
-| **all 21** | **9,056,697** | **1.5 GB** | **524.8 MB<br>0.34×** | | |
-| *the 9 measured in every mode* | *46,423* | *43.1 MB* | *7.2 MB<br>0.17×* | *7.1 MB<br>0.16×* | *1.0 GB<br>25×* |
+| database | rows | 1. MySQL | 2. MySQL<br>row-wise | 3. Dolt<br>1 commit/db | 4. Dolt<br>1 INSERT/row | 5. Dolt<br>1 commit/row |
+|---|---:|---:|---:|---:|---:|---:|
+| `employees` | 3,919,015 | 178.3 MB<br>12s | 178.3 MB<br>**1.00×**<br>2,841s | 42.5 MB<br>**0.24×**<br>36s | 37.5 MB<br>**0.21×**<br>1.7h | —<br>— |
+| `wikipedia_simple` | 1,167,112 | 318.2 MB<br>19s | 374.2 MB<br>**1.18×**<br>1,024s | 123.5 MB<br>**0.39×**<br>132s | 123.0 MB<br>**0.39×**<br>2,290s | —<br>— |
+| `oracle_sh` | 1,063,396 | 220.2 MB<br>11s | 220.2 MB<br>**1.00×**<br>734s | 143.4 MB<br>**0.65×**<br>58s | 134.0 MB<br>**0.61×**<br>2,872s | —<br>— |
+| `adventureworks` | 759,240 | 335.9 MB<br>10s | 335.9 MB<br>**1.00×**<br>463s | 49.0 MB<br>**0.15×**<br>25s | 48.5 MB<br>**0.14×**<br>2,331s | 15.1 GB<br>**46×**<br>1.8h |
+| `contoso` | 753,467 | 156.3 MB<br>7s | 156.3 MB<br>**1.00×**<br>469s | 39.3 MB<br>**0.25×**<br>20s | 39.3 MB<br>**0.25×**<br>1,627s | 11.2 GB<br>**73×**<br>3,000s |
+| `lahman` | 706,466 | 191.8 MB<br>9s | 191.8 MB<br>**1.00×**<br>453s | 26.3 MB<br>**0.14×**<br>22s | 26.3 MB<br>**0.14×**<br>1,607s | 8.5 GB<br>**45×**<br>2,957s |
+| `chicago_crimes` | 259,702 | 84.1 MB<br>5s | 84.1 MB<br>**1.00×**<br>190s | 28.7 MB<br>**0.34×**<br>16s | 28.8 MB<br>**0.34×**<br>839s | 10.3 GB<br>**125×**<br>1,314s |
+| `dvdstore` | 174,716 | 60.0 MB<br>2s | 60.1 MB<br>**1.00×**<br>120s | 11.9 MB<br>**0.20×**<br>5s | 11.9 MB<br>**0.20×**<br>345s | 3.3 GB<br>**57×**<br>699s |
+| `stackexchange_beer` | 62,523 | 82.6 MB<br>2s | 88.6 MB<br>**1.07×**<br>47s | 14.1 MB<br>**0.17×**<br>14s | 13.9 MB<br>**0.17×**<br>157s | 2.0 GB<br>**24×**<br>310s |
+| `enron` | 48,778 | 94.2 MB<br>2s | 134.2 MB<br>**1.42×**<br>43s | 34.2 MB<br>**0.36×**<br>46s | 34.2 MB<br>**0.36×**<br>242s | 5.9 GB<br>**64×**<br>460s |
+| `nyc_taxi` | 48,591 | 19.1 MB<br>1s | 19.1 MB<br>**1.00×**<br>37s | 3.0 MB<br>**0.16×**<br>4s | 3.0 MB<br>**0.16×**<br>104s | 928.6 MB<br>**49×**<br>200s |
+| `sakila` | 47,268 | 24.1 MB<br>1s | 24.1 MB<br>**1.00×**<br>36s | 2.0 MB<br>**0.08×**<br>4s | 2.0 MB<br>**0.08×**<br>109s | 709.6 MB<br>**29×**<br>271s |
+| `chinook` | 15,607 | 2.7 MB<br>0s | 2.7 MB<br>**1.00×**<br>13s | 615.0 KB<br>**0.22×**<br>1s | 615.0 KB<br>**0.22×**<br>31s | 112.8 MB<br>**42×**<br>72s |
+| `oracle_oe` | 11,518 | 27.5 MB<br>1s | 27.6 MB<br>**1.00×**<br>11s | 4.3 MB<br>**0.16×**<br>5s | 4.2 MB<br>**0.15×**<br>50s | 818.2 MB<br>**30×**<br>94s |
+| `oracle_co` | 8,783 | 1.8 MB<br>0s | 1.8 MB<br>**1.00×**<br>7s | 456.3 KB<br>**0.24×**<br>1s | 456.3 KB<br>**0.24×**<br>17s | 68.3 MB<br>**37×**<br>42s |
+| `adventureworks_lt` | 4,277 | 12.5 MB<br>1s | 12.5 MB<br>**1.00×**<br>5s | 1.0 MB<br>**0.08×**<br>1s | 1.0 MB<br>**0.08×**<br>9s | 37.6 MB<br>**3.01×**<br>22s |
+| `northwind` | 3,308 | 2.6 MB<br>1s | 2.6 MB<br>**1.00×**<br>4s | 519.5 KB<br>**0.19×**<br>2s | 519.5 KB<br>**0.19×**<br>8s | 26.4 MB<br>**10×**<br>18s |
+| `smallsets` | 2,147 | 644.0 KB<br>0s | 644.0 KB<br>**1.00×**<br>2s | 164.3 KB<br>**0.26×**<br>1s | 164.3 KB<br>**0.26×**<br>6s | 8.2 MB<br>**13×**<br>10s |
+| `jaffle_shop` | 312 | 372.0 KB<br>0s | 372.0 KB<br>**1.00×**<br>0s | 37.7 KB<br>**0.10×**<br>1s | 37.7 KB<br>**0.10×**<br>1s | 721.7 KB<br>**1.94×**<br>2s |
+| `pubs` | 255 | 1.5 MB<br>0s | 1.5 MB<br>**1.00×**<br>0s | 77.0 KB<br>**0.05×**<br>1s | 77.0 KB<br>**0.05×**<br>2s | 945.9 KB<br>**0.63×**<br>2s |
+| `oracle_hr` | 216 | 1.1 MB<br>0s | 1.1 MB<br>**1.00×**<br>1s | 62.8 KB<br>**0.06×**<br>1s | 62.8 KB<br>**0.06×**<br>1s | 858.9 KB<br>**0.78×**<br>2s |
+| **all 18 with every test** | **2,907,174** | **1.1 GB<br>45s** | **1.04×<br>42× time** | **0.20×<br>3.8× time** | **0.20×<br>167× time** | **55×<br>358× time** |
+
+*Each cell is disk then time. 3 database(s) do not yet have every test and are excluded from the totals row: `employees`, `oracle_sh`, `wikipedia_simple`.*
 <!-- results:end -->
 
-## 1. One commit per database
+![What each load costs](docs/img/cost-by-mode.png)
 
-The standard load, and the one to quote if you only quote one: **525 MB against MySQL's 1,523 MB,
-0.34× over all 21 databases**. The ratio is not uniform — it runs from 0.05× to 0.76×, a spread of
-more than fifteen to one.
+![Disk used, every database, every load](docs/img/disk-by-database.png)
 
-![All 21 databases](docs/img/totals.png)
+![Disk as a ratio of MySQL](docs/img/ratio-by-database.png)
 
-![Dolt ÷ MySQL per database](docs/img/ratio-by-database.png)
+![Time to load, every database, every load](docs/img/time-by-database.png)
 
-![Disk used per database](docs/img/size-by-database.png)
+[`REPORT.md`](REPORT.md) has the same numbers with the per-test analysis and the validity checks.
+[`JOURNAL.md`](JOURNAL.md) is the lab notebook: why it is built this way, what the numbers do not
+support, and what went wrong along the way.
 
-The shape of that spread is legible:
+## Reproducing this
 
-* **Small databases favour Dolt heavily.** InnoDB allocates a tablespace per table whether or not
-  anything is in it, so a database of a few hundred rows over a dozen tables is mostly empty pages.
-  `pubs` and `oracle_hr` are the extremes at 0.05×.
-* **Wide, repetitive tables compress well** in Dolt — `lahman` and `adventureworks` at 0.15–0.17×.
-* **Text-heavy data narrows the gap.** `enron` (raw email bodies) and `wikipedia_simple` (article
-  text) are 0.52× and 0.59×; neither engine can do much with incompressible prose.
-* **`oracle_sh` is closest at 0.76×** — a star schema whose fact table is a million rows of dense
-  numeric columns, close to InnoDB's best case.
+You need Docker, Python 3.11+, and a running `mysql-megasamples` — it is the source of every dump,
+and building it is itself a long job (see that repository's README; `make image` there fetches and
+loads 21 datasets).
 
-## 2. One `INSERT` per row, still one commit
-
-Replacing mysqldump's extended `INSERT`s with one statement per row changes the load completely and
-the result **not at all** — the same size, to within half a percent, and the same ratio against
-MySQL.
-
-That is a result rather than a non-event. It means statement batching is a load-time concern in Dolt
-exactly as it is in MySQL, and that anyone reasoning about what "row by row" costs in storage is
-reasoning about the wrong granularity. The granularity that matters is the next section.
-
-It does cost time: the same data goes through millions of separate statements, which is why the
-loads are slow enough that this mode is measured on a subset.
-
-## 3. One commit per row
-
-The same rows with a commit after each one **invert the comparison**. On the databases measured, they
-are 0.17× MySQL loaded normally and **about 25× MySQL** loaded a commit at a time — and most of them
-end up larger than MySQL, not smaller.
-
-![What history costs](docs/img/commit-granularity.png)
-
-`chinook` is the shape of it: 15,607 rows, 2.6 MB in MySQL, 0.6 MB in one Dolt commit, **112 MB in
-15,609 commits — 43× MySQL for identical data**. A controlled check with no schema in the way makes
-the same point: 1,000 rows in one commit is 16,202 bytes; the same 1,000 rows in 1,000 commits is
-2,929,110 bytes, **181×**.
-
-This is not overhead to be tuned away — it is what the product is for. Each commit is an addressable,
-diffable state of the entire database, and a million of them cost what a million of anything costs.
-The practical question is not "is Dolt bigger than MySQL" but **"what does my commit rate cost me"**,
-and the answer scales with commits, not with rows.
-
-## Running it yourself
-
-You need `mysql-megasamples` running, because it is the source of every dump:
+**Budget before you start.** The full run took **18.5 hours** on the machine below and needs
+**roughly 200 GB of free disk** — nearly all of it for the per-row-commit loads, whose cost per row
+varies by a factor of fifty across these databases, so it cannot be projected from a small sample.
+The other four loads together finish in about eight hours and need about 3 GB.
 
 ```sh
 cd ../mysql-megasamples && make up      # MySQL on 3306, its consoles on 8080-8084
-cd ../dolt-megasamples  && make all     # export -> load -> measure -> report
+cd ../dolt-megasamples
+make down                               # stop this repo's own stack: a running Dolt server
+                                        # writes into the directories being measured
+make export                             # mysqldump every database, both statement styles
+make run                                # all five loads, timed — 18.5 hours here
+make report                             # REPORT.md, the README tables, and every figure
 ```
 
-`make all` takes a few minutes, most of it loading. Then bring the Dolt side up:
+`build/progress.json` and `build/results.json` are committed, because they are the evidence. That
+would otherwise be a trap for you: a fresh clone already contains 105 completed units, and a resume
+would skip all of them and republish measurements from this machine as if they were yours. `make run`
+compares a host fingerprint and starts clean when it does not match, so you get your own numbers by
+default. `--resume` overrides that deliberately.
+
+`make report` regenerates the visualizations as part of its output, so a reproduction produces the
+whole report and not just numbers. `make environment` records your machine into the tables above.
+
+**It runs for a long time and is built to be watched.** Every unit of work is written to
+`build/progress.json` the moment it finishes:
 
 ```sh
-make up          # Dolt on 3307, its own consoles on 8090-8094
-make down
+make progress      # what is done, what is running, how long each phase took, what is left
+make watch         # the same, redrawn every minute
 ```
 
-Both stacks can run at once — that is why the ports are one range apart — so you can put the same
-query side by side against the same data in two engines.
+The run is **resumable** — a completed unit is skipped, so it can be stopped and picked up with
+`make run` — and units go cheapest-first and smallest-first, so results accrue from the top rather
+than arriving all at once at the end.
+
+`scripts/disk_guard.py` will stop the run if free space falls below a floor you choose. The per-row
+commit load writes tens of gigabytes and its cost per row varies by a factor of fifty across these
+databases, so the space it needs cannot be projected reliably from a small sample.
+
+## Running the databases
+
+Both stacks can run at once — the ports are one range apart — so the same query can go side by side
+against the same data in two engines.
 
 | | mysql-megasamples | dolt-megasamples |
 |---|---|---|
@@ -155,103 +246,46 @@ query side by side against the same data in two engines.
 | CloudBeaver | 8084 | 8094 |
 | **Dolt Workbench** | — | **8095** |
 
-The accounts are the same on both sides: `demo` / `demo` can only read, `admin` / `admin` can do
-anything. Each console opens on the read-only one.
+```sh
+make up      # Dolt plus its consoles
+make down
+```
 
-### Dolt Workbench, for the part the others cannot show
+The accounts are the same on both sides: `demo` / `demo` reads, `admin` / `admin` writes. Each
+console opens on the read-only one.
 
-phpMyAdmin, Adminer, DbGate and CloudBeaver all see Dolt as a MySQL server, which means they show
-tables and rows and nothing of what makes it Dolt. [Dolt
-Workbench](https://github.com/dolthub/dolt-workbench) at <http://127.0.0.1:8095/> shows the branches,
-the commit log and the diff between any two commits.
-
-It is the only console here that cannot be preconfigured — it reads no connection from the
-environment — so enter it once:
-
-| field | value |
-|---|---|
-| type | MySQL |
-| connection URL | `mysql://admin:admin@dolt:3306/sakila` |
-| name | anything |
-
-`dolt`, not `127.0.0.1`: the Workbench's own API makes the connection from inside the compose
-network, and only your browser talks to `127.0.0.1`.
-
-Every database here has one branch, `main`, and three commits — Dolt's `Initialize data repository`
-and `CREATE DATABASE`, then the single `import from mysql-megasamples` that carries the whole
-database. That is deliberate, and it is why the sizes below are Dolt's floor rather than a typical
-working repository.
-
-## How the comparison is kept honest
-
-A size comparison is worthless if the two sides are not holding the same thing, so:
-
-* **Every table is counted on both sides** with `COUNT(*)` before any size is recorded.
-  `information_schema.table_rows` is an InnoDB estimate and is not used. All 21 databases match.
-* **Every index is compared by definition** — table, index name, column position, column,
-  uniqueness — not by count. Indexes are a large part of what a database costs on disk, so a
-  comparison where one engine had quietly dropped some would be worthless. **613 in MySQL, 613 in
-  Dolt, identical in every database.**
-* **The history is the least Dolt can hold**: one data commit per database, and `dolt_status` clean
-  afterwards so nothing sits uncommitted and unmeasured. Rows are *not* committed individually. A
-  branch or a week of edits would store more — this is the floor, not a typical repository.
-* **Everything is measured with no server running**, and what a server adds is measured separately
-  on a copy. `dolt sql-server` writes a per-database statistics repository at `.dolt/stats` that
-  `dolt gc` does not reclaim. A controlled pass — start a server, read every table — writes 22 KB per
-  database. Sustained use writes far more: during this project's own console browsing,
-  `adventureworks`'s statistics reached **68.2 MB — more than the 48.7 MB of data they describe**,
-  which a single pass does not reproduce. Mixing served and unserved directories is what made an
-  earlier total move by 68 MB for no visible reason.
-* **Dolt is committed and garbage-collected before measuring.** Dolt is a versioned database; data
-  left in the working set is not yet in the commit graph, and Dolt writes through a journal until
-  told to pack. Measuring before either step flatters it — `jaffle_shop` is 35,550 bytes after its
-  commit and 16,951 after `dolt gc`.
-* **Both sides are measured the same way**: `du -sb` of the directory the engine keeps the database
-  in. Not `information_schema`, which under-reports MySQL by ignoring free pages in the tablespace.
-* **The dumps are transformed only where Dolt cannot parse mysqldump's output**, never in a way that
-  touches a row. `scripts/dolt_dialect.py` documents each rule and why it exists.
-
-## What Dolt would not accept
-
-Recorded rather than smoothed over, because it is a result too:
-
-* **Cross-database foreign keys.** `oracle_oe.customers` references `oracle_hr.employees`; Dolt keeps
-  each database as its own repository and says so — *"only foreign keys on the same database are
-  currently supported"*. Three such constraints are dropped when loading. Without that, the whole
-  database fails to load and measures 56 KB against MySQL's 19.7 MB.
-* **`CREATE FUNCTION`.** Stored functions do not load. `sakila` has 6 routines in MySQL and 0 in
-  Dolt; `employees` 7 and 0; `pubs` 3 and 0. Views do load, once mysqldump's `ALGORITHM=` and
-  `SQL SECURITY` clauses are removed.
-* **mysqldump's version-gated comments** (`/*!50001 CREATE VIEW ... */`). Dolt does not parse the
-  form, so views and routines silently never arrive unless the wrapper is removed first.
-
-None of these affect a single row, which is why the row counts still match.
+**Dolt Workbench** at <http://127.0.0.1:8095/> is the only one that shows what makes Dolt Dolt —
+branches, commits, and diffs between them. It is also the only console that cannot be preconfigured,
+so enter the connection once: type MySQL, URL `mysql://admin:admin@dolt:3306/sakila`. Use `dolt`, not
+`127.0.0.1`: its API connects from inside the compose network.
 
 ## Layout
 
 | path | what it holds |
 |---|---|
 | `REPORT.md` | the full comparison, generated |
-| `scripts/export_mysql.py` | one `mysqldump` per database |
-| `scripts/dolt_dialect.py` | the transformations Dolt needs, and why each exists |
-| `scripts/load_dolt.py` | load, commit, `dolt gc` |
-| `scripts/measure.py` | size both engines, verify they hold the same rows |
-| `scripts/report.py` | `REPORT.md` and the tables above |
-| `scripts/charts.py` | the figures, with matplotlib |
 | `JOURNAL.md` | the lab notebook: reasoning, caveats, and what went wrong |
-| `docs/img/` | the generated figures |
-| `compose.yaml` | Dolt plus four consoles, on 3307 and 8090-8094 |
-| `build/results.json` | every measurement, as JSON — the evidence behind the report |
+| `scripts/run_all.py` | the five loads, timed, resumable, observable |
+| `scripts/progress.py` | what the run has done and has left |
+| `scripts/export_mysql.py` | one `mysqldump` per database, both statement styles |
+| `scripts/dolt_dialect.py` | the transformations Dolt needs, and why each exists |
+| `scripts/measure.py` | rows, indexes and sizes; the fairness checks |
+| `scripts/report.py` | `REPORT.md` and the README tables |
+| `scripts/charts.py` | the figures |
+| `scripts/environment.py` | the machine, recorded |
+| `scripts/check_claims.py` | pins the prose numbers to the measurements |
+| `build/results.json` | every measurement — the evidence behind the report |
+| `build/progress.json` | the run's own record of what it did and how long it took |
 
-`build/dumps/` and `data/` are gitignored: they are large and reproducible. `build/results.json`,
-the report and this README are committed, because they are the findings.
+`build/dumps/` and `data/` are gitignored: large and reproducible. The results, the report and the
+figures are committed, because they are the findings.
 
 ## Licence
 
 Project code is **Apache-2.0** — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
-**The data is not covered by it and is not redistributed here.** No sample data is committed to this
-repository: `make export` pulls it from your own running `mysql-megasamples`, where each dataset
-keeps its upstream licence — several are CC BY-SA and share-alike. If you publish anything built
-from those databases, the obligations that travel with them are described in that repository's
-`LICENSES.md` and `NOTICE.md`, and Apache-2.0 does nothing to satisfy them.
+**The data is not covered by it and is not redistributed here.** No sample data is committed:
+`make export` pulls it from your own running `mysql-megasamples`, where each dataset keeps its
+upstream licence — several are CC BY-SA and share-alike. If you publish anything built from those
+databases, the obligations that travel with them are in that repository's `LICENSES.md` and
+`NOTICE.md`, and Apache-2.0 does nothing to satisfy them.

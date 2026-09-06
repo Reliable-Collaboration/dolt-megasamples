@@ -70,7 +70,7 @@ server running, and the server's contribution is measured separately on a copy.
 The size of that contribution is not settled. A controlled pass — start a server, read every table in
 every database — writes an even 22 KB per database, 462 KB in total. But during this project's own
 console use, four web clients browsing over a working session, `adventureworks`'s statistics reached
-68.2 MB — more than the 48.7 MB of data they describe. A single pass does not reproduce that, so the
+68.2 MB — more than the 49.0 MB of data they describe. A single pass does not reproduce that, so the
 growth depends on sustained querying in a way this experiment has not characterised. Both numbers are
 reported because quoting only the small one would be misleading and quoting only the large one would
 be unreproducible.
@@ -87,11 +87,11 @@ of that spread is legible: tiny databases favour Dolt enormously because InnoDB 
 tablespace per table whether or not anything is in it, and text-heavy data narrows the gap because
 neither engine can do much with incompressible prose.
 
-**One `INSERT` per row, still one commit:** the same, to within 0.5% for ten of the eleven databases
+**One `INSERT` per row, still one commit:** the same, to within 0.5% for 15 of the 21 databases
 tried — eight of them byte-identical — and 4.1% for the one outlier. Statement batching is a load-time concern and not a storage one. It is worth knowing precisely
 because it is the assumption most people would make either way without checking.
 
-**One commit per row:** 10× to 187× the single-commit load, and for seven of the nine databases more
+**One commit per row** (measured on 18 of the 21 so far)**:** 12× to 368× the single-commit load, and for 16 of the 18 databases more
 disk than MySQL uses. `chinook` goes from 615 KB to 112 MB. A controlled check outside the sample
 data makes the same point without any schema in the way: 1,000 rows in one commit is 16,202 bytes;
 the same 1,000 rows in 1,000 commits is 2,929,110 bytes, **181× for identical data**.

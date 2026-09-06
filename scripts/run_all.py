@@ -48,14 +48,39 @@ PHASES = ["mysql", "dolt_oneshot", "mysql_rowwise", "dolt_rowinsert", "dolt_rowc
 ENGINE = {"mysql": "MySQL", "mysql_rowwise": "MySQL", "dolt_oneshot": "Dolt",
           "dolt_rowinsert": "Dolt", "dolt_rowcommit": "Dolt"}
 PER_ROW = {"mysql_rowwise", "dolt_rowinsert", "dolt_rowcommit"}
+# The phase name is not the mode name. `data_dir()` prefixes anything that is not "oneshot" with
+# "dolt-", so passing the phase produced data/dolt-dolt_oneshot and the measurement pass, which
+# looks in data/dolt, found nothing at all.
+MODE = {"dolt_oneshot": "oneshot", "dolt_rowinsert": "rowinsert", "dolt_rowcommit": "rowcommit"}
 
 
 # ---------------------------------------------------------------- progress ---
+def fingerprint():
+    """Enough of the machine to tell one host's run from another's."""
+    import platform
+    return f"{platform.node()}|{platform.machine()}|{os.cpu_count()}"
+
+
 def load_progress():
-    if os.path.exists(PROGRESS):
-        with open(PROGRESS, encoding="utf-8") as fh:
-            return json.load(fh)
-    return {"started": time.time(), "units": {}}
+    """Resume a run — but never silently resume *someone else's*.
+
+    `build/progress.json` is committed, because it is the record of how long each load took and is
+    part of the evidence. That creates a trap for anyone reproducing this: a fresh clone already
+    contains 105 completed units, so `make run` would skip every one of them and produce a report
+    of measurements taken on a different machine. If the fingerprint does not match, the run starts
+    clean rather than inheriting results it did not produce.
+    """
+    if not os.path.exists(PROGRESS):
+        return {"started": time.time(), "units": {}, "host": fingerprint()}
+    with open(PROGRESS, encoding="utf-8") as fh:
+        p = json.load(fh)
+    if p.get("host") and p["host"] != fingerprint():
+        print(f"build/progress.json was recorded on another machine ({p['host']});\n"
+              f"starting a fresh run on this one ({fingerprint()}).\n"
+              f"Pass --resume to continue the recorded run anyway.\n", flush=True)
+        return {"started": time.time(), "units": {}, "host": fingerprint()}
+    p["host"] = fingerprint()
+    return p
 
 
 def save_progress(p):
@@ -113,25 +138,27 @@ def mysql_load(db, per_row):
 
 
 # ------------------------------------------------------------------- Dolt ---
-def dolt_prepare(db, mode):
-    src = os.path.join(dumps_dir(mode in PER_ROW), f"{db}.sql")
+def dolt_prepare(db, phase):
+    mode = MODE[phase]
+    src = os.path.join(dumps_dir(phase in PER_ROW), f"{db}.sql")
     out_dir = os.path.join(DUMPS, "dolt", mode)
     os.makedirs(out_dir, exist_ok=True)
     sql, notes = transform(open(src, "rb").read(), db)
-    if mode == "dolt_rowcommit":
+    if phase == "dolt_rowcommit":
         sql, n = per_row_commits(sql)
         notes.append(f"a DOLT_COMMIT after each of {n:,} INSERT statements")
     open(os.path.join(out_dir, f"{db}.sql"), "wb").write(sql)
     return f"/dumps/dolt/{mode}/{db}.sql", notes
 
 
-def dolt_load(db, mode):
+def dolt_load(db, phase):
+    mode = MODE[phase]
     target = os.path.join(data_dir(mode), db)
     if os.path.isdir(target):
         run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt", "--entrypoint", "sh",
             DOLT_IMAGE, "-c", f"rm -rf /var/lib/dolt/{db}")
     os.makedirs(data_dir(mode), exist_ok=True)
-    inside, notes = dolt_prepare(db, mode)
+    inside, notes = dolt_prepare(db, phase)
 
     started = time.time()
     p = run("docker", "run", "--rm", "--label", "doltsamples.transient=true",
@@ -141,8 +168,14 @@ def dolt_load(db, mode):
     load_s = time.time() - started
     if not os.path.isdir(target):
         return {"error": (p.stderr or p.stdout).strip()[:300], "seconds": round(load_s, 1)}
+    # A directory is not proof of a load. Three per-row-commit loads truncated mid-table and were
+    # recorded as successful because the directory existed: `employees` stopped at 1,854,812 of
+    # 3.9M rows with `titles` never created. The exit status and the tail of the output are kept for
+    # every load now, and the row count is checked below.
+    outcome = {"exit_code": p.returncode,
+               "output_tail": ((p.stderr or "") + (p.stdout or "")).strip()[-400:]}
 
-    final = ("dolt gc" if mode == "dolt_rowcommit" else
+    final = ("dolt gc" if phase == "dolt_rowcommit" else
              'dolt add -A && dolt commit -m "import from mysql-megasamples" '
              '--author "megasamples <megasamples@localhost>" ; dolt gc')
     started = time.time()
@@ -156,9 +189,40 @@ def dolt_load(db, mode):
     lines = [l.split()[0] for l in size.stdout.splitlines() if l.split()]
     total = int(lines[0]) if lines else None
     stats = int(lines[1]) if len(lines) > 1 else 0
-    return {"seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
-            "bytes": (total - stats) if total else None, "stats_bytes": stats,
-            "notes": notes}
+    outcome.update({"seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
+                    "bytes": (total - stats) if total else None, "stats_bytes": stats,
+                    "notes": notes})
+    short = truncated(db, mode)
+    if short:
+        outcome["error"] = ("the load did not finish: " + short
+                            + (f" (exit {p.returncode})" if p.returncode else ""))
+    return outcome
+
+
+def truncated(db, mode):
+    """Compare the row count in Dolt against MySQL, table by table, and say what is short.
+
+    Counted one table at a time with a generous timeout: a single UNION over every table of a
+    repository with millions of commits does not return, which is how the truncation was first
+    mistaken for a measuring problem."""
+    tables = [r[0] for r in mysql_rows_query(
+        f"SELECT table_name FROM information_schema.tables "
+        f"WHERE table_schema='{db}' AND table_type='BASE TABLE' ORDER BY table_name")]
+    for t in tables:
+        want = int(mysql_rows_query(f"SELECT COUNT(*) FROM `{db}`.`{t}`")[0][0])
+        p = run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt",
+                "-w", "/var/lib/dolt", "--entrypoint", "dolt", DOLT_IMAGE,
+                "--use-db", db, "sql", "-r", "csv", "-q", f"SELECT COUNT(*) FROM `{t}`")
+        got = next((int(l.strip()) for l in p.stdout.splitlines() if l.strip().isdigit()), None)
+        if got != want:
+            return f"{db}.{t} has {got if got is not None else 'no'} rows, expected {want:,}"
+    return None
+
+
+def mysql_rows_query(sql):
+    p = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch",
+            "-e", sql)
+    return [l.split("\t") for l in p.stdout.splitlines() if l.strip()]
 
 
 # ------------------------------------------------------------------- run ---
@@ -167,11 +231,18 @@ def main():
     ap.add_argument("--only", action="append")
     ap.add_argument("--phase", action="append", choices=PHASES)
     ap.add_argument("--restart", action="store_true", help="forget previous progress and redo all")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue a run recorded on another machine (normally refused)")
     a = ap.parse_args()
 
     dbs = a.only or databases()
     phases = a.phase or PHASES
-    p = {"started": time.time(), "units": {}} if a.restart else load_progress()
+    if a.restart:
+        p = {"started": time.time(), "units": {}, "host": fingerprint()}
+    elif a.resume and os.path.exists(PROGRESS):
+        p = json.load(open(PROGRESS, encoding="utf-8"))
+    else:
+        p = load_progress()
     p["databases"] = dbs
     p["phases"] = phases
     save_progress(p)

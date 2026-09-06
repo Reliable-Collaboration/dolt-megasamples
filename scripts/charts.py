@@ -3,20 +3,23 @@
 
   .venv/bin/python scripts/charts.py
 
-matplotlib, deliberately: it is a Python library like the rest of the pipeline, it needs no browser
-or JavaScript toolchain to render, and it writes a PNG that can be committed and shown inline in a
-README on GitHub. A chart that needs a build step to look at is a chart nobody looks at.
+matplotlib, deliberately: a Python library like the rest of the pipeline, no browser or JavaScript
+toolchain, and it writes a PNG that can be committed and shown inline in a README. A chart that
+needs a build step to look at is a chart nobody looks at.
 
-Four figures, each answering one question:
+**Every figure covers every test and every database.** An earlier version drew each figure over
+whichever databases happened to have that measurement, so one chart covered 21 databases, another 11
+and a third 9, under titles that did not say so — bars of different populations standing side by
+side. Now the database list is the same everywhere, a test with no result for a database leaves a
+visible gap, and each figure states its coverage. If a bar is missing, the measurement is missing,
+and that is the honest thing for the picture to say.
 
-  size-by-database     what does each database cost in each engine? (log scale: the databases span
-                       three orders of magnitude, and a linear axis would show only the big ones)
-  ratio-by-database    where is Dolt cheaper than MySQL, and by how much, for the standard load
-  modes-vs-mysql       the same ratio for **every** load, side by side -- the one figure that shows
-                       that "Dolt against MySQL" has no single answer
-  totals-by-mode       the same, totalled, on the databases measured in all three
-  commit-granularity   absolute sizes: what history costs
-  totals               the whole corpus in one picture
+Four figures:
+
+  disk-by-database   what each database costs on disk, in all five loads
+  time-by-database   what each database costs in time, in all five loads
+  ratio-by-database  the same as a ratio against MySQL, so the crossover is visible
+  cost-by-mode       both axes totalled, one bar per load
 """
 import json, os, sys
 
@@ -29,10 +32,18 @@ IMG = os.path.join(ROOT, "docs", "img")
 MB = 1024 * 1024
 
 INK, GRID = "#22252a", "#cfd4dc"
-COLOURS = {"mysql": "#4c72b0", "oneshot": "#dd8452", "rowinsert": "#55a868", "rowcommit": "#c44e52"}
-LABELS = {"mysql": "MySQL 9.7.2", "oneshot": "Dolt — one commit per database",
-          "rowinsert": "Dolt — one INSERT per row, one commit",
-          "rowcommit": "Dolt — one commit per row"}
+# the five loads, in the order they are always drawn
+TESTS = ["mysql", "mysql_rowwise", "dolt_oneshot", "dolt_rowinsert", "dolt_rowcommit"]
+COLOURS = {"mysql": "#4c72b0", "mysql_rowwise": "#8fa9d4", "dolt_oneshot": "#dd8452",
+           "dolt_rowinsert": "#55a868", "dolt_rowcommit": "#c44e52"}
+LABELS = {"mysql": "MySQL — extended INSERTs",
+          "mysql_rowwise": "MySQL — one INSERT per row",
+          "dolt_oneshot": "Dolt — one commit per database",
+          "dolt_rowinsert": "Dolt — one INSERT per row, one commit",
+          "dolt_rowcommit": "Dolt — one commit per row"}
+SHORT = {"mysql": "MySQL\nextended", "mysql_rowwise": "MySQL\n1 INSERT/row",
+         "dolt_oneshot": "Dolt\n1 commit/db", "dolt_rowinsert": "Dolt\n1 INSERT/row",
+         "dolt_rowcommit": "Dolt\n1 commit/row"}
 
 
 def style(ax, title, xlabel, pad=12):
@@ -48,10 +59,9 @@ def style(ax, title, xlabel, pad=12):
 
 
 def save(fig, name):
-    path = os.path.join(IMG, name)
-    fig.savefig(path, dpi=144, bbox_inches="tight", facecolor="white")
+    fig.savefig(os.path.join(IMG, name), dpi=144, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"  . {os.path.relpath(path, ROOT)}")
+    print(f"  . {os.path.join('docs/img', name)}")
 
 
 def load():
@@ -59,209 +69,134 @@ def load():
         return json.load(fh)
 
 
-def series(results, mode):
-    return {db: (r.get("modes", {}).get(mode, {}) or {}).get("disk_bytes")
-            for db, r in results.items()}
+def value(r, test, axis):
+    """One measurement, or None. `axis` is 'bytes' or 'seconds'."""
+    if test == "mysql":
+        return r.get("mysql_disk_bytes") if axis == "bytes" else r.get("mysql_load_seconds")
+    if test == "mysql_rowwise":
+        return r.get("mysql_rowwise_bytes") if axis == "bytes" else r.get("mysql_rowwise_seconds")
+    m = (r.get("modes", {}) or {}).get(test.replace("dolt_", ""), {}) or {}
+    return m.get("disk_bytes") if axis == "bytes" else m.get("total_seconds")
 
 
-def fig_size_by_database(results):
-    # Only the two modes that cover every database. Adding a mode measured on a subset would put
-    # bars of different populations in one picture under a title claiming all 21.
-    my = {db: r.get("mysql_disk_bytes") for db, r in results.items()}
-    one = series(results, "oneshot")
-    dbs = [d for d in sorted(my, key=lambda d: my[d] or 0) if my.get(d) and one.get(d)]
+def coverage(results, axis):
+    """How many of the databases each test has a measurement for."""
+    return {t: sum(1 for r in results.values() if value(r, t, axis)) for t in TESTS}
 
-    fig, ax = plt.subplots(figsize=(9, 0.36 * len(dbs) + 1.6))
-    h, y = 0.36, range(len(dbs))
-    ax.barh([i + h / 2 for i in y], [my[d] / MB for d in dbs], h, label=LABELS["mysql"],
-            color=COLOURS["mysql"])
-    ax.barh([i - h / 2 for i in y], [one[d] / MB for d in dbs], h, label=LABELS["oneshot"],
-            color=COLOURS["oneshot"])
-    ax.set_yticks(list(y), dbs, fontsize=8)
+
+def caption(results, axis):
+    cov = coverage(results, axis)
+    n = len(results)
+    missing = {t: n - c for t, c in cov.items() if c < n}
+    if not missing:
+        return f"all {n} databases, all five loads"
+    return (f"{n} databases; a gap means that load has no result yet — "
+            + ", ".join(f"{LABELS[t].split(' — ')[0]} {LABELS[t].split(' — ')[1]}: {cov[t]}/{n}"
+                        for t in missing))
+
+
+def by_database(results, axis, name, title, xlabel, scale):
+    dbs = sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
+    fig, ax = plt.subplots(figsize=(10, 0.78 * len(dbs) + 2.2))
+    h, y = 0.16, range(len(dbs))
+    for k, t in enumerate(TESTS):
+        vals, ys = [], []
+        for i, d in enumerate(dbs):
+            v = value(results[d], t, axis)
+            if v:
+                vals.append(v / scale)
+                ys.append(i + (2 - k) * h)
+        if vals:
+            ax.barh(ys, vals, h, label=LABELS[t], color=COLOURS[t])
+    ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
+                  fontsize=7)
     ax.set_xscale("log")
-    style(ax, f"Disk used per database — all {len(dbs)}", "megabytes on disk (log scale)")
-    ax.legend(fontsize=8, frameon=False, loc="lower right")
-    save(fig, "size-by-database.png")
+    style(ax, title, xlabel, pad=30)
+    ax.legend(fontsize=8, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.005))
+    ax.text(0, -0.055, caption(results, axis), transform=ax.transAxes, fontsize=7.5,
+            color=INK, alpha=.75)
+    save(fig, name)
 
 
 def fig_ratio(results):
-    my = {db: r.get("mysql_disk_bytes") for db, r in results.items()}
-    one = series(results, "oneshot")
-    pairs = sorted(((one[d] / my[d], d) for d in my if my.get(d) and one.get(d)))
-    fig, ax = plt.subplots(figsize=(8, 0.32 * len(pairs) + 1.6))
-    ratios = [p[0] for p in pairs]
-    ax.barh(range(len(pairs)), ratios, 0.62, color=COLOURS["oneshot"])
-    for i, (r, _) in enumerate(pairs):
-        ax.text(r + .012, i, f"{r:.2f}×", va="center", fontsize=7.5, color=INK)
-    ax.axvline(1.0, color=COLOURS["mysql"], linewidth=1.2, linestyle="--")
-    ax.text(1.02, len(pairs) - .6, "same size as MySQL", fontsize=8, color=COLOURS["mysql"])
-    ax.set_yticks(range(len(pairs)), [p[1] for p in pairs], fontsize=8)
-    ax.set_xlim(0, max(1.12, max(ratios) * 1.18))
-    style(ax, "Dolt ÷ MySQL, one commit per database",
-          "smaller is less disk than MySQL for the same rows")
+    dbs = sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
+    tests = [t for t in TESTS if t != "mysql"]
+    fig, ax = plt.subplots(figsize=(10, 0.68 * len(dbs) + 2.2))
+    h, y = 0.2, range(len(dbs))
+    for k, t in enumerate(tests):
+        vals, ys = [], []
+        for i, d in enumerate(dbs):
+            base, v = results[d].get("mysql_disk_bytes"), value(results[d], t, "bytes")
+            if base and v:
+                vals.append(v / base)
+                ys.append(i + (1.5 - k) * h)
+        if vals:
+            ax.barh(ys, vals, h, label=LABELS[t], color=COLOURS[t])
+    ax.axvline(1.0, color=COLOURS["mysql"], linewidth=1.4, linestyle="--")
+    ax.text(1.1, len(dbs) - .35, "the size MySQL uses", fontsize=8, color=COLOURS["mysql"])
+    ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
+                  fontsize=7)
+    ax.set_xscale("log")
+    style(ax, "Disk used, as a ratio of MySQL loaded from the same dump",
+          "left of the line is smaller than MySQL; right of it is larger (log scale)", pad=30)
+    ax.legend(fontsize=8, frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.005))
+    ax.text(0, -0.05, caption(results, "bytes"), transform=ax.transAxes, fontsize=7.5,
+            color=INK, alpha=.75)
     save(fig, "ratio-by-database.png")
 
 
-def fig_commit_granularity(results):
-    my = {db: r.get("mysql_disk_bytes") for db, r in results.items()}
-    one, row, com = series(results, "oneshot"), series(results, "rowinsert"), series(results, "rowcommit")
-    dbs = [d for d in sorted(com, key=lambda d: results[d].get("rows_mysql") or 0) if com.get(d)]
-    if not dbs:
-        return
-    fig, ax = plt.subplots(figsize=(10, 0.62 * len(dbs) + 1.8))
-    h, y = 0.2, range(len(dbs))
-    ax.barh([i + 1.5 * h for i in y], [my[d] / MB for d in dbs], h, label=LABELS["mysql"],
-            color=COLOURS["mysql"])
-    ax.barh([i + 0.5 * h for i in y], [one[d] / MB for d in dbs], h, label=LABELS["oneshot"],
-            color=COLOURS["oneshot"])
-    ax.barh([i - 0.5 * h for i in y], [(row.get(d) or 0) / MB for d in dbs], h,
-            label=LABELS["rowinsert"], color=COLOURS["rowinsert"])
-    ax.barh([i - 1.5 * h for i in y], [com[d] / MB for d in dbs], h, label=LABELS["rowcommit"],
-            color=COLOURS["rowcommit"])
-    for i, d in enumerate(dbs):
-        ax.text(com[d] / MB * 1.15, i - 1.5 * h, f"{com[d] / one[d]:.0f}×",
-                va="center", fontsize=7.5, color=COLOURS["rowcommit"], fontweight="bold")
-    # both bounds, explicitly: on a log axis a bar starts at 0, which is -inf, so setting only the
-    # right bound leaves the left one unscaled and every bar renders full width
-    lo = min(min(one[d], my[d], com[d]) for d in dbs) / MB
-    ax.set_xlim(lo / 3, max(com[d] for d in dbs) / MB * 3.2)
-    ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
-                  fontsize=7.5)
-    ax.set_xscale("log")
-    style(ax, "What history costs — the same rows, written four ways",
-          "megabytes on disk (log scale).  × is the per-row-commit load against the one-commit load")
-    ax.legend(fontsize=8, frameon=False, loc="lower right")
-    save(fig, "commit-granularity.png")
-
-
-def fig_modes_vs_mysql(results):
-    """Dolt ÷ MySQL for each load, per database.
-
-    The ratio chart next to this one answers "is Dolt smaller than MySQL" for the way anyone would
-    actually load a database. This one answers the same question for all three loads at once, and
-    the answer changes sign: the same nine databases are a fifth of MySQL's size when the load is
-    one commit, and twenty-five times MySQL's size when it is one commit per row.
-    """
-    my = {db: r.get("mysql_disk_bytes") for db, r in results.items()}
-    modes = ["oneshot", "rowinsert", "rowcommit"]
-    ser = {m: series(results, m) for m in modes}
-    dbs = [d for d in sorted(my, key=lambda d: -(results[d].get("rows_mysql") or 0))
-           if ser["rowcommit"].get(d) and my.get(d)]
-    if not dbs:
-        return
-
-    fig, ax = plt.subplots(figsize=(9.5, 0.62 * len(dbs) + 2))
-    h, y = 0.24, range(len(dbs))
-    for k, m in enumerate(modes):
-        vals = [(ser[m].get(d) or 0) / my[d] for d in dbs]
-        ax.barh([i + (1 - k) * h for i in y], vals, h, label=LABELS[m], color=COLOURS[m])
-    for i, d in enumerate(dbs):
-        ax.text(ser["rowcommit"][d] / my[d] * 1.15, i - h, f"{ser['rowcommit'][d] / my[d]:.1f}×",
-                va="center", fontsize=7.5, color=COLOURS["rowcommit"], fontweight="bold")
-        ax.text(ser["oneshot"][d] / my[d] * 1.15, i + h, f"{ser['oneshot'][d] / my[d]:.2f}×",
-                va="center", fontsize=7, color=COLOURS["oneshot"])
-    ax.axvline(1.0, color=COLOURS["mysql"], linewidth=1.4, linestyle="--")
-    ax.text(1.06, len(dbs) - .4, "the size MySQL uses", fontsize=8, color=COLOURS["mysql"])
-    ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
-                  fontsize=7.5)
-    ax.set_xscale("log")
-    ax.set_xlim(0.02, max(ser["rowcommit"][d] / my[d] for d in dbs) * 4)
-    style(ax, "Dolt ÷ MySQL, for each way of loading the same rows",
-          "left of the dashed line is smaller than MySQL; right of it is larger (log scale)", pad=34)
-    # above the plot, not inside it: at the top of the chart the per-row-commit bars are longest
-    # and a legend in the corner sits on top of their labels
-    ax.legend(fontsize=8, frameon=False, ncol=3, loc="lower center",
-              bbox_to_anchor=(0.5, 1.045))
-    save(fig, "modes-vs-mysql.png")
-
-
-def fig_totals_by_mode(results):
-    """The same comparison totalled, on the databases measured in every mode, so the bars stand for
-    one population rather than three."""
-    modes = ["oneshot", "rowinsert", "rowcommit"]
-    ser = {m: series(results, m) for m in modes}
+def fig_cost_by_mode(results):
+    """Totals on both axes, over the databases where every load has a result, so the five bars
+    stand for one population."""
     dbs = [d for d, r in results.items()
-           if r.get("mysql_disk_bytes") and all(ser[m].get(d) for m in modes)]
+           if all(value(r, t, "bytes") and value(r, t, "seconds") is not None for t in TESTS)]
     if not dbs:
+        print("  ! cost-by-mode skipped: no database has every measurement yet")
         return
-    my = sum(results[d]["mysql_disk_bytes"] for d in dbs)
-    tot = {m: sum(ser[m][d] for d in dbs) for m in modes}
     rows = sum(results[d].get("rows_mysql") or 0 for d in dbs)
-
-    fig, ax = plt.subplots(figsize=(8.5, 3.8))
-    names = ["mysql"] + modes
-    vals = [my / MB] + [tot[m] / MB for m in modes]
-    bars = ax.bar([LABELS[n].replace(" — ", "\n") for n in names], vals,
-                  color=[COLOURS[n] for n in names], width=.6)
-    for b, v, n in zip(bars, vals, names):
-        ratio = "" if n == "mysql" else f"\n{v * MB / my:.2f}× MySQL"
-        ax.text(b.get_x() + b.get_width() / 2, v * 1.05, f"{v:,.0f} MB{ratio}", ha="center",
-                fontsize=8.5, color=INK, fontweight="bold")
-    ax.set_yscale("log")
-    ax.set_ylabel("megabytes on disk (log scale)", color=INK, fontsize=9)
-    style(ax, f"The {len(dbs)} databases measured in every mode — {rows:,} rows", "")
-    ax.grid(axis="x", visible=False)
-    ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
-    ax.set_ylim(top=max(vals) * 4)
-    save(fig, "totals-by-mode.png")
-
-
-def fig_totals(results):
-    """MySQL against Dolt for every database. The other two modes are measured on subsets and are
-    shown in commit-granularity.png, where the population is stated; putting them here would mean
-    bars of different sizes standing under a title that claims all 21."""
-    covered = [db for db, r in results.items()
-               if r.get("mysql_disk_bytes") and (r.get("modes", {}).get("oneshot") or {}).get("disk_bytes")]
-    my = sum(results[d]["mysql_disk_bytes"] for d in covered)
-    one_total = sum(results[d]["modes"]["oneshot"]["disk_bytes"] for d in covered)
-    rows_total = sum(results[d].get("rows_mysql") or 0 for d in covered)
-    stats = sum((results[d].get("modes", {}).get("oneshot", {}) or {}).get("stats_bytes") or 0
-                for d in covered)
-    names = ["mysql", "oneshot"]
-    vals = [my / MB, one_total / MB]
-    tot = {"oneshot": one_total}
-
-    fig, ax = plt.subplots(figsize=(7, 3.6))
-    bars = ax.bar([LABELS[n].replace(" — ", "\n") for n in names], vals,
-                  color=[COLOURS[n] for n in names], width=.55)
-    # Only draw the statistics overlay when there is something to see. These figures are measured
-    # with no server running, so it is normally a rounding error, and a "+0 MB" label sitting on
-    # top of the real one is worse than no label.
-    material = stats > 0.01 * tot["oneshot"]
-    if material:
-        ax.bar([LABELS["oneshot"].replace(" — ", "\n")], [stats / MB], bottom=[tot["oneshot"] / MB],
-               color=COLOURS["oneshot"], alpha=.35, width=.55,
-               label="server-collected statistics (not counted)")
-    for b, v in zip(bars, vals):
-        ax.text(b.get_x() + b.get_width() / 2, v * 1.02, f"{v:,.0f} MB", ha="center", fontsize=9,
-                color=INK, fontweight="bold")
-    if material:
-        ax.text(1, (tot["oneshot"] + stats) / MB * 1.02, f"+{stats / MB:,.0f} MB stats",
-                ha="center", fontsize=7.5, color=INK, alpha=.8)
-    ax.text(0.5, max(vals) * .62, f"{one_total / my:.2f}×", ha="center", fontsize=22,
-            color=INK, alpha=.35, fontweight="bold")
-    ax.set_ylabel("megabytes on disk", color=INK, fontsize=9)
-    style(ax, f"All {len(covered)} databases, {rows_total:,} rows", "")
-    ax.grid(axis="x", visible=False)
-    ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
-    if material:
-        ax.legend(fontsize=8, frameon=False)
-    else:
-        ax.text(1, tot["oneshot"] / MB * .45, "measured with\nno server running",
-                ha="center", va="center", fontsize=7.5, color="white", alpha=.95,
-                linespacing=1.4)
-    save(fig, "totals.png")
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.4))
+    for ax, axis in zip(axes, ("bytes", "seconds")):
+        vals = [sum(value(results[d], t, axis) or 0 for d in dbs) for t in TESTS]
+        base = vals[0]
+        shown = [v / MB for v in vals] if axis == "bytes" else vals
+        bars = ax.bar([SHORT[t] for t in TESTS], shown, color=[COLOURS[t] for t in TESTS], width=.62)
+        for b, v, raw in zip(bars, shown, vals):
+            tag = "" if raw == base else (f"\n{raw / base:.2f}×" if raw / base < 10
+                                          else f"\n{raw / base:.0f}×")
+            text = f"{v:,.0f} MB" if axis == "bytes" else (f"{v:,.0f}s" if v < 3600
+                                                           else f"{v / 3600:,.1f}h")
+            ax.text(b.get_x() + b.get_width() / 2, v * 1.08, text + tag, ha="center", fontsize=8,
+                    color=INK, fontweight="bold")
+        ax.set_yscale("log")
+        ax.set_ylabel("megabytes on disk" if axis == "bytes" else "seconds to load",
+                      color=INK, fontsize=9)
+        style(ax, "Disk" if axis == "bytes" else "Time", "")
+        ax.grid(axis="x", visible=False)
+        ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
+        ax.set_ylim(top=max(shown) * 8)
+        ax.tick_params(axis="x", labelsize=7.5)
+    fig.suptitle(f"What each load costs — {len(dbs)} of {len(results)} databases, "
+                 f"{rows:,} rows, against MySQL",
+                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.03)
+    fig.tight_layout()
+    save(fig, "cost-by-mode.png")
 
 
 def main():
     os.makedirs(IMG, exist_ok=True)
     results = load()
-    fig_size_by_database(results)
+    by_database(results, "bytes", "disk-by-database.png",
+                "Disk used, every database, every load", "megabytes on disk (log scale)", MB)
+    by_database(results, "seconds", "time-by-database.png",
+                "Time to load, every database, every load", "seconds (log scale)", 1)
     fig_ratio(results)
-    fig_modes_vs_mysql(results)
-    fig_totals_by_mode(results)
-    fig_commit_granularity(results)
-    fig_totals(results)
+    fig_cost_by_mode(results)
+    for axis in ("bytes", "seconds"):
+        cov = coverage(results, axis)
+        gaps = {t: c for t, c in cov.items() if c < len(results)}
+        if gaps:
+            print(f"  ! {axis}: incomplete — "
+                  + ", ".join(f"{t} {c}/{len(results)}" for t, c in gaps.items()))
     return 0
 
 

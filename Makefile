@@ -2,7 +2,7 @@
 # Every target is a thin shim over a script in scripts/, so the experiment can be run without make.
 PY ?= python3
 
-.PHONY: help all run progress watch export load measure report charts experiment check up down status clean clean-data verify
+.PHONY: help all run progress watch export load measure report charts environment method-checks experiment check up down status clean clean-data verify
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -30,13 +30,18 @@ load:
 	@$(PY) scripts/load_dolt.py
 measure:
 	@$(PY) scripts/measure.py
-report:
+report: environment method-checks
 	@$(PY) scripts/report.py
 	@$(PY) scripts/console_page.py
 	@$(MAKE) --no-print-directory charts
 
 # The figures. matplotlib lives in .venv because it is this repository's only dependency; the rest
 # of the pipeline runs on the system python and shells out to docker.
+environment:
+	@$(PY) scripts/environment.py >/dev/null && echo "  . recorded the machine into build/environment.json"
+method-checks:
+	@$(PY) scripts/method_checks.py
+
 charts: .venv/bin/python
 	@.venv/bin/python scripts/charts.py
 
