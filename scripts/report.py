@@ -61,8 +61,42 @@ def rows(results):
                                                   or {}).get("total_seconds"),
                         rowcommit_inline=(modes.get("rowcommit_inline", {}) or {}).get("disk_bytes"),
                         rowcommit_seconds_inline=(modes.get("rowcommit_inline", {})
-                                                  or {}).get("total_seconds")))
+                                                  or {}).get("total_seconds"),
+                        # index parity per mode, not only for the one-shot load: the row-by-row
+                        # loads under both index policies have to end with the same indexes too,
+                        # and the deferred policy is precisely the one that rebuilds them by hand
+                        idx_by_mode={m: {"dolt": v.get("indexes_dolt"),
+                                         "only_mysql": v.get("indexes_only_mysql") or [],
+                                         "only_dolt": v.get("indexes_only_dolt") or []}
+                                     for m, v in modes.items()
+                                     if isinstance(v, dict) and v.get("indexes_dolt") is not None}))
     return out
+
+
+MODE_TITLES = {"oneshot": "one commit per database",
+               "rowinsert": "one `INSERT` per row, indexes deferred",
+               "rowcommit": "one commit per row, indexes deferred",
+               "rowinsert_inline": "one `INSERT` per row, indexes maintained",
+               "rowcommit_inline": "one commit per row, indexes maintained"}
+
+
+def index_parity_table(items):
+    """Index parity for every mode that was measured, not just the one-shot load."""
+    modes = sorted({m for i in items for m in i["idx_by_mode"]},
+                   key=lambda m: list(MODE_TITLES).index(m) if m in MODE_TITLES else 99)
+    if not modes:
+        return []
+    L = ["| Dolt load | databases checked | indexes in MySQL | indexes in Dolt | disagreements |",
+         "|---|---:|---:|---:|---|"]
+    for m in modes:
+        have = [i for i in items if m in i["idx_by_mode"]]
+        my = sum(i["idx_my"] for i in have)
+        do = sum(i["idx_by_mode"][m]["dolt"] or 0 for i in have)
+        bad = [i["db"] for i in have
+               if i["idx_by_mode"][m]["only_mysql"] or i["idx_by_mode"][m]["only_dolt"]]
+        L.append(f"| {MODE_TITLES.get(m, m)} | {len(have)} | {my} | {do} | "
+                 + (", ".join(f"`{d}`" for d in bad) if bad else "none") + " |")
+    return L
 
 
 POLICY_PAIRS = [("mysql_rowwise_bytes", "mysql_rowwise_bytes_inline",
@@ -368,6 +402,10 @@ def report(items):
           + (f"**{len(idx_bad)} database(s) differ**: "
              + ", ".join(f"`{i['db']}`" for i in idx_bad) if idx_bad else
              f"**{idx_my} indexes in MySQL, {idx_do} in Dolt, identical in every database.**"), "",
+          "Checked for every load, not only the one-shot one. The deferred policy takes the "
+          "secondary indexes out of `CREATE TABLE` and rebuilds them with `ALTER TABLE` after the "
+          "last row, so \"the same indexes at the end\" is exactly the thing it could get wrong:",
+          ""] + index_parity_table(items) + ["",
           "**The history is stated, not assumed.** The one-commit load makes exactly one data commit "
           f"per database (`dolt_log` shows {', '.join(str(c) for c in commits)}, two of them Dolt's "
           "own `Initialize data repository` and `CREATE DATABASE`), and `dolt_status` is clean "
