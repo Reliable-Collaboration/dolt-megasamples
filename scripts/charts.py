@@ -80,7 +80,7 @@ def style(ax, title, xlabel, pad=12):
 def save(fig, name):
     fig.savefig(os.path.join(IMG, name), dpi=144, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"  . {os.path.join('docs/img', name)}")
+    print(f"  . {os.path.relpath(os.path.join(IMG, name), ROOT)}")
 
 
 def load(path=None):
@@ -326,8 +326,19 @@ def fig_index_policy(results):
 
 
 def main():
-    os.makedirs(IMG, exist_ok=True)
-    results = load(sys.argv[1] if len(sys.argv) > 1 else None)
+    # Figures rendered from anything other than the real results file go somewhere else. Passing a
+    # path is for checking a new figure against fabricated full coverage without waiting hours for a
+    # run -- and doing exactly that overwrote docs/img and put two commits of synthetic charts into
+    # the repository, presented as the experiment's results. The output directory follows the input
+    # so that cannot happen again.
+    src = sys.argv[1] if len(sys.argv) > 1 else None
+    out = IMG if src is None else os.path.join(ROOT, "build", "img-preview")
+    globals()["IMG"] = out
+    os.makedirs(out, exist_ok=True)
+    if src:
+        print(f"  ! rendering from {src}, so figures go to "
+              f"{os.path.relpath(out, ROOT)}/ and not docs/img/")
+    results = load(src)
     by_database(results, "bytes", "disk-by-database.png",
                 "Disk used, every database, every load", "megabytes on disk (log scale)", MB)
     by_database(results, "seconds", "time-by-database.png",

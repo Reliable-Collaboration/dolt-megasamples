@@ -10,3 +10,4 @@ __pycache__/
 .env
 # a full --restart moves the previous results aside rather than deleting them
 build/results.json.superseded
+build/img-preview/
