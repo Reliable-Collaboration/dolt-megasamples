@@ -14,6 +14,8 @@ help:
 	@echo "make measure    size both engines and check they hold the same rows"
 	@echo "make report     regenerate REPORT.md, the README tables and the figures"
 	@echo "make charts     regenerate the figures only (matplotlib, in .venv)"
+	@echo "make collect    fold the timed run into build/results.json (make report does this)"
+	@echo "make measure-all  row counts and index parity for every mode that was loaded"
 	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
 	@echo "make check      fail if the report, the README table or a prose number is stale"
 	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
@@ -30,7 +32,24 @@ load:
 	@$(PY) scripts/load_dolt.py
 measure:
 	@$(PY) scripts/measure.py
-report: environment method-checks
+
+# Row counts and index parity for every mode that has a data directory, not just the one-shot load.
+# run_all.py verifies row counts as each unit finishes; this is what puts the index comparison for
+# each mode into results.json, including both index policies.
+MEASURE_MODES = oneshot rowinsert rowcommit rowinsert_inline rowcommit_inline
+measure-all:
+	@for m in $(MEASURE_MODES); do \
+	  test -d data/dolt$$(test $$m = oneshot || echo -$$m) && \
+	    $(PY) scripts/measure.py --mode $$m || true; \
+	done
+# collect folds build/progress.json -- what the timed run actually did -- into build/results.json,
+# which is what the report and the figures read. Nothing called it, so the documented path of
+# `make run` then `make report` built the report from whatever results.json happened to hold, which
+# after a `make clean-data` is nothing at all.
+collect:
+	@$(PY) scripts/collect.py
+
+report: environment method-checks collect
 	@$(PY) scripts/report.py
 	@$(PY) scripts/console_page.py
 	@$(MAKE) --no-print-directory charts

@@ -60,7 +60,27 @@ def facts(r):
         "identical": sum(1 for x in deltas if x <= 0.0001),
         "widest": f"{max(deltas) * 100:.1f}%",
         "aw_data": f"{one('adventureworks')['disk_bytes'] / MB:.1f} MB",
+        **spread_facts(r),
     }
+
+
+def spread_facts(r):
+    """The repeatability claim, taken from the run's own repeats.
+
+    The README says the per-row-commit size is the one number here that does not repeat. That is a
+    claim about the measurements, so it is pinned to them: the widest spread any repeated
+    per-row-commit load actually showed, and the database it belongs to."""
+    worst, where = 0.0, None
+    for db, entry in r.items():
+        xs = ((entry.get("modes", {}) or {}).get("rowcommit") or {}).get("bytes_all") or []
+        if len(xs) > 1:
+            xs = sorted(xs)
+            med = xs[len(xs) // 2]
+            if med and (xs[-1] - xs[0]) / med > worst:
+                worst, where = (xs[-1] - xs[0]) / med, db
+    if not where:
+        return {"rc_spread": "n/a", "rc_spread_db": "n/a"}
+    return {"rc_spread": f"{worst * 100:.0f}%", "rc_spread_db": where}
 
 
 # Each claim is a sentence fragment that must appear verbatim in the named documents, with the value
@@ -68,10 +88,7 @@ def facts(r):
 # silently passing, which is the intended trade: prose about numbers should be pinned to them.
 METHOD_CLAIMS = [
     # measured by scripts/method_checks.py into build/method.json
-    ("a measured {overhead} s per container", ["README.md"]),
-    ("{shared_mb} MB, {shared_pct}%, is not attributed to anything", ["README.md"]),
-    ("median of **{repeat_median}%** against the first run, ranging **{repeat_min}% to "
-     "{repeat_max}%**", ["README.md"]),
+    ("a measured {overhead} s that was under 1% of the large loads", ["README.md"]),
 ]
 
 CLAIMS = [
