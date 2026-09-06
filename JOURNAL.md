@@ -45,9 +45,27 @@ those two facts you are looking at.
 Separating them is what makes the third mode interpretable: whatever `rowcommit` costs above
 `rowinsert` is the price of history, not the price of small statements.
 
+## And why each row-by-row load is then run twice
+
+The same ambiguity, one level down. A load that writes rows one at a time *and* maintains every
+secondary index while doing it is measuring two things, and the interesting one is underneath.
+Anyone bulk-loading either engine drops the secondary indexes, loads, and rebuilds — so that is what
+these runs do by default, and `--indexes inline` keeps them maintained throughout for the
+comparison.
+
+The primary key is never deferred. It is not an optimisation to leave out: it is the row's identity,
+Dolt stores a table as a prolly tree keyed by it, and a table loaded without one is a different
+table. Everything else — `KEY`, `UNIQUE KEY`, `FULLTEXT KEY`, `SPATIAL KEY` and the foreign key
+constraints — comes out for the load and goes back with `ALTER TABLE` after the last row, which for
+Dolt puts them inside the final commit. Both policies finish with the same schema, and index parity
+against MySQL is checked under each.
+
+Tests 1 and 3 have no policy, because there is nothing to vary: mysqldump's extended `INSERT`s build
+an index over batches whichever way you ask, and both policies produced byte-identical files.
+
 ## How the comparison is kept fair
 
-A ratio between two databases is worthless if they are not holding the same thing. Four checks, run
+A ratio between two databases is worthless if they are not holding the same thing. Six checks, run
 on every database, none of them assumed:
 
 1. **The same rows.** `COUNT(*)` on both sides, per table, before any size is recorded.
@@ -60,6 +78,15 @@ on every database, none of them assumed:
 4. **A packed store, not a journal.** Dolt is garbage-collected before measuring. `jaffle_shop` is
    35,550 bytes after its commit and 16,951 after `dolt gc`; measuring the wrong one of those by
    accident would have been easy.
+5. **A committed store, not a working set.** Every Dolt load ends with a commit before that gc, and
+   `dolt_status` is clean when the size is taken. This was the last of the four to be true: the
+   per-row-commit mode ended with `dolt gc` alone, which was sound until the deferred index rebuild
+   started landing in the working set and never held for databases whose views and routines
+   mysqldump writes after the last row.
+6. **The same file.** Both engines load the identical transformed dump. They did not to begin with —
+   MySQL read mysqldump's original while Dolt read the transformed copy — which meant the two were
+   never quite given the same work. What the transform removes is listed in `dolt_dialect.py` and
+   named in the report.
 
 ## What is deliberately excluded, and why
 
@@ -135,15 +162,60 @@ Recorded because a result you cannot see the mistakes in is harder to trust, not
 * **Indexes were not checked at all** in the first version of this report. The ratios turned out to
   be right, but they were published before anyone had confirmed the two sides had the same indexes,
   which is not the same as being right.
+* **Three loads truncated silently and were recorded as successes**, because the check for "did it
+  work" was whether the output directory existed. `employees` stopped at 1,854,812 of 3.9 million
+  rows with `titles` never created. The cause was the kernel: one `dolt sql` process building a
+  multi-million-commit history exhausted memory and was killed — exit 137, which nothing was
+  reading. Every load is now verified table by table against MySQL before its size is recorded, and
+  the large ones are split into chunks so each process can give its memory back.
+* **A whole run was recorded as successful while Docker was not running.** The daemon restarted
+  mid-run; the row-count verifier asked MySQL for its table list, got nothing, and concluded that
+  nothing was short. A unit went into the record as `done` with exit code 1 and no size. The
+  verifier now refuses to pass a database it could not actually check, and the run stops at the
+  first unit it cannot reach the daemon for rather than recording a hundred more like it.
+* **The deferred indexes were never built.** Rebuilding them at the end of the file put the
+  `ALTER TABLE`s after the routines, and Dolt rejects `CREATE FUNCTION` — one rejected statement
+  aborts the rest of the file, so sakila finished with 16 of its 42 indexes and nothing said so.
+  Moving them to just after the last row then broke MySQL instead, with `ERROR 1100: Table 'album'
+  was not locked with LOCK TABLES`, because mysqldump wraps each table's rows in `LOCK TABLES`.
+  They go after the `UNLOCK TABLES` now. Dolt does not enforce LOCK TABLES and had loaded the broken
+  file without complaint, which is the kind of difference that leaves two engines quietly running
+  different SQL.
+* **The per-row-commit repositories were measured dirty.** That mode ended with `dolt gc` and no
+  commit, on the reasoning that every row had already been committed — true until the index rebuild
+  was deferred into the working set, and never true for databases whose views and routines mysqldump
+  emits after the last row. Seven modified uncommitted tables were being weighed against a rival
+  that had committed everything.
+* **The two engines disagreed about a view, and only one of them said so.** `oracle_oe` has two
+  views onto `oracle_hr`. MySQL refused them with `ERROR 1049: Unknown database`; Dolt accepted them
+  and stored them. "The same file" was not being loaded. They are dropped now and named in the
+  notes, like the cross-database foreign keys. The first attempt at detecting them matched
+  `` `x`.`y` `` by shape and dropped every view in the corpus, sakila's seven included, because a
+  view body is full of table aliases that parse identically.
+* **MySQL was declared ready in the middle of initialising itself.** On a fresh data directory the
+  entrypoint runs a temporary server on the socket, and the readiness probe connected to that. Two
+  loads in the first fifteen died with `ERROR 2002`. The probe uses TCP now, which the temporary
+  server refuses.
+* **The figures failed a colour-vision check.** Dolt's one-commit-per-database and one-INSERT-per-row
+  loads were drawn as adjacent bars in a green and an orange 4.5 apart under protanopia, against a
+  floor of 8 — indistinguishable, to a red-green colourblind reader, in the two bars the figure
+  exists to compare. The palette is checked by a script now instead of chosen by eye.
 
 ## Reproducing it
 
 ```sh
-cd ../mysql-megasamples && make up          # the source of every dump
-cd ../dolt-megasamples  && make all         # export, load, measure, report
-make experiment                             # the rowinsert and rowcommit modes
-make charts                                 # regenerate the figures
+cd ../mysql-megasamples && make up               # the source of every dump
+cd ../dolt-megasamples  && make down             # a running Dolt server writes into what is measured
+make export                                      # one mysqldump per database, both statement styles
+make run                                         # all five loads, timed, indexes deferred
+python3 scripts/run_all.py --indexes inline      # tests 2, 4 and 5 with the indexes maintained
+make report                                      # REPORT.md, the README tables, every figure
 ```
+
+`make experiment` used to run the row-by-row loads over a hand-picked list of the smallest
+databases. That is where the holes in the first report came from — figures whose bars stood for
+different populations under titles that did not say so — so the target now refuses and points at
+`make run`, which covers every database.
 
 Every number in `README.md` and `REPORT.md` is generated from `build/results.json`. Nothing is typed
 by hand, so a claim that disagrees with the measurements cannot survive a regeneration.
