@@ -32,7 +32,7 @@ the top rather than arriving all at once at the end.
 import argparse, json, os, shutil, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (DOLT_IMAGE, DUMPS, MYSQL_CONTAINER, ROOT, data_dir, databases,  # noqa: E402
+from common import (DOLT_IMAGE, DUMPS, MYSQL_CONTAINER, RESULTS, ROOT, data_dir, databases,  # noqa: E402
                     dumps_dir, human, run)
 from dolt_dialect import defer_indexes, transform  # noqa: E402
 from load_dolt import per_row_commits  # noqa: E402
@@ -471,6 +471,15 @@ def main():
               flush=True)
     if a.restart:
         p = {"started": time.time(), "units": {}, "host": fingerprint()}
+        # A restart replaces these measurements, so the file the report reads has to go with them.
+        # collect.py merges each finished unit into build/results.json, which means a restart that
+        # left the old file in place would keep every value for every unit the new run does not
+        # reach -- a report blending two runs, with nothing on its face to say so. Only a full
+        # restart does this: `--only` and `--phase` are deliberate partial re-measurements.
+        if not a.only and not a.phase and os.path.exists(RESULTS):
+            os.replace(RESULTS, RESULTS + ".superseded")
+            print(f"  . --restart: moved {os.path.relpath(RESULTS, ROOT)} aside to "
+                  f"{os.path.basename(RESULTS)}.superseded; these runs replace it\n", flush=True)
     elif a.resume and os.path.exists(PROGRESS):
         p = json.load(open(PROGRESS, encoding="utf-8"))
     else:
