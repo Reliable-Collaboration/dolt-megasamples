@@ -18,6 +18,11 @@ MODES = {
     "oneshot":   "mysqldump's extended INSERTs; one Dolt commit for the whole database",
     "rowinsert": "one INSERT statement per row; still one Dolt commit for the whole database",
     "rowcommit": "one INSERT statement per row, and one Dolt commit after every row",
+    # The same two loads with every secondary index and constraint left in place for the whole
+    # load, which is what the row-by-row phases used to do. Kept as their own modes so both
+    # policies can be measured and reported side by side rather than one replacing the other.
+    "rowinsert_inline": "one INSERT statement per row, indexes maintained during the load",
+    "rowcommit_inline": "one commit per row, indexes maintained during the load",
 }
 
 

@@ -15,7 +15,7 @@ the date it was taken rather than re-measured on every invocation. `--repeat` ta
 import argparse, json, os, statistics, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import DOLT_IMAGE, ROOT, human, run  # noqa: E402
+from common import DOLT_IMAGE, ROOT, human, load_results, run  # noqa: E402
 
 OUT = os.path.join(ROOT, "build", "method.json")
 MYSQL_NAME, MYSQL_PW = "doltsamples-mysql-timing", "timing"
@@ -48,6 +48,43 @@ def mysql_shared_bytes():
             "unattributed_percent": round((whole - per_db) / whole * 100, 1)}
 
 
+def repeatability_from_run():
+    """Derive the spread from the run's own repeats rather than a separate measurement.
+
+    `--repeat N` keeps every sample, so how repeatable a number is can be read off the same data the
+    headline numbers come from instead of being asserted from a measurement taken another day. Each
+    unit contributes its spread as a percentage of its own median; units run only once contribute
+    nothing and are counted as such."""
+    r = load_results()
+    out = {}
+    for label, samples in (("seconds", _samples(r, "seconds_all")),
+                           ("bytes", _samples(r, "bytes_all"))):
+        spreads = []
+        for xs in samples:
+            xs = sorted(xs)
+            med = xs[len(xs) // 2]
+            if med:
+                spreads.append(round(100 * (xs[-1] - xs[0]) / med, 1))
+        if spreads:
+            spreads.sort()
+            out[label] = {"units_repeated": len(spreads),
+                          "median_spread_percent": spreads[len(spreads) // 2],
+                          "worst_spread_percent": spreads[-1]}
+    return out or None
+
+
+def _samples(r, field):
+    for db, entry in r.items():
+        if not isinstance(entry, dict):
+            continue
+        for mode in (entry.get("modes") or {}).values():
+            if isinstance(mode, dict) and len(mode.get(field) or []) > 1:
+                yield mode[field]
+        for k, v in entry.items():
+            if "_spread" in k and isinstance(v, dict) and len(v.get(field) or []) > 1:
+                yield v[field]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--repeat", action="store_true",
@@ -59,6 +96,9 @@ def main():
     shared = mysql_shared_bytes()
     if shared:
         facts["mysql_shared_files"] = shared
+    derived = repeatability_from_run()
+    if derived:
+        facts["repeatability_from_run"] = derived
     facts.setdefault("timing_repeatability", {
         "measured": "2026-09-06",
         "method": "every database reloaded into the timing MySQL a second time and compared",
@@ -78,6 +118,11 @@ def main():
     t = facts["timing_repeatability"]
     print(f"  . timing repeatability: median {t['median_percent']:+d}%, "
           f"{t['min_percent']:+d}% to {t['max_percent']:+d}% (measured {t['measured']})")
+    d = facts.get("repeatability_from_run")
+    if d:
+        for label, v in sorted(d.items()):
+            print(f"  . {label} repeatability over {v['units_repeated']} repeated units: "
+                  f"median spread {v['median_spread_percent']}%, worst {v['worst_spread_percent']}%")
     print(f"  . wrote {os.path.relpath(OUT, ROOT)}")
     return 0
 

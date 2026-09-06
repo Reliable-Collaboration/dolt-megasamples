@@ -32,22 +32,31 @@ def main():
     for key, u in p["units"].items():
         if u.get("status") != "done":
             continue
-        phase, db = key.split("/", 1)
+        # `dolt_rowcommit/chinook/inline` is one unit of one database, not a database called
+        # "chinook/inline". The index policy is a suffix on the key, so split it off first.
+        parts = key.split("/")
+        phase, db = parts[0], parts[1]
+        suffix = "_inline" if parts[2:] == ["inline"] else ""
         entry = r.setdefault(db, {})
         counted += 1
+        spread = {k: u[k] for k in ("seconds_all", "bytes_all", "repeats") if k in u}
         if phase == "mysql":
-            entry["mysql_disk_bytes"] = u.get("bytes")
-            entry["mysql_load_seconds"] = u.get("seconds")
+            entry[f"mysql_disk_bytes{suffix}"] = u.get("bytes")
+            entry[f"mysql_load_seconds{suffix}"] = u.get("seconds")
+            entry[f"mysql_spread{suffix}"] = spread
         elif phase == "mysql_rowwise":
-            entry["mysql_rowwise_bytes"] = u.get("bytes")
-            entry["mysql_rowwise_seconds"] = u.get("seconds")
+            entry[f"mysql_rowwise_bytes{suffix}"] = u.get("bytes")
+            entry[f"mysql_rowwise_seconds{suffix}"] = u.get("seconds")
+            entry[f"mysql_rowwise_spread{suffix}"] = spread
         elif phase in MODE_OF:
-            m = entry.setdefault("modes", {}).setdefault(MODE_OF[phase], {})
+            m = entry.setdefault("modes", {}).setdefault(MODE_OF[phase] + suffix, {})
             m["disk_bytes"] = u.get("bytes")
             m["stats_bytes"] = u.get("stats_bytes", 0)
             m["load_seconds"] = u.get("seconds")
             m["settle_seconds"] = u.get("settle_seconds")
             m["total_seconds"] = round((u.get("seconds") or 0) + (u.get("settle_seconds") or 0), 1)
+            m["indexes_deferred"] = suffix == ""
+            m.update(spread)
 
     save_results(r)
     dbs = sorted(d for d in r if r[d].get("mysql_disk_bytes"))
@@ -55,7 +64,8 @@ def main():
     mt = sum(r[d].get("mysql_load_seconds") or 0 for d in dbs)
     print(f"  . folded {counted} completed units into build/results.json")
     print(f"  . MySQL: {len(dbs)} databases, {human(my)}, {mt:,.0f}s to load")
-    for mode in ("oneshot", "rowinsert", "rowcommit"):
+    for mode in ("oneshot", "rowinsert", "rowcommit",
+                 "rowinsert_inline", "rowcommit_inline"):
         have = [d for d in dbs if (r[d].get("modes", {}).get(mode) or {}).get("disk_bytes")]
         if not have:
             continue

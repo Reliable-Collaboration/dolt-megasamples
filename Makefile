@@ -59,19 +59,15 @@ progress:
 watch:
 	@$(PY) scripts/progress.py --watch
 
-# The two extra loads: one INSERT per row, and one commit per row. Each writes into its own data
-# directory, so the one-shot results they are compared against are never disturbed. The per-row
-# commit load runs on the smallest databases only -- at the measured rate the full corpus would need
-# tens of gigabytes and several hours, and the per-commit cost is already plain from these.
-SMALL ?= oracle_hr pubs jaffle_shop smallsets northwind adventureworks_lt oracle_co oracle_oe chinook
-MID   ?= dvdstore chicago_crimes
+# The row-by-row loads used to run here over a hand-picked subset of the smallest databases, which
+# is why earlier reports had holes in them. `make run` runs every phase over every database and
+# records the timings as well, so that is the only supported way to produce the experiment now.
 experiment:
-	@$(PY) scripts/export_mysql.py --per-row $(foreach d,$(SMALL) $(MID),--only $(d))
-	@$(PY) scripts/load_dolt.py  --mode rowinsert $(foreach d,$(SMALL) $(MID),--only $(d))
-	@$(PY) scripts/measure.py    --mode rowinsert $(foreach d,$(SMALL) $(MID),--only $(d))
-	@$(PY) scripts/load_dolt.py  --mode rowcommit --force $(foreach d,$(SMALL),--only $(d))
-	@$(PY) scripts/measure.py    --mode rowcommit $(foreach d,$(SMALL),--only $(d))
-	@$(MAKE) --no-print-directory report
+	@echo "'make experiment' ran the row-by-row loads over a subset of the databases and left"
+	@echo "the report with gaps in it. Use 'make run' instead -- every phase over every database,"
+	@echo "timed and resumable -- and then 'make report'."
+	@echo "For the index-maintenance comparison: python3 scripts/run_all.py --indexes inline"
+	@false
 check:
 	@$(PY) scripts/report.py --check
 	@$(PY) scripts/check_claims.py
@@ -93,11 +89,14 @@ status:
 # Dolt's container writes as root, so the host user cannot delete data/dolt directly -- `rm -rf`
 # fails with "Permission denied" on every file and leaves the directory looking loaded. Removing it
 # from inside a container is the only thing that works without sudo.
+# Every mode has its own directory -- data/dolt, data/dolt-rowinsert, data/dolt-rowcommit and the
+# two _inline variants -- so the wildcard matters: deleting data/dolt alone left the row-by-row
+# results in place and the next run measured them again.
 clean-data:
 	@docker run --rm -v "$(PWD)/data:/data" --entrypoint sh \
 	  dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6 \
-	  -c 'rm -rf /data/dolt' 2>/dev/null || true
-	@rm -rf data build/dumps/dolt build/results.json
-	@echo "removed data/dolt, the transformed dumps and the measurements"
+	  -c 'rm -rf /data/dolt /data/dolt-* /data/mysql' 2>/dev/null || true
+	@rm -rf data build/dumps/dolt build/results.json build/progress.json
+	@echo "removed every data/dolt* directory, the transformed dumps, the measurements and the run state"
 
 clean: clean-data

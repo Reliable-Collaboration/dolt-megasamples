@@ -93,8 +93,15 @@ def save_progress(p):
     os.replace(tmp, PROGRESS)
 
 
-def note(p, key, **fields):
-    p["units"].setdefault(key, {}).update(fields)
+def note(p, key, replace=False, **fields):
+    """Record a unit. `replace=True` writes a fresh record instead of merging into the old one.
+
+    Merging left the `error` of a failed attempt sitting on the record of the retry that succeeded:
+    `status: done` and an error message in the same unit, which is worse than either alone."""
+    if replace:
+        p["units"][key] = fields
+    else:
+        p["units"].setdefault(key, {}).update(fields)
     p["updated"] = time.time()
     save_progress(p)
 
@@ -191,6 +198,12 @@ def dolt_host_up(mode):
     `doltsamples-dolt-runner-oneshot-oneshot-rowinsert-...`, one leaked per mode change."""
     want = f"{DOLT_HOST_BASE}-{mode}"
     state = run("docker", "inspect", "-f", "{{.State.Status}}", want).stdout.strip()
+    if state == "running":
+        # Stopping the harness kills the Python process, not the `dolt sql` it started inside this
+        # container. That orphan keeps writing while the next load clears the directory underneath
+        # it, which produced a half-written repository and an exit 1 that looked like a data bug.
+        run("docker", "exec", want, "sh", "-c",
+            "pkill -x dolt 2>/dev/null; sleep 1; pkill -9 -x dolt 2>/dev/null; true")
     if state != "running":
         run("docker", "rm", "-f", want)
         run("docker", "run", "-d", "--name", want, "--label", "doltsamples.transient=true",
@@ -294,7 +307,7 @@ def dolt_load(db, phase, indexes="deferred"):
     # 3.9M rows with `titles` never created. The exit status and the tail of the output are kept for
     # every load now, and the row count is checked below.
     outcome = {"exit_code": p.returncode,
-               "output_tail": ((p.stderr or "") + (p.stdout or "")).strip()[-400:]}
+               "output_tail": dolt_error_tail(p)}
 
     final_started = time.time()
     final = ("dolt gc" if phase == "dolt_rowcommit" else
@@ -323,6 +336,19 @@ def dolt_load(db, phase, indexes="deferred"):
     if short:
         outcome["error"] = "the load did not finish: " + short
     return outcome
+
+
+def dolt_error_tail(p):
+    """The lines that look like an error, not the last 400 characters.
+
+    `dolt sql --file` prints a result table for every `CALL DOLT_COMMIT`, so the tail of a failed
+    per-row-commit load was 400 characters of `+------+` and nothing about what went wrong."""
+    text = ((p.stderr or "") + "\n" + (p.stdout or ""))
+    lines = [l.strip() for l in text.splitlines()
+             if l.strip() and not set(l.strip()) <= set("+-| ")]
+    hits = [l for l in lines if "error" in l.lower() or "cannot" in l.lower()
+            or "unsupported" in l.lower() or "not found" in l.lower()]
+    return " / ".join(hits[-6:] or lines[-6:])[-600:]
 
 
 def truncated(db, mode):
@@ -388,6 +414,15 @@ def main():
 
     dbs = a.only or databases()
     phases = a.phase or PHASES
+    if a.indexes == "inline" and not a.phase:
+        # Deferral only applies to the row-by-row loads: the one-shot loads use mysqldump's extended
+        # INSERTs and build their indexes over batches either way, so running them again under
+        # `--indexes inline` would spend the time to reproduce byte-identical numbers under a second
+        # set of keys. Ask for them explicitly with --phase if you want the duplicate measurement.
+        phases = [ph for ph in phases if ph in PER_ROW]
+        print("--indexes inline: running the row-by-row phases only "
+              f"({', '.join(phases)}); the one-shot loads are unaffected by index deferral\n",
+              flush=True)
     if a.restart:
         p = {"started": time.time(), "units": {}, "host": fingerprint()}
     elif a.resume and os.path.exists(PROGRESS):
@@ -407,8 +442,14 @@ def main():
         rows[db] = int(out.stdout.strip() or 0)
     order = sorted(dbs, key=lambda d: rows[d])
 
+    # The results key carries the index policy, and so must the "already done" test: without it an
+    # `--indexes inline` run skipped every unit the deferred run had already recorded.
+    def key_of(phase, db):
+        return f"{phase}/{db}" + ("" if a.indexes == "deferred" else "/inline")
+
     units = [(phase, db) for phase in phases for db in order]
-    todo = [(ph, db) for ph, db in units if p["units"].get(f"{ph}/{db}", {}).get("status") != "done"]
+    todo = [(ph, db) for ph, db in units
+            if p["units"].get(key_of(ph, db), {}).get("status") != "done"]
     print(f"{len(units)} units, {len(todo)} to do "
           f"({len(units) - len(todo)} already recorded)\n", flush=True)
 
@@ -421,8 +462,9 @@ def main():
                   "restart it and run the same command again; recorded progress is kept.",
                   flush=True)
             return 2
-        key = f"{phase}/{db}" + ("" if a.indexes == "deferred" else "/inline")
-        note(p, key, status="running", started=time.time(), phase=phase, database=db)
+        key = key_of(phase, db)
+        note(p, key, replace=True, status="running", started=time.time(),
+             phase=phase, database=db, indexes=a.indexes)
         started = time.time()
         runs = []
         try:
@@ -437,6 +479,14 @@ def main():
                 res["seconds"] = times[len(times) // 2]
                 res["seconds_all"] = times
                 res["repeats"] = len(times)
+                # Disk is the headline number, so it gets the same treatment time does: the median
+                # of every repeat, with all of them kept. Recording only the last repeat hid how
+                # repeatable a size is, and for the per-row-commit loads it is the least repeatable
+                # number in the experiment.
+                sizes = sorted(x["bytes"] for x in runs if x.get("bytes") is not None)
+                if len(sizes) == len(runs):
+                    res["bytes"] = sizes[len(sizes) // 2]
+                    res["bytes_all"] = sizes
         except Exception as exc:                                   # noqa: BLE001
             res = {"error": f"{type(exc).__name__}: {exc}"[:300]}
         res["status"] = "error" if "error" in res else "done"
