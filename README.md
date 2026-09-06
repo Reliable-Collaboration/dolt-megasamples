@@ -82,9 +82,11 @@ byte-identical files.
 
   **Both engines are timed the same way**, which they were not to begin with. MySQL was loaded with
   `docker exec` into a running server while Dolt was loaded by `docker run`, so every Dolt load paid
-  container creation twice and MySQL paid it not at all — a measured 0.36 s that was under 1% of the
-  large loads but **76–84% of the smallest**. Dolt now runs by `docker exec` into a long-lived
-  container of its own, so neither engine's timings contain startup.
+  container creation twice and MySQL paid it not at all — a measured 0.32 s per container, which was
+  negligible against the large loads and most of the smallest ones, where a whole load takes about a
+  second. Dolt now runs by `docker exec` into a long-lived container of its own, so neither engine's
+  timings contain startup, and `build/method.json` keeps the measurement so the size of the
+  asymmetry that used to exist can still be checked.
 * **Repeats, where a repeat is affordable.** Each unit runs up to three times and the median of every
   sample is kept, until it has spent `--repeat-budget` seconds (180 by default); after that it is a
   single sample. Cheap loads therefore carry a measured spread and expensive ones say plainly that

@@ -88,7 +88,7 @@ def spread_facts(r):
 # silently passing, which is the intended trade: prose about numbers should be pinned to them.
 METHOD_CLAIMS = [
     # measured by scripts/method_checks.py into build/method.json
-    ("a measured {overhead} s that was under 1% of the large loads", ["README.md"]),
+    ("a measured {overhead} s per container", ["README.md"]),
     ("data directory is **{empty_mysql}** — measured {empty_samples} times during this run, with "
      "{empty_spread} bytes between the largest and the smallest", ["README.md"]),
     ("InnoDB shared files grew by **{shared_growth}**", ["README.md"]),
