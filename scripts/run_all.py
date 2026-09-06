@@ -29,7 +29,7 @@ is left. The run is resumable: a unit already recorded is skipped, so it can be 
 up. Units run cheapest-first and smallest-first within a phase, so the results table fills in from
 the top rather than arriving all at once at the end.
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, json, os, shutil, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (DOLT_IMAGE, DUMPS, MYSQL_CONTAINER, ROOT, data_dir, databases,  # noqa: E402
@@ -310,9 +310,16 @@ def dolt_load(db, phase, indexes="deferred"):
                "output_tail": dolt_error_tail(p)}
 
     final_started = time.time()
-    final = ("dolt gc" if phase == "dolt_rowcommit" else
-             'dolt add -A && dolt commit -m "import from mysql-megasamples" '
-             '--author "megasamples <megasamples@localhost>" ; dolt gc')
+    # Every mode ends committed. The per-row-commit mode used to end with `dolt gc` alone, on the
+    # reasoning that each row had already been committed -- but deferring the indexes leaves the
+    # `ALTER TABLE ... ADD` rebuild in the working set, so the repository was measured with seven
+    # tables modified and uncommitted. The rebuild belongs in the last commit, and a repository with
+    # an uncommitted working set is not the thing being measured. `--allow-empty` covers the case
+    # where there is nothing outstanding, which is what happens with the indexes left inline.
+    commit = ('dolt add -A && dolt commit --allow-empty --author '
+              '"megasamples <megasamples@localhost>" -m ')
+    final = (commit + '"rebuild deferred indexes" ; dolt gc' if phase == "dolt_rowcommit" else
+             commit + '"import from mysql-megasamples" ; dolt gc')
     started = time.time()
     run("docker", "exec", "-w", f"/var/lib/dolt/{db}", DOLT_HOST, "sh", "-c", final)
     settle_s = time.time() - started
@@ -398,7 +405,14 @@ def main():
     ap.add_argument("--allow-busy", action="store_true",
                     help="time the loads even with other stacks running (they will compete)")
     ap.add_argument("--repeat", type=int, default=1,
-                    help="run each unit N times and keep the median, for the cheap phases")
+                    help="run each unit up to N times and keep the median of every sample")
+    ap.add_argument("--repeat-budget", type=float, default=180.0,
+                    help="stop repeating a unit once it has spent this many seconds, so a cheap "
+                         "load gets its spread and an expensive one is a single honest sample")
+    ap.add_argument("--floor-gb", type=float, default=8.0,
+                    help="stop before starting a unit if less than this many GB are free. The "
+                         "per-row-commit phase is the one that can fill a disk: it wrote 160 GB "
+                         "across the corpus, most of it in the last few databases")
     ap.add_argument("--resume", action="store_true",
                     help="continue a run recorded on another machine (normally refused)")
     a = ap.parse_args()
@@ -457,6 +471,12 @@ def main():
         # A run outlives most things, including the Docker daemon. A restart mid-run once left a
         # unit recorded `done` with no size and no verification, so stop at the first unit that
         # cannot reach the daemon rather than recording 100 more of the same.
+        free_gb = shutil.disk_usage(ROOT).free / 1e9
+        if free_gb < a.floor_gb:
+            print(f"\n{free_gb:.1f} GB free, below the {a.floor_gb:.0f} GB floor; stopping with "
+                  f"{len(todo) - i + 1} units left. Recorded progress is kept: free space and run "
+                  f"the same command again, or raise --floor-gb.", flush=True)
+            return 3
         if run("docker", "version", "-f", "{{.Server.Version}}").returncode != 0:
             print("\ndocker is not answering; stopping so no unit is recorded unverified. "
                   "restart it and run the same command again; recorded progress is kept.",
@@ -468,10 +488,18 @@ def main():
         started = time.time()
         runs = []
         try:
+            # Repeats are what turn a number into a number with a spread, but repeating a load that
+            # takes three hours would put the run past a week. So `--repeat` is a maximum, and a
+            # unit stops repeating once it has spent `--repeat-budget` seconds: the cheap loads get
+            # their spread, the expensive ones are honestly reported as single samples, and which
+            # is which is recorded per unit rather than decided by hand.
+            spent = 0.0
             for _ in range(max(1, a.repeat)):
+                began = time.time()
                 runs.append(mysql_load(db, phase in PER_ROW, a.indexes)
                             if phase.startswith("mysql") else dolt_load(db, phase, a.indexes))
-                if "error" in runs[-1]:
+                spent += time.time() - began
+                if "error" in runs[-1] or spent > a.repeat_budget:
                     break
             res = dict(runs[-1])
             if len(runs) > 1 and all("error" not in x for x in runs):
@@ -490,6 +518,7 @@ def main():
         except Exception as exc:                                   # noqa: BLE001
             res = {"error": f"{type(exc).__name__}: {exc}"[:300]}
         res["status"] = "error" if "error" in res else "done"
+        res["samples"] = len(runs)
         res["finished"] = time.time()
         res["wall_seconds"] = round(time.time() - started, 1)
         note(p, key, **res)

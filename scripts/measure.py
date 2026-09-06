@@ -168,7 +168,16 @@ def measure(db, results, mode="oneshot"):
     entry["mysql_logical_bytes"] = int(mysql(
         f"SELECT COALESCE(SUM(data_length+index_length),0) FROM information_schema.tables "
         f"WHERE table_schema='{db}'")[0][0])
-    m["disk_bytes"], m["stats_bytes"] = dolt_disk_bytes(db, mode)
+    # Same reasoning as the MySQL size above, for Dolt. A timed run loads each mode several times
+    # and keeps the median of every sample; this reads the directory once. Where the timed figure
+    # exists it stands, and the single re-reading is recorded beside it rather than over it --
+    # running `make all` after `make run` used to silently replace a median with one sample.
+    disk, stats = dolt_disk_bytes(db, mode)
+    if m.get("bytes_all"):
+        m["disk_bytes_remeasured"] = disk
+    else:
+        m["disk_bytes"] = disk
+    m["stats_bytes"] = stats
     dump = os.path.join(DUMPS, f"{db}.sql")
     entry["dump_bytes"] = os.path.getsize(dump) if os.path.exists(dump) else None
     counts = object_counts(db, mode)

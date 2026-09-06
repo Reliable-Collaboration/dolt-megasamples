@@ -362,7 +362,7 @@
           "unwrapped 77 version-gated comment block(s)",
           "added a DOLT_COMMIT after each of 15,607 INSERT statements"
         ],
-        "disk_bytes": 118249410,
+        "disk_bytes": 83108644,
         "gc_seconds": 3.3,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -374,7 +374,7 @@
         "settle_seconds": 3.9,
         "statement_error_count": 0,
         "statement_errors": [],
-        "stats_bytes": 22532,
+        "stats_bytes": 22526,
         "total_seconds": 72.3,
         "views_dolt": 0
       },
@@ -384,7 +384,7 @@
         "dialect_notes": [
           "unwrapped 77 version-gated comment block(s)"
         ],
-        "disk_bytes": 629750,
+        "disk_bytes": 629745,
         "gc_seconds": 0.6,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -396,7 +396,7 @@
         "settle_seconds": 0.6,
         "statement_error_count": 0,
         "statement_errors": [],
-        "stats_bytes": 22535,
+        "stats_bytes": 22526,
         "total_seconds": 31.1,
         "views_dolt": 0
       }
