@@ -52,8 +52,71 @@ def rows(results):
                         dump=r.get("dump_bytes") or 0,
                         tables=r.get("tables") or 0, rows=r.get("rows_mysql") or 0,
                         mismatch=bool(one.get("row_mismatches")),
-                        errors=one.get("statement_error_count", 0)))
+                        errors=one.get("statement_error_count", 0),
+                        # the same three row-by-row loads with every index maintained throughout
+                        mysql_rowwise_bytes_inline=r.get("mysql_rowwise_bytes_inline"),
+                        mysql_rowwise_seconds_inline=r.get("mysql_rowwise_seconds_inline"),
+                        rowinsert_inline=(modes.get("rowinsert_inline", {}) or {}).get("disk_bytes"),
+                        rowinsert_seconds_inline=(modes.get("rowinsert_inline", {})
+                                                  or {}).get("total_seconds"),
+                        rowcommit_inline=(modes.get("rowcommit_inline", {}) or {}).get("disk_bytes"),
+                        rowcommit_seconds_inline=(modes.get("rowcommit_inline", {})
+                                                  or {}).get("total_seconds")))
     return out
+
+
+POLICY_PAIRS = [("mysql_rowwise_bytes", "mysql_rowwise_bytes_inline",
+                 "mysql_rowwise_seconds", "mysql_rowwise_seconds_inline",
+                 "MySQL, one `INSERT` per row"),
+                ("rowinsert", "rowinsert_inline",
+                 "rowinsert_seconds", "rowinsert_seconds_inline",
+                 "Dolt, one `INSERT` per row, one commit"),
+                ("rowcommit", "rowcommit_inline",
+                 "rowcommit_seconds", "rowcommit_seconds_inline",
+                 "Dolt, one commit per row")]
+
+
+def policy_section(items):
+    """Deferred against inline, every database, both axes.
+
+    The figure shows the shape; this is where the numbers live, which is also the relief for the
+    palette's low-contrast hues -- nothing here is readable only as a colour."""
+    L = ["## What maintaining the indexes costs", "",
+         "Tests 2, 4 and 5 run twice: once with the secondary indexes and foreign keys dropped for "
+         "the load and rebuilt afterwards, and once with every index maintained on every row. "
+         "Everything else is identical, including the final schema. A positive number means "
+         "keeping the indexes cost more.", ""]
+    any_data = False
+    for db_b, in_b, db_t, in_t, title in POLICY_PAIRS:
+        have = [i for i in items if i.get(db_b) and i.get(in_b)]
+        if not have:
+            L += [f"### {title}", "", "*No database has both policies for this load yet.*", ""]
+            continue
+        any_data = True
+        L += [f"### {title}", "",
+              "| database | disk, deferred | disk, inline | change | time, deferred | time, inline "
+              "| change |", "|---|---:|---:|---:|---:|---:|---:|"]
+        for i in sorted(have, key=lambda x: -x["rows"]):
+            db_pct = 100.0 * (i[in_b] - i[db_b]) / i[db_b]
+            t_a, t_b = i.get(db_t), i.get(in_t)
+            t_pct = (f"{100.0 * (t_b - t_a) / t_a:+.1f}%" if t_a and t_b else "—")
+            L.append(f"| `{i['db']}` | {human(i[db_b])} | {human(i[in_b])} | {db_pct:+.1f}% "
+                     f"| {secs(t_a)} | {secs(t_b)} | {t_pct} |")
+        ta = sum(i[db_b] for i in have)
+        tb = sum(i[in_b] for i in have)
+        sa = sum(i.get(db_t) or 0 for i in have)
+        sb = sum(i.get(in_t) or 0 for i in have)
+        L.append(f"| **{len(have)} databases** | **{human(ta)}** | **{human(tb)}** "
+                 f"| **{100.0 * (tb - ta) / ta:+.1f}%** | **{secs(sa)}** | **{secs(sb)}** "
+                 f"| **{(f'{100.0 * (sb - sa) / sa:+.1f}%') if sa else '—'}** |")
+        if len(have) < len(items):
+            missing = sorted(i["db"] for i in items if i not in have)
+            L.append(f"\n*{len(items) - len(have)} database(s) not yet measured under both "
+                     "policies: " + ", ".join(f"`{d}`" for d in missing) + ".*")
+        L.append("")
+    if not any_data:
+        return ""
+    return "\n".join(L)
 
 
 def secs(v):
@@ -326,6 +389,10 @@ def report(items):
           "does not reproduce that, so the growth is driven by sustained querying in a way this "
           "experiment has not characterised. It is recorded because it is real disk that a real "
           "deployment will use, and because 22 KB would be a misleading thing to remember.", ""]
+
+    policy = policy_section(items)
+    if policy:
+        L += [policy, ""]
 
     missing = [i for i in items if (i["views_my"] - i["views_do"]) or (i["rout_my"] - i["rout_do"])]
     if missing:

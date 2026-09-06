@@ -32,6 +32,22 @@ The same `mysqldump` files are loaded five ways. Nothing differs but how the row
 Tests 2 and 5 are the closest each engine has to the other's worst case: MySQL commits every
 autocommitted statement, so one `INSERT` per row is one durable transaction per row.
 
+**Tests 2, 4 and 5 are each run under two index policies**, because a row-by-row load that also
+maintains an index measures two things at once.
+
+| policy | what happens during the load | flag |
+|---|---|---|
+| **deferred** (default) | secondary indexes and foreign keys are taken out of `CREATE TABLE`, the rows load with `UNIQUE_CHECKS` and `FOREIGN_KEY_CHECKS` off, and `ALTER TABLE ... ADD` rebuilds them after the last row — for Dolt, inside the final commit | `--indexes deferred` |
+| **inline** | every index and constraint is maintained on every row | `--indexes inline` |
+
+This is the standard way to bulk-load either engine, and separating it out is what lets the cost of
+*writing rows one at a time* be told apart from the cost of *maintaining an index while doing it*.
+The primary key is never deferred — it is the row's identity, Dolt stores tables as a prolly tree
+keyed by it, and a table loaded without one is a different table. Both policies end with the same
+schema; index parity against MySQL is checked either way. Tests 1 and 3 have no policy: mysqldump's
+extended `INSERT`s build an index over batches whatever you do, and the two policies produced
+byte-identical files.
+
 ### How each load is performed
 
 * **MySQL** is loaded into a **fresh, empty server** — not read from the megasamples image. The image
@@ -64,12 +80,21 @@ autocommitted statement, so one `INSERT` per row is one durable transaction per 
   measurement. For Dolt the commit and `gc` are timed separately and included in the total, because
   they are part of what it costs to get the data stored.
 
-  **The two engines are not timed identically, and it favours MySQL.** MySQL is loaded with
-  `docker exec` into an already-running server, so its timings contain no startup. Dolt is loaded
-  by `docker run`, so each load pays container creation twice — once for the load and once for the
-  commit and `gc`. That is a measured 0.36 s per container: under 1% of 23 of the 60 Dolt loads, but
-  **76–84% of the smallest ones**, where the whole load takes about a second. Read the sub-second
-  Dolt figures as an upper bound; the minutes-and-hours figures are unaffected.
+  **Both engines are timed the same way**, which they were not to begin with. MySQL was loaded with
+  `docker exec` into a running server while Dolt was loaded by `docker run`, so every Dolt load paid
+  container creation twice and MySQL paid it not at all — a measured 0.36 s that was under 1% of the
+  large loads but **76–84% of the smallest**. Dolt now runs by `docker exec` into a long-lived
+  container of its own, so neither engine's timings contain startup.
+* **Repeats, where a repeat is affordable.** Each unit runs up to three times and the median of every
+  sample is kept, until it has spent `--repeat-budget` seconds (180 by default); after that it is a
+  single sample. Cheap loads therefore carry a measured spread and expensive ones say plainly that
+  they do not, rather than the distinction being made by hand. Each unit records how many samples it
+  got, the figures draw a whisker over the range where there is one, and there is no whisker where
+  the number was measured once.
+* **Every Dolt load ends committed.** The per-row-commit test used to finish with `dolt gc` alone,
+  on the reasoning that each row had already been committed — but the deferred index rebuild, and
+  the views and routines mysqldump emits after the last row, were then left in the working set. A
+  repository with seven modified uncommitted tables is not the thing this is trying to measure.
 * **Correctness, before any size is recorded** — every table counted with `COUNT(*)` on both sides,
   and every index compared by definition: table, index name, column position, column, uniqueness.
   A load that is short in any table is recorded as a failure, not as a small number. This matters:
@@ -84,44 +109,50 @@ autocommitted statement, so one `INSERT` per row is one durable transaction per 
 
 Everything here that weakens the result, found by auditing the method against the code rather than
 re-reading the prose. None of it is hidden in a footnote because all of it changes how the numbers
-should be read.
+should be read. Several entries that used to be in this list are gone because they were fixed
+rather than disclosed — MySQL loading different SQL from Dolt, `--force` hiding failed loads,
+MySQL's shared InnoDB files going unattributed, and the two engines being timed differently. What
+follows is what is still true.
 
-**Each measurement is a single run.** Re-running the MySQL baseline over all 21 databases gives a
-median of **+17%** against the first run, ranging **−20% to +132%**. The spread is almost entirely in
-the sub-second loads: every database that takes more than five seconds repeats within −20% to +8%.
-So treat the fast timings as indicative only, and the slow ones as good to roughly ±20%. There are no
-error bars anywhere in this report, because there is one sample per cell.
+**The per-row-commit size is the one number here that does not repeat.** Three loads of a
+byte-identical file into an empty directory gave 81.4, 83.1 and 84.0 MB for `chinook`; a separate
+triple of the same thing produced a sample at 101.4 MB, 22% above its own median. MySQL repeats to
+the byte and the other Dolt loads to within four bytes, so treat test 5's disk figures as good to
+roughly ±10% and no better. The commit graph is content-addressed but `dolt gc`'s packing is not
+deterministic, and there is one gc per load.
 
-**The machine was not idle.** The 18.5-hour run shared the host with the console stack, measurement
-passes, chart generation and this repository's own git operations. That is realistic but it is not a
-benchmark rig, and it is part of why the fast timings scatter.
+**The expensive loads are single samples.** Repeats stop once a unit has spent 180 seconds, so the
+cheap loads carry a measured spread and the slow ones — which is most of tests 2, 4 and 5 on the
+large databases — are one run each. The figures draw a whisker only where there is a spread to draw,
+and every unit records how many samples it got. A cell with no whisker was measured once.
 
-**The two engines are not given identical SQL.** MySQL loads the dump as mysqldump wrote it. Dolt
-loads a transformed copy, because it cannot parse some of what mysqldump emits — the transformations
-are listed in `scripts/dolt_dialect.py`. Two of them change what Dolt has to store: three
-cross-database foreign keys are dropped from `oracle_oe` (Dolt supports only same-database foreign
-keys), and stored functions do not load at all, so several databases have fewer routines in Dolt than
-in MySQL. Both make Dolt's job slightly smaller. Neither touches a row.
+**The machine was not idle.** The run shares the host with the source MySQL it reads the dumps from,
+and with whatever else is on the machine. It is realistic but it is not a benchmark rig.
 
-**MySQL's size is undercounted by about 5%.** Sizes are per-database directories, but InnoDB also
-keeps shared files — `ibdata1`, undo tablespaces, redo logs — that belong to no single database. On
-this run the per-database directories total 1,911 MB while the whole data directory is 2,019 MB, so
-**108 MB, 5.4%, is not attributed to anything**. Dolt has no equivalent: everything for a
-database lives in its own directory. Every MySQL figure here is therefore a little generous to MySQL,
-and every Dolt ratio a little pessimistic.
+**Dolt is not given quite the same schema.** Both engines now load the identical transformed file,
+but the transform removes things Dolt cannot take: three cross-database foreign keys in `oracle_oe`
+(Dolt supports only same-database foreign keys), two cross-database views in the same database, and
+stored functions, which do not load at all — so several databases have fewer routines in Dolt than
+in MySQL. All of it makes Dolt's job slightly smaller. None of it touches a row.
 
-**The MySQL client is run with `--force`**, so a load continues past errors. That is the same failure
-mode that let three Dolt loads truncate silently, which is why every MySQL load is now verified by
-row count too: tests 1 and 2 both check out across all 21 databases, 248 tables each.
+The cross-database views are worth singling out, because the two engines *disagreed* about them
+rather than both failing: MySQL refused `oracle_oe.account_managers` outright with `ERROR 1049:
+Unknown database 'oracle_hr'`, while Dolt accepted the view and stored it. Dropping them is what
+keeps "the same file" true.
 
-**Test 5 is not finished.** Three per-row-commit loads truncated in the first run and are being
-redone. Their cells are blank rather than filled with numbers from partial data, and the totals row
-says which databases it excludes.
+**The largest per-row-commit loads are split into chunks.** One `dolt sql` process building a
+multi-million-commit history is killed by the kernel on this host — `employees` died at 1,854,812 of
+3.9 million rows, every time. Files over 150,000 statements are split so each process can exit and
+give its memory back. That adds a process start per chunk to the timing, which is disclosed rather
+than hidden; the alternative is a measurement that cannot be taken on this machine at all.
 
-**A statistics directory is subtracted from Dolt's size** (`.dolt/stats`, which a running server
-writes and `dolt gc` does not reclaim). MySQL's equivalent statistics live in the `mysql` schema and
-are not counted either, so the treatment is roughly symmetric — but it is a subtraction, and it is
-worth knowing it is there.
+**MySQL runs with two non-default flags**, `--local-infile=1` and `--skip-log-bin`. The second
+favours MySQL by not writing a binary log.
+
+**Sizes exclude what a server writes.** A running `dolt sql-server` writes statistics into
+`.dolt/stats` that `dolt gc` does not reclaim, so a served directory and an unserved one are not
+comparable by `du`. The measurement subtracts `.dolt/stats` and reports separately what a server
+adds.
 
 ## The machine
 
@@ -181,6 +212,11 @@ default settings.
 
 ![Time to load, every database, every load](docs/img/time-by-database.png)
 
+And what the index policy is worth — tests 2, 4 and 5 run a second time with every index maintained
+throughout, as a change against dropping them and rebuilding at the end:
+
+![What maintaining the indexes costs](docs/img/index-policy.png)
+
 [`REPORT.md`](REPORT.md) has the same numbers with the per-test analysis and the validity checks.
 [`JOURNAL.md`](JOURNAL.md) is the lab notebook: why it is built this way, what the numbers do not
 support, and what went wrong along the way.
@@ -202,15 +238,21 @@ cd ../dolt-megasamples
 make down                               # stop this repo's own stack: a running Dolt server
                                         # writes into the directories being measured
 make export                             # mysqldump every database, both statement styles
-make run                                # all five loads, timed — 18.5 hours here
+make run                                # all five loads, indexes deferred — the primary result
+python3 scripts/run_all.py --indexes inline   # tests 2, 4 and 5 again, indexes maintained
 make report                             # REPORT.md, the README tables, and every figure
 ```
 
-`build/progress.json` and `build/results.json` are committed, because they are the evidence. That
-would otherwise be a trap for you: a fresh clone already contains 105 completed units, and a resume
-would skip all of them and republish measurements from this machine as if they were yours. `make run`
-compares a host fingerprint and starts clean when it does not match, so you get your own numbers by
-default. `--resume` overrides that deliberately.
+`make run` takes `--repeat N` (up to N samples per unit, median kept, spread recorded) and
+`--repeat-budget S` (stop repeating a unit after S seconds, so the cheap loads get a spread without
+the expensive ones tripling the run). The published numbers use `--repeat 3 --repeat-budget 180`.
+
+`build/results.json` is committed, because it is the evidence. That would otherwise be a trap for
+you: a fresh clone already carries completed units, and a resume would skip them and republish
+measurements from this machine as if they were yours. `make run` compares a host fingerprint and
+starts clean when it does not match, so you get your own numbers by default; `--resume` overrides
+that deliberately. `build/progress.json` is **not** committed — it is run state that any partial run
+rewrites, and everything a reader needs from it is folded into `results.json`.
 
 `make report` regenerates the visualizations as part of its output, so a reproduction produces the
 whole report and not just numbers. `make environment` records your machine into the tables above.
@@ -227,9 +269,14 @@ The run is **resumable** — a completed unit is skipped, so it can be stopped a
 `make run` — and units go cheapest-first and smallest-first, so results accrue from the top rather
 than arriving all at once at the end.
 
-`scripts/disk_guard.py` will stop the run if free space falls below a floor you choose. The per-row
-commit load writes tens of gigabytes and its cost per row varies by a factor of fifty across these
-databases, so the space it needs cannot be projected reliably from a small sample.
+The run stops itself before a unit that would take free space below `--floor-gb` (8 GB by default),
+and stops rather than continuing if the Docker daemon stops answering — an earlier run recorded a
+load that never happened as successful because the daemon restarted underneath it. Recorded progress
+is kept either way, so freeing space and re-running the same command picks up where it left off.
+`scripts/disk_guard.py` watches from outside if you would rather be warned than stopped.
+
+The per-row-commit load writes tens of gigabytes and its cost per row varies by a factor of fifty
+across these databases, so the space it needs cannot be projected reliably from a small sample.
 
 ## Running the databases
 
@@ -275,10 +322,10 @@ so enter the connection once: type MySQL, URL `mysql://admin:admin@dolt:3306/sak
 | `scripts/environment.py` | the machine, recorded |
 | `scripts/check_claims.py` | pins the prose numbers to the measurements |
 | `build/results.json` | every measurement — the evidence behind the report |
-| `build/progress.json` | the run's own record of what it did and how long it took |
 
-`build/dumps/` and `data/` are gitignored: large and reproducible. The results, the report and the
-figures are committed, because they are the findings.
+`build/dumps/`, `data/` and `build/progress.json` are gitignored: the first two are large and
+reproducible, and the third is run state that any partial run rewrites. The results, the report and
+the figures are committed, because they are the findings.
 
 ## Licence
 

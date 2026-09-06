@@ -32,7 +32,10 @@ def data_dir(mode="oneshot"):
 
 def dumps_dir(per_row=False):
     return os.path.join(DUMPS, "rowwise") if per_row else DUMPS
-RESULTS = os.path.join(ROOT, "build", "results.json")
+# An override so the report and the figures can be rendered from a results file other than the live
+# one -- checking a new table or a new figure against full coverage without waiting hours for a run,
+# and without writing over the run's own evidence while it is still being collected.
+RESULTS = os.environ.get("DOLTSAMPLES_RESULTS") or os.path.join(ROOT, "build", "results.json")
 
 MYSQL_CONTAINER = os.environ.get("MEGASAMPLES_CONTAINER", "megasamples-mysql")
 MYSQL_IMAGE = os.environ.get("MEGASAMPLES_IMAGE", "mysql-megasamples:dev")
