@@ -108,6 +108,15 @@ measurement discipline — server down for the data, copy for the server — cam
 
 ## What came out
 
+> **The results below are from a superseded run and are being re-measured.**
+> Three faults found since invalidate their timings: every database in a phase shared one Dolt data
+> directory, and Dolt opens every database under it at startup, so each load paid to open everything
+> loaded before it — later databases were timed doing more work than earlier ones. The disk figures
+> and the row and index verifications are unaffected. `build/results.json` is absent until the
+> re-run finishes, which is why `make check` fails; that is the intended behaviour, not a
+> formatting problem.
+
+
 **One commit per database:** the 21 databases take 1,523 MB in MySQL and 525 MB in Dolt — 0.34×.
 The per-database ratio runs from 0.05× to 0.76×, a spread of more than fifteen to one, and the shape
 of that spread is legible: tiny databases favour Dolt enormously because InnoDB allocates a

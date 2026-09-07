@@ -193,6 +193,15 @@ methods section.
 
 ## The results
 
+> **The results below are from a superseded run and are being re-measured.**
+> Three faults found since invalidate their timings: every database in a phase shared one Dolt data
+> directory, and Dolt opens every database under it at startup, so each load paid to open everything
+> loaded before it — later databases were timed doing more work than earlier ones. The disk figures
+> and the row and index verifications are unaffected. `build/results.json` is absent until the
+> re-run finishes, which is why `make check` fails; that is the intended behaviour, not a
+> formatting problem.
+
+
 <!-- results:start -->
 | database | rows | 1. MySQL | 2. MySQL<br>row-wise | 3. Dolt<br>1 commit/db | 4. Dolt<br>1 INSERT/row | 5. Dolt<br>1 commit/row |
 |---|---:|---:|---:|---:|---:|---:|
