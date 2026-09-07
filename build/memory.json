@@ -9,7 +9,7 @@
    "op": "open",
    "outcome": "ok",
    "query_table": "sales_salesorderdetail",
-   "rows": 142002,
+   "rows": 759240,
    "seconds_to_profile": 1.9
   },
   "adventureworks_lt": {
@@ -117,7 +117,7 @@
    "op": "open",
    "outcome": "ok",
    "query_table": "fielding",
-   "rows": 702067,
+   "rows": 706466,
    "seconds_to_profile": 1.8
   },
   "northwind": {
@@ -263,7 +263,7 @@
    "op": "open",
    "outcome": "ok",
    "query_table": "sales_salesorderdetail",
-   "rows": 142002,
+   "rows": 759240,
    "seconds_to_profile": 2.5
   },
   "adventureworks_lt": {
@@ -371,7 +371,7 @@
    "op": "open",
    "outcome": "ok",
    "query_table": "fielding",
-   "rows": 702067,
+   "rows": 706466,
    "seconds_to_profile": 2.6
   },
   "northwind": {

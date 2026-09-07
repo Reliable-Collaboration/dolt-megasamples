@@ -69,16 +69,33 @@ def biggest_table_and_rows(db):
 
 
 def total_rows(db):
-    p = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch", "-e",
-            "SELECT GROUP_CONCAT(CONCAT('SELECT COUNT(*) FROM `', table_name, '`') SEPARATOR "
-            "' UNION ALL ') FROM information_schema.tables WHERE table_schema='" + db
-            + "' AND table_type='BASE TABLE'")
-    sql = p.stdout.strip()
-    if not sql:
+    """Exact row count, summed one table at a time.
+
+    This was built as a single `GROUP_CONCAT`ed `UNION ALL` over every table, which is wrong in a
+    way that produces a plausible number rather than an error: `group_concat_max_len` defaults to
+    1024 bytes, so for a database with many tables the generated SQL is silently truncated
+    mid-statement and the total covers only the tables that fit. `adventureworks` has 69 tables and
+    reported 142,002 rows against an actual 759,240 -- and that wrong figure was then used to argue
+    that memory does not track row count, on the strength of a database that looked five times
+    smaller than it is.
+
+    Counting per table has no length limit and no silent failure mode. `information_schema`'s
+    `table_rows` is not used at all: for InnoDB it is an estimate.
+    """
+    tables = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch",
+                 "-e", "SELECT table_name FROM information_schema.tables WHERE table_schema='"
+                 + db + "' AND table_type='BASE TABLE'").stdout.split()
+    if not tables:
         return None
-    q = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch",
-            f"-D{db}", "-e", sql)
-    return sum(int(x) for x in q.stdout.split() if x.isdigit()) or None
+    total = 0
+    for t in tables:
+        q = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch",
+                f"-D{db}", "-e", f"SELECT COUNT(*) FROM `{t}`")
+        got = q.stdout.strip()
+        if not got.isdigit():
+            return None
+        total += int(got)
+    return total
 
 
 def commit_count(mode, db, timeout):
