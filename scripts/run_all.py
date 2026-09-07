@@ -384,8 +384,81 @@ def chunk_sql(path, statements_per_chunk=50_000):
         q = f"{path}.part{i:03d}"
         with open(q, "wb") as fh:
             fh.writelines(body)
-        paths.append(q)
+        # Rows in this chunk, counted while it is in hand. Labelling a memory sample "after N rows"
+        # needs the real number, not statements divided by two.
+        paths.append((q, sum(1 for l in body if l[:12].upper().startswith(b"INSERT INTO"))))
     return paths
+
+
+TRACE_DIR = os.path.join(ROOT, "build", "trace")
+
+
+SAMPLER_FILE = "/tmp/doltsamples-mem"
+SAMPLER_SECONDS = 2
+
+
+def cgroup(name):
+    """One cgroup counter from inside the worker, in bytes, or None."""
+    p = run("docker", "exec", DOLT_HOST, "cat", f"/sys/fs/cgroup/{name}")
+    v = p.stdout.strip()
+    return int(v) if v.isdigit() else None
+
+
+def sampler_start():
+    """Poll the worker's memory from inside it, into a file.
+
+    One background shell writing a line every couple of seconds, rather than a `docker exec` per
+    sample: a fifteen-hour load sampled twice a second from outside would spend hours of CPU on
+    process creation and perturb the timings it is there to explain.
+
+    `anon` is the number that matters. The cgroup limit counts anonymous memory and page cache
+    together, but the kernel reclaims cache under pressure and cannot reclaim anon, so it is anon
+    that decides whether a process is killed. `memory.peak` would be the natural source and is not
+    usable here: the container is long-lived and shared across loads, so its high-water mark is
+    whatever the largest earlier load reached, and the reset that would fix that is refused from
+    inside the container."""
+    run("docker", "exec", DOLT_HOST, "sh", "-c", f"rm -f {SAMPLER_FILE}; pkill -f 'memsampler' ; "
+        f"(while :; do "
+        f"a=$(awk '/^anon /{{print $2}}' /sys/fs/cgroup/memory.stat); "
+        f"c=$(cat /sys/fs/cgroup/memory.current); "
+        f"echo \"$a $c\" >> {SAMPLER_FILE}; sleep {SAMPLER_SECONDS}; done) "
+        f">/dev/null 2>&1 & echo memsampler")
+
+
+def sampler_take():
+    """Highest anonymous and total memory seen since the last call, then start a fresh window."""
+    p = run("docker", "exec", DOLT_HOST, "sh", "-c",
+            f"cat {SAMPLER_FILE} 2>/dev/null; : > {SAMPLER_FILE}")
+    anon = cur = 0
+    for line in p.stdout.splitlines():
+        bits = line.split()
+        if len(bits) == 2 and bits[0].isdigit() and bits[1].isdigit():
+            anon, cur = max(anon, int(bits[0])), max(cur, int(bits[1]))
+    return (anon or None), (cur or None)
+
+
+def sample(mode, db, rows, elapsed):
+    """Memory and disk at a point in the load, labelled with the rows written so far.
+
+    Taken between chunks, so the memory figures are the highest the sampler saw while the chunk that
+    just finished was running, and the disk figure is the store as it stands. The result is a curve
+    at the resolution of the chunk size: enough to say whether memory is still growing linearly with
+    history or has begun to bend, and -- if a load is eventually killed -- roughly where it would
+    have had to stop."""
+    anon, cur = sampler_take()
+    p = helper("-c", f"du -sb {dolt_repo(mode, db)} 2>/dev/null || echo 0",
+               volumes=[f"{DATA_ROOT}:/data"])
+    parts = p.stdout.split()
+    return {"rows": rows, "seconds": round(elapsed, 1),
+            "memory_anon_bytes": anon, "memory_total_bytes": cur,
+            "disk_bytes": int(parts[0]) if parts and parts[0].isdigit() else None}
+
+
+def save_trace(mode, db, trace):
+    os.makedirs(TRACE_DIR, exist_ok=True)
+    with open(os.path.join(TRACE_DIR, f"{mode}-{db}.json"), "w", encoding="utf-8") as fh:
+        json.dump({"mode": mode, "database": db, "limit_bytes": cgroup("memory.max"),
+                   "sampled_every_seconds": SAMPLER_SECONDS, "samples": trace}, fh, indent=1)
 
 
 def dolt_load(db, phase, indexes="deferred"):
@@ -399,9 +472,9 @@ def dolt_load(db, phase, indexes="deferred"):
     os.makedirs(target, exist_ok=True)
     inside, notes = dolt_prepare(db, phase, indexes)
     host_path = os.path.join(DUMPS, "dolt", mode, f"{db}.sql")
-    parts = ([os.path.join("/dumps/dolt", mode, os.path.basename(q))
-              for q in chunk_sql(host_path, CHUNK_STATEMENTS)]
-             if phase == "dolt_rowcommit" else [inside])
+    chunks = chunk_sql(host_path, CHUNK_STATEMENTS) if phase == "dolt_rowcommit" else []
+    parts = ([(os.path.join("/dumps/dolt", mode, os.path.basename(q)), n) for q, n in chunks]
+             if chunks else [(inside, None)])
     if len(parts) > 1:
         notes.append(f"loaded in {len(parts)} chunks so no single process is OOM-killed")
 
@@ -410,12 +483,22 @@ def dolt_load(db, phase, indexes="deferred"):
     # timings and nothing of MySQL's.
     dolt_host_up()
     started = time.time()
-    for part in parts:
+    trace, rows_so_far = [], 0
+    if len(parts) > 1:
+        sampler_start()
+    for part, rows_in_part in parts:
         p = run("docker", "exec", "-w", dolt_root(mode, db), DOLT_HOST,
                 "dolt", "--data-dir", dolt_root(mode, db), "sql", "--file", part)
+        if rows_in_part is not None:
+            rows_so_far += rows_in_part
+            trace.append(sample(mode, db, rows_so_far, time.time() - started))
+            save_trace(mode, db, trace)
         if p.returncode != 0:
             break
     load_s = time.time() - started
+    if trace:
+        notes.append(f"traced memory and disk at {len(trace)} points during the load; "
+                     f"build/trace/{mode}-{db}.json")
     # The repository, not its parent: the parent is created before the load runs, so its existence
     # proves nothing about whether Dolt wrote anything.
     if not os.path.isdir(repo):

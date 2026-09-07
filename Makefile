@@ -19,6 +19,7 @@ help:
 	@echo "make preflight  load every schema into both engines before running the loads"
 	@echo "make audit      check the measurements against invariants that must hold"
 	@echo "make docs       regenerate README.md and JOURNAL.md from docs/templates and build/"
+	@echo "make trace      what the per-row-commit loads cost in memory as history accumulated"
 	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
 	@echo "make check      fail if the report, the README table or a prose number is stale"
 	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
@@ -140,3 +141,6 @@ clean: clean-data
 
 audit:
 	@$(PY) scripts/audit.py
+
+trace:
+	@$(PY) scripts/trace_report.py

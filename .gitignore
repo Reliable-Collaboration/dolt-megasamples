@@ -13,3 +13,4 @@ build/results.json.superseded
 build/img-preview/
 # the schema preflight scratch area, written as root by the Dolt container
 build/preflight/
+build/trace/

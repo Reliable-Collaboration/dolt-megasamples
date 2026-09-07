@@ -50,17 +50,17 @@ DOLT_IMAGE = os.environ.get(
 # the whole VM, not just the container.
 #
 # Every container this repository starts now carries an explicit ceiling, and the run keeps at most
-# one worker alive beside the source server. The budget totals 7.25 GB of the 8 GB asked for, so
-# there is headroom for the host and for Docker itself.
+# one worker alive beside the source server. The budget totals 9.25 GB, which is what this host can
+# give up without the rest of it suffering.
 #
 #   source MySQL   2 GB   up for the whole run: it holds the dumps and answers the row checks
-#   one worker     5 GB   whichever of the timing MySQL or a Dolt runner the current phase needs
+#   one worker     7 GB   whichever of the timing MySQL or a Dolt runner the current phase needs
 #   helper       256 MB   the short-lived `du` and `rm -rf` containers
 #
 # --memory-swap set equal to --memory turns swap off for the container. That matters more than the
 # ceiling on WSL2: a process allowed to swap does not fail, it drags the whole VM down with it.
 MEM_SOURCE = os.environ.get("DOLTSAMPLES_MEM_SOURCE", "2g")
-MEM_WORKER = os.environ.get("DOLTSAMPLES_MEM_WORKER", "5g")
+MEM_WORKER = os.environ.get("DOLTSAMPLES_MEM_WORKER", "7g")
 MEM_HELPER = os.environ.get("DOLTSAMPLES_MEM_HELPER", "256m")
 
 
