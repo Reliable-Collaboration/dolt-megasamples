@@ -325,6 +325,67 @@ def fig_index_policy(results):
     save(fig, "index-policy.png")
 
 
+MEMORY_JSON = os.path.join(ROOT, "build", "memory.json")
+MEM_SERIES = {"oneshot": ("#2a78d6", "3 commits per database"),
+              "rowcommit": ("#eb6834", "one commit per row")}
+
+
+def fig_memory():
+    """How much memory Dolt needs to open a database, against rows and against commits.
+
+    Two panels, because the point is which of the two predicts it. The same 21 databases are stored
+    both ways -- identical rows, identical schema, differing only in how much history they carry --
+    so at a given row count the two series show what history costs, and at a given commit count they
+    show whether anything else matters.
+
+    Each point is the smallest ceiling a query survived on a ladder of container memory limits, so
+    it is an upper bound at the ladder's granularity rather than a measured peak. An open marker
+    with an arrow is a database still killed at the top of the ladder."""
+    if not os.path.exists(MEMORY_JSON):
+        return
+    data = json.load(open(MEMORY_JSON, encoding="utf-8"))
+    if not any(m in data for m in MEM_SERIES):
+        return
+    top = max((r.get("ladder_top_mb") or 8192) for m in data.values() for r in m.values())
+
+    fig, axes = plt.subplots(1, 2, figsize=(12.5, 5.2), sharey=True)
+    for ax, xkey, xlabel in ((axes[0], "rows", "rows in the database"),
+                             (axes[1], "commits", "commits in the repository")):
+        for mode, (colour, label) in MEM_SERIES.items():
+            pts = [(r.get(xkey), r.get("megabytes"))
+                   for r in (data.get(mode) or {}).values() if r.get(xkey)]
+            ax.scatter([x for x, y in pts if y], [y for x, y in pts if y], s=46, color=colour,
+                       label=label, zorder=3, edgecolor="white", linewidth=.8)
+            for x, _ in [(x, y) for x, y in pts if not y]:
+                ax.scatter([x], [top], s=52, facecolors="none", edgecolors=colour,
+                           linewidth=1.6, zorder=3)
+                ax.annotate("", xy=(x, top * 1.9), xytext=(x, top * 1.05),
+                            arrowprops=dict(arrowstyle="-|>", color=colour, linewidth=1.4))
+                ax.text(x, top * 2.1, f"still killed\nat {top // 1024} GB", ha="center",
+                        fontsize=7.5, color=colour, fontweight="bold")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        style(ax, "", xlabel)
+        if ax is axes[0]:
+            ax.set_ylabel("memory the database needed (MB, log scale)", color=INK, fontsize=9)
+        ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
+    axes[0].legend(fontsize=9, frameon=False, loc="upper left")
+    fig.suptitle("What Dolt's memory tracks: not the rows, the commits",
+                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.01)
+    # Wrapped by hand. A single long line of figure text is included in the tight bounding box at
+    # its full width, which turns a 12-inch figure into a 27-inch one.
+    fig.text(.02, -0.16,
+             "Left: at the same row count the two forms need very different memory, so rows do not\n"
+             "predict it — the 3.9M-row database sits at the floor with 3 commits and will not open\n"
+             "in 8 GB with one commit per row. Right: both forms fall on one relationship, so\n"
+             "commits do predict it; that database is absent here only because reading its commit\n"
+             "count requires opening it. Each point is the smallest container memory limit a query\n"
+             "survived — an upper bound at the ladder's granularity, not a measured peak.",
+             fontsize=8, color=INK, alpha=.8, linespacing=1.5)
+    fig.tight_layout()
+    save(fig, "memory-by-history.png")
+
+
 def main():
     # Figures rendered from anything other than the real results file go somewhere else. Passing a
     # path is for checking a new figure against fabricated full coverage without waiting hours for a
@@ -346,6 +407,7 @@ def main():
     fig_ratio(results)
     fig_cost_by_mode(results)
     fig_index_policy(results)
+    fig_memory()
     for axis in ("bytes", "seconds"):
         cov = coverage(results, axis)
         gaps = {t: c for t, c in cov.items() if c < len(results)}

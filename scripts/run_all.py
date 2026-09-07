@@ -43,8 +43,39 @@ MYSQL_IMAGE = os.environ.get("MYSQL_TIMING_IMAGE", "mysql:9.7.2")
 MYSQL_NAME = "doltsamples-mysql-timing"
 MYSQL_DATA = os.path.join(ROOT, "data", "mysql")
 MYSQL_PW = "timing"
-DOLT_HOST_BASE = "doltsamples-dolt-runner"
-DOLT_HOST = DOLT_HOST_BASE
+# One Dolt container, not one per mode. There used to be five, because each mounted a different
+# data directory -- but `--data-dir` is an argument, not a mount. Mounting the parent `data/` once
+# and passing the mode's subdirectory does the same work in a single container, which is five fewer
+# things holding memory and five fewer things to leak, rebuild or find stale.
+DOLT_HOST = "doltsamples-dolt-runner"
+DATA_ROOT = os.path.join(ROOT, "data")
+
+
+def inside_data(mode):
+    """Where a mode's directory appears inside the Dolt container."""
+    return "/data/" + os.path.basename(data_dir(mode))
+
+
+def dolt_root(mode, db):
+    """The `--data-dir` for one database: a directory holding that database and nothing else.
+
+    Dolt opens every database under its data directory when it starts. Giving all 21 a shared
+    directory therefore made each load pay to open everything loaded before it -- and by the end of
+    the per-row-commit phase that was 128 GB across 20 databases, which is what exhausted a 15.5 GB
+    host. With the directory that size, even `CREATE DATABASE` is killed for memory; against an
+    empty one it returns immediately.
+
+    It also quietly contaminated the timings. A database loaded twentieth paid a startup cost that
+    the one loaded first did not, so the per-row-commit figures were partly a measure of load order.
+    One directory per database removes both problems: constant memory, and a load that costs the
+    same wherever it comes in the phase.
+    """
+    return f"{inside_data(mode)}/{db}"
+
+
+def dolt_repo(mode, db):
+    """The repository itself, one level inside its own data directory."""
+    return f"{dolt_root(mode, db)}/{db}"
 
 # cheapest first, so the table fills in early and an interrupted run still says something
 PHASES = ["mysql", "dolt_oneshot", "mysql_rowwise", "dolt_rowinsert", "dolt_rowcommit"]
@@ -249,13 +280,12 @@ def mysql_fresh():
 
 
 # ------------------------------------------------------------------- Dolt ---
-def dolt_host_up(mode):
+def dolt_host_up():
     """One long-lived Dolt container per data directory, so loads are `docker exec` like MySQL's.
 
-    The name is always built from the constant, never from the current value of DOLT_HOST: doing the
-    latter appended the mode once per call and left a trail of containers named
-    `doltsamples-dolt-runner-oneshot-oneshot-rowinsert-...`, one leaked per mode change."""
-    want = f"{DOLT_HOST_BASE}-{mode}"
+    One container serves every mode, because the mode is a `--data-dir` argument rather than a
+    mount."""
+    want = DOLT_HOST
     only_worker(want)
     state = run("docker", "inspect", "-f", "{{.State.Status}}", want).stdout.strip()
     # "running" is not the same as usable. These containers outlive the directories they mount: if
@@ -274,9 +304,8 @@ def dolt_host_up(mode):
         run("docker", "rm", "-f", want)
         run("docker", "run", "-d", "--name", want, *mem(MEM_WORKER),
             "--label", "doltsamples.transient=true",
-            "-v", f"{data_dir(mode)}:/var/lib/dolt", "-v", f"{DUMPS}:/dumps",
+            "-v", f"{DATA_ROOT}:/data", "-v", f"{DUMPS}:/dumps",
             "--entrypoint", "sh", DOLT_IMAGE, "-c", "sleep infinity")
-    globals()["DOLT_HOST"] = want
 
 def dolt_prepare(db, phase, indexes="deferred"):
     mode = MODE[phase] + ("" if indexes == "deferred" or phase not in PER_ROW else "_inline")
@@ -344,11 +373,13 @@ def chunk_sql(path, statements_per_chunk=50_000):
 
 def dolt_load(db, phase, indexes="deferred"):
     mode = MODE[phase] + ("" if indexes == "deferred" or phase not in PER_ROW else "_inline")
+    # `target` is this database's own data directory; the repository lands one level inside it.
     target = os.path.join(data_dir(mode), db)
+    repo = os.path.join(target, db)
     if os.path.isdir(target):
-        helper("-c", f"rm -rf /var/lib/dolt/{db}",
-               volumes=[f"{data_dir(mode)}:/var/lib/dolt"])
-    os.makedirs(data_dir(mode), exist_ok=True)
+        helper("-c", f"rm -rf {dolt_root(mode, db)}", volumes=[f"{DATA_ROOT}:/data"])
+    # created as this user, before Docker can create it as root
+    os.makedirs(target, exist_ok=True)
     inside, notes = dolt_prepare(db, phase, indexes)
     host_path = os.path.join(DUMPS, "dolt", mode, f"{db}.sql")
     parts = ([os.path.join("/dumps/dolt", mode, os.path.basename(q))
@@ -360,16 +391,19 @@ def dolt_load(db, phase, indexes="deferred"):
     # `docker exec` into a container that is already up, exactly as the MySQL loads do. Creating a
     # container per load cost a measured 0.36s twice over, which was most of the smallest Dolt
     # timings and nothing of MySQL's.
-    dolt_host_up(mode)
+    dolt_host_up()
     started = time.time()
     for part in parts:
-        p = run("docker", "exec", "-w", "/var/lib/dolt", DOLT_HOST,
-                "dolt", "--data-dir", "/var/lib/dolt", "sql", "--file", part)
+        p = run("docker", "exec", "-w", dolt_root(mode, db), DOLT_HOST,
+                "dolt", "--data-dir", dolt_root(mode, db), "sql", "--file", part)
         if p.returncode != 0:
             break
     load_s = time.time() - started
-    if not os.path.isdir(target):
-        return {"error": (p.stderr or p.stdout).strip()[:300], "seconds": round(load_s, 1)}
+    # The repository, not its parent: the parent is created before the load runs, so its existence
+    # proves nothing about whether Dolt wrote anything.
+    if not os.path.isdir(repo):
+        return {"error": (dolt_error_tail(p) or (p.stderr or p.stdout).strip())[:300],
+                "seconds": round(load_s, 1)}
     # A directory is not proof of a load. Three per-row-commit loads truncated mid-table and were
     # recorded as successful because the directory existed: `employees` stopped at 1,854,812 of
     # 3.9M rows with `titles` never created. The exit status and the tail of the output are kept for
@@ -389,11 +423,12 @@ def dolt_load(db, phase, indexes="deferred"):
     final = (commit + '"rebuild deferred indexes" ; dolt gc' if phase == "dolt_rowcommit" else
              commit + '"import from mysql-megasamples" ; dolt gc')
     started = time.time()
-    run("docker", "exec", "-w", f"/var/lib/dolt/{db}", DOLT_HOST, "sh", "-c", final)
+    run("docker", "exec", "-w", dolt_repo(mode, db), DOLT_HOST, "sh", "-c", final)
     settle_s = time.time() - started
 
-    size = helper("-c", f"du -sb /d/{db}; du -sb /d/{db}/.dolt/stats 2>/dev/null || echo 0",
-                  volumes=[f"{data_dir(mode)}:/d"])
+    size = helper("-c", f"du -sb {dolt_repo(mode, db)}; "
+                        f"du -sb {dolt_repo(mode, db)}/.dolt/stats 2>/dev/null || echo 0",
+                  volumes=[f"{DATA_ROOT}:/data"])
     lines = [l.split()[0] for l in size.stdout.splitlines() if l.split()]
     total = int(lines[0]) if lines else None
     stats = int(lines[1]) if len(lines) > 1 else 0
@@ -467,10 +502,12 @@ def truncated(db, mode):
         raise RuntimeError(f"cannot verify {db}: the reference MySQL returned no table list")
     for t in tables:
         want = int(mysql_rows_query(f"SELECT COUNT(*) FROM `{db}`.`{t}`")[0][0])
-        p = run("docker", "run", "--rm", *mem(MEM_WORKER),
-                "-v", f"{data_dir(mode)}:/var/lib/dolt",
-                "-w", "/var/lib/dolt", "--entrypoint", "dolt", DOLT_IMAGE,
-                "--use-db", db, "sql", "-r", "csv", "-q", f"SELECT COUNT(*) FROM `{t}`")
+        # Counted through the one long-lived container, not a new one per table: 248 tables meant
+        # 248 container creations, and each carried the same ceiling anyway.
+        dolt_host_up()
+        p = run("docker", "exec", "-w", dolt_root(mode, db), DOLT_HOST, "dolt",
+                "--data-dir", dolt_root(mode, db), "--use-db", db,
+                "sql", "-r", "csv", "-q", f"SELECT COUNT(*) FROM `{t}`")
         got = next((int(l.strip()) for l in p.stdout.splitlines() if l.strip().isdigit()), None)
         if got is None and p.returncode != 0 and not p.stdout.strip():
             raise RuntimeError(f"cannot verify {db}.{t}: {(p.stderr or '').strip()[:200]}")
