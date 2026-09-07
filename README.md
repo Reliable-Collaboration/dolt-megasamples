@@ -43,8 +43,12 @@ maintains an index measures two things at once.
 This is the standard way to bulk-load either engine, and separating it out is what lets the cost of
 *writing rows one at a time* be told apart from the cost of *maintaining an index while doing it*.
 The primary key is never deferred — it is the row's identity, Dolt stores tables as a prolly tree
-keyed by it, and a table loaded without one is a different table. Both policies end with the same
-schema; index parity against MySQL is checked either way. Tests 1 and 3 have no policy: mysqldump's
+keyed by it, and a table loaded without one is a different table. Neither is a key that an
+`AUTO_INCREMENT` column depends on: MySQL requires such a column to lead some key, and where it does
+not lead the primary key, the plain `KEY` beside it is the only thing meeting the rule. **Four keys
+across two databases** are kept inline for this reason — three in `adventureworks`, one in
+`adventureworks_lt` — and each load's notes say so. Both policies end with the same schema; index
+parity against MySQL is checked either way. Tests 1 and 3 have no policy: mysqldump's
 extended `INSERT`s build an index over batches whatever you do, and the two policies produced
 byte-identical files.
 

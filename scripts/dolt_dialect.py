@@ -198,6 +198,7 @@ def defer_indexes(sql):
     which is the other half of the same technique.
     """
     out, deferred, table, in_create = [], [], None, False
+    kept = []
     auto_cols, pk_first = set(), None
     for line in sql.splitlines(keepends=True):
         m = CREATE_TABLE.match(line)
@@ -223,14 +224,17 @@ def defer_indexes(sql):
                         break
                 out.append(line)
                 continue
-            if SECONDARY.match(line) and not _must_stay(line, auto_cols, pk_first):
-                clause = line.strip().rstrip(b",")
-                deferred.append((table, clause))
-                continue
+            if SECONDARY.match(line):
+                if _must_stay(line, auto_cols, pk_first):
+                    kept.append(table)
+                else:
+                    deferred.append((table, line.strip().rstrip(b",")))
+                    continue
         out.append(line)
 
     if not deferred:
         return b"".join(out), []
+    note = [note_text(deferred, kept)]
     head = (b"SET UNIQUE_CHECKS=0;\nSET FOREIGN_KEY_CHECKS=0;\n")
     tail = [b"\n-- indexes and constraints deferred to the end of the load\n"]
     for t, clause in deferred:
@@ -251,8 +255,8 @@ def defer_indexes(sql):
     body = b"".join(out)
     cut = _end_of_rows(body)
     if cut is None:
-        return head + body + b"".join(tail), [note_text(deferred)]
-    return head + body[:cut] + b"".join(tail) + body[cut:], [note_text(deferred)]
+        return head + body + b"".join(tail), note
+    return head + body[:cut] + b"".join(tail) + body[cut:], note
 
 
 def _end_of_rows(body):
@@ -290,9 +294,14 @@ def _must_stay(line, auto_cols, pk_first):
     return bool(first and first.group(1) in auto_cols and first.group(1) != pk_first)
 
 
-def note_text(deferred):
-    return (f"deferred {len(deferred)} secondary index/constraint definition(s) to ALTER TABLE "
+def note_text(deferred, kept):
+    text = (f"deferred {len(deferred)} secondary index/constraint definition(s) to ALTER TABLE "
             f"after the last row, with UNIQUE_CHECKS and FOREIGN_KEY_CHECKS off during the load")
+    if kept:
+        text += (f"; {len(kept)} key(s) kept inline because an AUTO_INCREMENT column leads them and "
+                 "not the primary key, which MySQL requires: "
+                 + ", ".join(sorted({t.decode() for t in kept})))
+    return text
 
 
 
