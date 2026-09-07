@@ -173,6 +173,9 @@ def transform(text, database, known_databases=()):
 
 
 SECONDARY = re.compile(rb"^\s*(UNIQUE\s+KEY|FULLTEXT\s+KEY|SPATIAL\s+KEY|KEY|CONSTRAINT)\s", re.I)
+AUTO_COL = re.compile(rb"^\s*`([^`]+)`.*\bAUTO_INCREMENT\b", re.I)
+PRIMARY = re.compile(rb"^\s*PRIMARY\s+KEY\s*\(\s*`([^`]+)`", re.I)
+FIRST_COL = re.compile(rb"\(\s*`([^`]+)`")
 CREATE_TABLE = re.compile(rb"^CREATE TABLE\s+`([^`]+)`", re.I)
 
 
@@ -195,13 +198,21 @@ def defer_indexes(sql):
     which is the other half of the same technique.
     """
     out, deferred, table, in_create = [], [], None, False
+    auto_cols, pk_first = set(), None
     for line in sql.splitlines(keepends=True):
         m = CREATE_TABLE.match(line)
         if m:
             table, in_create = m.group(1), True
+            auto_cols, pk_first = set(), None
             out.append(line)
             continue
         if in_create:
+            a = AUTO_COL.match(line)
+            if a:
+                auto_cols.add(a.group(1))
+            pk = PRIMARY.match(line)
+            if pk:
+                pk_first = pk.group(1)
             if line.lstrip().startswith(b")"):
                 in_create = False
                 # the last kept line must not end with a comma now that lines have been removed
@@ -212,7 +223,7 @@ def defer_indexes(sql):
                         break
                 out.append(line)
                 continue
-            if SECONDARY.match(line):
+            if SECONDARY.match(line) and not _must_stay(line, auto_cols, pk_first):
                 clause = line.strip().rstrip(b",")
                 deferred.append((table, clause))
                 continue
@@ -259,6 +270,24 @@ def _end_of_rows(body):
         last_insert = end
         end = body.find(b"\n", last_insert + 1)
     return end + 1 if end != -1 else len(body)
+
+
+def _must_stay(line, auto_cols, pk_first):
+    """True for a key MySQL will not let the table exist without.
+
+    An AUTO_INCREMENT column has to be the first column of some key. Where it is also the first
+    column of the primary key that is already satisfied, but `adventureworks_lt.salesorderdetail`
+    has `PRIMARY KEY (salesorderid, salesorderdetailid)` with the auto column second, and the only
+    thing meeting the rule is the plain `KEY (salesorderdetailid)` beside it. Deferring that one
+    made the table illegal: `ERROR 1075: Incorrect table definition; there can be only one auto
+    column and it must be defined as a key`.
+
+    Dolt accepted the same file, so this would have been another difference between the engines
+    rather than an error in both."""
+    if not auto_cols:
+        return False
+    first = FIRST_COL.search(line)
+    return bool(first and first.group(1) in auto_cols and first.group(1) != pk_first)
 
 
 def note_text(deferred):
