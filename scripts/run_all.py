@@ -256,14 +256,31 @@ def mysql_error(p):
     return " / ".join(lines).strip()[:300] or f"exit {p.returncode} with no message"
 
 
+def du_bytes(container, path):
+    """Size of a path, or an exception. Never a zero standing in for a failed measurement.
+
+    This returned 0 when `du` failed, and it is the source of every MySQL size in the report:
+    `bytes = mysql_datadir_bytes() - baseline`. A failed baseline therefore charged the database
+    the whole ~205 MB of an empty server, and a failed second reading made the size negative.
+    Neither raised, and the first looks entirely plausible in a table.
+    """
+    p = run("docker", "exec", container, "du", "-sb", path)
+    first = p.stdout.split()[0] if p.stdout.split() else ""
+    if p.returncode != 0 or not first.isdigit():
+        raise RuntimeError(f"could not measure {path} in {container}: "
+                           f"exit {p.returncode} {(p.stderr or '').strip()[:120]}")
+    return int(first)
+
+
 def mysql_datadir_bytes():
-    p = run("docker", "exec", MYSQL_NAME, "du", "-sb", "/var/lib/mysql")
-    return int(p.stdout.split()[0]) if p.stdout.split() else 0
+    return du_bytes(MYSQL_NAME, "/var/lib/mysql")
 
 
 def mysql_dir_bytes(db):
-    p = run("docker", "exec", MYSQL_NAME, "du", "-sb", f"/var/lib/mysql/{db}")
-    return int(p.stdout.split()[0]) if p.stdout.split() else None
+    try:
+        return du_bytes(MYSQL_NAME, f"/var/lib/mysql/{db}")
+    except RuntimeError:
+        return None   # a database directory need not exist; the datadir total must
 
 
 def mysql_fresh():

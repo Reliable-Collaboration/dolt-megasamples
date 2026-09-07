@@ -82,7 +82,16 @@ def main():
     for db in dbs:
         p = run("docker", "run", "--rm", "-v", f"{SERVED}:/d", "--entrypoint", "du", DOLT_IMAGE,
                 "-sb", f"/d/{db}/.dolt/stats")
-        n = int(p.stdout.split()[0]) if p.returncode == 0 and p.stdout.split() else 0
+        # A missing `.dolt/stats` legitimately means zero; a `du` that failed for any other
+        # reason does not, and conflating them would quietly understate what a server writes.
+        first = p.stdout.split()[0] if p.stdout.split() else ""
+        if first.isdigit():
+            n = int(first)
+        elif "No such file" in (p.stderr or ""):
+            n = 0
+        else:
+            raise RuntimeError(f"could not measure {db} statistics: "
+                               f"exit {p.returncode} {(p.stderr or '').strip()[:120]}")
         results.setdefault(db, {})["server_stats_bytes"] = n
         total += n
         if n:

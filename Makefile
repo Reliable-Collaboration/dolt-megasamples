@@ -17,6 +17,7 @@ help:
 	@echo "make collect    fold the timed run into build/results.json (make report does this)"
 	@echo "make measure-all  row counts and index parity for every mode that was loaded"
 	@echo "make preflight  load every schema into both engines before running the loads"
+	@echo "make audit      check the measurements against invariants that must hold"
 	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
 	@echo "make check      fail if the report, the README table or a prose number is stale"
 	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
@@ -93,7 +94,11 @@ experiment:
 	@echo "timed and resumable -- and then 'make report'."
 	@echo "For the index-maintenance comparison: python3 scripts/run_all.py --indexes inline"
 	@false
+# audit first: check_claims verifies the prose matches the measurements, but says nothing about
+# whether the measurements are consistent with each other. The row count that broke this experiment
+# passed every claim check, because the prose faithfully reported the wrong number.
 check:
+	@$(PY) scripts/audit.py
 	@$(PY) scripts/report.py --check
 	@$(PY) scripts/check_claims.py
 
@@ -125,3 +130,6 @@ clean-data:
 	@echo "removed every data/dolt* directory, the transformed dumps, the measurements and the run state"
 
 clean: clean-data
+
+audit:
+	@$(PY) scripts/audit.py
