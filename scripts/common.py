@@ -53,14 +53,20 @@ DOLT_IMAGE = os.environ.get(
 # one worker alive beside the source server. The budget totals 9.25 GB, which is what this host can
 # give up without the rest of it suffering.
 #
-#   source MySQL   2 GB   up for the whole run: it holds the dumps and answers the row checks
-#   one worker     7 GB   whichever of the timing MySQL or a Dolt runner the current phase needs
+#   source MySQL   1 GB   only needed to answer the row checks; it is *stopped* during a Dolt load
+#   one worker    12 GB   whichever of the timing MySQL or a Dolt runner the current phase needs
 #   helper       256 MB   the short-lived `du` and `rm -rf` containers
+#
+# The worker gets 12 GB because nothing else is running while it works. The dumps are a bind mount
+# and the source server is not consulted between the first statement and the last, so it is stopped
+# for the duration of a Dolt load and started again for the row-count verification that follows.
+# That is not a saving of 1 GB but of everything the source server holds -- and it costs only the
+# twenty seconds it takes to come back, which falls outside the timed section.
 #
 # --memory-swap set equal to --memory turns swap off for the container. That matters more than the
 # ceiling on WSL2: a process allowed to swap does not fail, it drags the whole VM down with it.
-MEM_SOURCE = os.environ.get("DOLTSAMPLES_MEM_SOURCE", "2g")
-MEM_WORKER = os.environ.get("DOLTSAMPLES_MEM_WORKER", "7g")
+MEM_SOURCE = os.environ.get("DOLTSAMPLES_MEM_SOURCE", "1g")
+MEM_WORKER = os.environ.get("DOLTSAMPLES_MEM_WORKER", "12g")
 MEM_HELPER = os.environ.get("DOLTSAMPLES_MEM_HELPER", "256m")
 
 

@@ -151,6 +151,31 @@ def ensure_data_root(*paths):
         os.makedirs(p, exist_ok=True)
 
 
+def source_mysql(up):
+    """Start or stop the source server that holds the dumps.
+
+    It is not consulted between the first statement of a load and the last -- the dumps reach the
+    worker as a bind mount -- so during a Dolt load it is holding memory for nothing. On a host
+    where the largest load wants more memory than the host has to spare, that matters more than any
+    ceiling: stopping it hands the worker everything the source server was holding. It comes back
+    for the row-count verification, which costs about twenty seconds outside the timed section.
+    """
+    state = run("docker", "inspect", "-f", "{{.State.Status}}", MYSQL_CONTAINER).stdout.strip()
+    if not state:
+        return False                      # not this repository's container to manage
+    if up and state != "running":
+        run("docker", "start", MYSQL_CONTAINER)
+        for _ in range(120):
+            if run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot",
+                   "--protocol=TCP", "-h", "127.0.0.1", "-e", "SELECT 1").returncode == 0:
+                return True
+            time.sleep(1)
+        sys.exit(f"{MYSQL_CONTAINER} did not come back after a load")
+    if not up and state == "running":
+        run("docker", "stop", "-t", "30", MYSQL_CONTAINER)
+    return True
+
+
 def only_worker(keep):
     """Leave exactly one worker container running beside the source server.
 
@@ -446,11 +471,18 @@ def sample(mode, db, rows, elapsed):
     history or has begun to bend, and -- if a load is eventually killed -- roughly where it would
     have had to stop."""
     anon, cur = sampler_take()
+    # An instantaneous reading taken here, between chunks, with no `dolt` process running. It is the
+    # diagnostic that says whether smaller chunks would help: if this stays near zero while the peak
+    # climbs, every byte is held inside one chunk's process and a smaller chunk lowers the peak. If
+    # it climbs too, something outside the process is accumulating and chunking cannot fix it.
+    idle = run("docker", "exec", DOLT_HOST, "sh", "-c",
+               "awk '/^anon /{print $2}' /sys/fs/cgroup/memory.stat").stdout.strip()
     p = helper("-c", f"du -sb {dolt_repo(mode, db)} 2>/dev/null || echo 0",
                volumes=[f"{DATA_ROOT}:/data"])
     parts = p.stdout.split()
     return {"rows": rows, "seconds": round(elapsed, 1),
             "memory_anon_bytes": anon, "memory_total_bytes": cur,
+            "memory_idle_bytes": int(idle) if idle.isdigit() else None,
             "disk_bytes": int(parts[0]) if parts and parts[0].isdigit() else None}
 
 
@@ -482,6 +514,7 @@ def dolt_load(db, phase, indexes="deferred"):
     # container per load cost a measured 0.36s twice over, which was most of the smallest Dolt
     # timings and nothing of MySQL's.
     dolt_host_up()
+    source_mysql(False)      # nothing reads it during the load; the worker can have its memory
     started = time.time()
     trace, rows_so_far = [], 0
     if len(parts) > 1:
@@ -499,6 +532,7 @@ def dolt_load(db, phase, indexes="deferred"):
     if trace:
         notes.append(f"traced memory and disk at {len(trace)} points during the load; "
                      f"build/trace/{mode}-{db}.json")
+    source_mysql(True)       # back up for the row-count verification below
     # The repository, not its parent: the parent is created before the load runs, so its existence
     # proves nothing about whether Dolt wrote anything.
     if not os.path.isdir(repo):
