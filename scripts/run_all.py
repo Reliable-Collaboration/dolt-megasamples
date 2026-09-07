@@ -87,6 +87,11 @@ PER_ROW = {"mysql_rowwise", "dolt_rowinsert", "dolt_rowcommit"}
 # the peak scales with the chunk and not with the database. It was 150,000 and `employees` -- 3.9
 # million rows, one commit each -- still exhausted a 15.5 GB host. Set by --chunk-statements.
 CHUNK_STATEMENTS = 50_000
+# Chunks between `dolt gc` calls during a per-row-commit load, or 0 for none. Off by default: it
+# changes what is measured. It exists because the memory a load needs is the memory to open the
+# history written so far, and packing that history is the only lever that reduces it -- chunk size
+# does not, which the trace's idle reading established.
+GC_EVERY = 0
 # The phase name is not the mode name. `data_dir()` prefixes anything that is not "oneshot" with
 # "dolt-", so passing the phase produced data/dolt-dolt_oneshot and the measurement pass, which
 # looks in data/dolt, found nothing at all.
@@ -516,18 +521,33 @@ def dolt_load(db, phase, indexes="deferred"):
     dolt_host_up()
     source_mysql(False)      # nothing reads it during the load; the worker can have its memory
     started = time.time()
-    trace, rows_so_far = [], 0
+    trace, rows_so_far, gc_seconds, gcs = [], 0, 0.0, 0
     if len(parts) > 1:
         sampler_start()
-    for part, rows_in_part in parts:
+    for i, (part, rows_in_part) in enumerate(parts, 1):
         p = run("docker", "exec", "-w", dolt_root(mode, db), DOLT_HOST,
                 "dolt", "--data-dir", dolt_root(mode, db), "sql", "--file", part)
+        # Packing the store partway through, when asked. What a process must open is the history
+        # written so far, and an unpacked store presents that as a great many table files; `dolt gc`
+        # consolidates them. It is off by default because it changes what is being measured -- a
+        # load with maintenance in the middle is not the naive load the other databases got -- and
+        # every load that used it says so in its notes.
+        if GC_EVERY and i % GC_EVERY == 0 and i < len(parts):
+            t0 = time.time()
+            run("docker", "exec", "-w", dolt_repo(mode, db), DOLT_HOST, "dolt", "gc")
+            gc_seconds += time.time() - t0
+            gcs += 1
         if rows_in_part is not None:
             rows_so_far += rows_in_part
-            trace.append(sample(mode, db, rows_so_far, time.time() - started))
+            row = sample(mode, db, rows_so_far, time.time() - started)
+            row["gcs_so_far"] = gcs
+            trace.append(row)
             save_trace(mode, db, trace)
         if p.returncode != 0:
             break
+    if gcs:
+        notes.append(f"packed the store with `dolt gc` {gcs} time(s) during the load, every "
+                     f"{GC_EVERY} chunks, costing {gc_seconds:.0f}s of the total")
     load_s = time.time() - started
     if trace:
         notes.append(f"traced memory and disk at {len(trace)} points during the load; "
@@ -678,6 +698,10 @@ def main():
     ap.add_argument("--chunk-statements", type=int, default=CHUNK_STATEMENTS,
                     help="statements per chunk for the per-row-commit loads. Lower it if a load is "
                          "killed for memory (exit 137); it costs a process start per chunk")
+    ap.add_argument("--gc-every", type=int, default=0, metavar="N",
+                    help="pack the store with `dolt gc` every N chunks of a per-row-commit load. "
+                         "Off by default because it changes what is measured; use it when a load "
+                         "will not otherwise fit in memory, and the notes will say it was used")
     ap.add_argument("--floor-gb", type=float, default=8.0,
                     help="stop before starting a unit if less than this many GB are free. The "
                          "per-row-commit phase is the one that can fill a disk: it wrote 160 GB "
@@ -686,6 +710,7 @@ def main():
                     help="continue a run recorded on another machine (normally refused)")
     a = ap.parse_args()
     globals()["CHUNK_STATEMENTS"] = a.chunk_statements
+    globals()["GC_EVERY"] = a.gc_every
 
     busy = [l for l in run("docker", "ps", "--format", "{{.Names}}").stdout.splitlines()
             if l.startswith(("megasamples-", "doltsamples-")) and "mysql-timing" not in l
