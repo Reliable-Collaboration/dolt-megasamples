@@ -54,8 +54,12 @@ DOLT_IMAGE = os.environ.get(
 # give up without the rest of it suffering.
 #
 #   source MySQL   1 GB   only needed to answer the row checks; it is *stopped* during a Dolt load
-#   one worker    12 GB   whichever of the timing MySQL or a Dolt runner the current phase needs
+#   one worker    the rest, sized from this host: MemTotal less 2.5 GB for the host and the helper
 #   helper       256 MB   the short-lived `du` and `rm -rf` containers
+#
+# The worker's share is computed rather than written down, because the right number is a property of
+# the machine. On this host WSL2 takes its default half of 31.7 GB, and raising that in .wslconfig
+# raises the worker with it without touching any code.
 #
 # The worker gets 12 GB because nothing else is running while it works. The dumps are a bind mount
 # and the source server is not consulted between the first statement and the last, so it is stopped
@@ -65,8 +69,26 @@ DOLT_IMAGE = os.environ.get(
 #
 # --memory-swap set equal to --memory turns swap off for the container. That matters more than the
 # ceiling on WSL2: a process allowed to swap does not fail, it drags the whole VM down with it.
+def _host_memory_gb():
+    """What this machine actually has, so the budget is not a constant written for one host."""
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("MemTotal:"):
+                    return int(line.split()[1]) / 1024 / 1024
+    except OSError:
+        pass
+    return 8.0
+
+
+HOST_GB = _host_memory_gb()
+# The worker gets what is left after the host keeps 2.5 GB for itself, Docker and page cache, and
+# after the 256 MB helper. The source server is stopped during a Dolt load, so it is not subtracted.
+# Floors and ceilings keep it sane on very small and very large machines.
+_worker_gb = max(2, min(48, int(HOST_GB - 2.5 - 0.25)))
+
 MEM_SOURCE = os.environ.get("DOLTSAMPLES_MEM_SOURCE", "1g")
-MEM_WORKER = os.environ.get("DOLTSAMPLES_MEM_WORKER", "12g")
+MEM_WORKER = os.environ.get("DOLTSAMPLES_MEM_WORKER", f"{_worker_gb}g")
 MEM_HELPER = os.environ.get("DOLTSAMPLES_MEM_HELPER", "256m")
 
 
