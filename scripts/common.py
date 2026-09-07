@@ -43,6 +43,32 @@ DOLT_IMAGE = os.environ.get(
     "DOLT_IMAGE",
     "dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6")
 
+# ---------------------------------------------------------------------- memory ---
+# WSL2 gave this host 15.5 GB and ran out of it. Nothing here was bounded: the loads created a
+# container per mode and never removed them, so up to seven were alive at once, and a `dolt sql`
+# building a multi-million-commit history will take whatever it can reach -- which under WSL2 means
+# the whole VM, not just the container.
+#
+# Every container this repository starts now carries an explicit ceiling, and the run keeps at most
+# one worker alive beside the source server. The budget totals 7.25 GB of the 8 GB asked for, so
+# there is headroom for the host and for Docker itself.
+#
+#   source MySQL   2 GB   up for the whole run: it holds the dumps and answers the row checks
+#   one worker     5 GB   whichever of the timing MySQL or a Dolt runner the current phase needs
+#   helper       256 MB   the short-lived `du` and `rm -rf` containers
+#
+# --memory-swap set equal to --memory turns swap off for the container. That matters more than the
+# ceiling on WSL2: a process allowed to swap does not fail, it drags the whole VM down with it.
+MEM_SOURCE = os.environ.get("DOLTSAMPLES_MEM_SOURCE", "2g")
+MEM_WORKER = os.environ.get("DOLTSAMPLES_MEM_WORKER", "5g")
+MEM_HELPER = os.environ.get("DOLTSAMPLES_MEM_HELPER", "256m")
+
+
+def mem(limit):
+    """Docker arguments capping a container's memory, with swap disabled."""
+    return ["--memory", limit, "--memory-swap", limit]
+
+
 # schemas that are not sample data: MySQL's own, and the provenance registry the image carries
 SKIP = {"mysql", "information_schema", "performance_schema", "sys", "megasamples"}
 

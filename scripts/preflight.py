@@ -29,7 +29,7 @@ catch a load that goes short. It is the cheap check that comes first.
 import argparse, os, re, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import DOLT_IMAGE, DUMPS, ROOT, databases, run  # noqa: E402
+from common import DOLT_IMAGE, DUMPS, MEM_SOURCE, MEM_WORKER, ROOT, databases, mem, run  # noqa: E402
 from dolt_dialect import defer_indexes, transform  # noqa: E402
 
 MYSQL_IMAGE = os.environ.get("MEGASAMPLES_MYSQL_IMAGE", "mysql:9.7.2")
@@ -56,9 +56,10 @@ def mysql_up():
            MYSQL_NAME).stdout.strip() == "running":
         return
     run("docker", "rm", "-f", MYSQL_NAME)
-    run("docker", "run", "-d", "--name", MYSQL_NAME, "--label", "doltsamples.transient=true",
+    run("docker", "run", "-d", "--name", MYSQL_NAME, *mem(MEM_SOURCE),
+        "--label", "doltsamples.transient=true",
         "-e", "MYSQL_ROOT_PASSWORD=root", "-v", f"{WORK}:/pre:ro",
-        MYSQL_IMAGE, "mysqld", "--skip-log-bin")
+        MYSQL_IMAGE, "mysqld", "--skip-log-bin", "--innodb-buffer-pool-size=512M")
     for _ in range(600):
         if run("docker", "exec", MYSQL_NAME, "mysql", "-proot", "-uroot", "--protocol=TCP",
                "-h", "127.0.0.1", "-e", "SELECT 1").returncode == 0:
@@ -72,7 +73,8 @@ def dolt_up():
        run("docker", "exec", DOLT_NAME, "true").returncode == 0:
         return
     run("docker", "rm", "-f", DOLT_NAME)
-    run("docker", "run", "-d", "--name", DOLT_NAME, "--label", "doltsamples.transient=true",
+    run("docker", "run", "-d", "--name", DOLT_NAME, *mem(MEM_WORKER),
+        "--label", "doltsamples.transient=true",
         "-v", f"{WORK}:/pre", "--entrypoint", "sh", DOLT_IMAGE, "-c", "sleep infinity")
 
 

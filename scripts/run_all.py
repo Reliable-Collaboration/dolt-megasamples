@@ -32,7 +32,8 @@ the top rather than arriving all at once at the end.
 import argparse, json, os, re, shutil, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (DOLT_IMAGE, DUMPS, MYSQL_CONTAINER, RESULTS, ROOT, data_dir, databases,  # noqa: E402
+from common import (DOLT_IMAGE, DUMPS, MEM_HELPER, MEM_WORKER, MYSQL_CONTAINER, RESULTS,
+                    ROOT, data_dir, databases, mem,  # noqa: E402
                     dumps_dir, human, run)
 from dolt_dialect import defer_indexes, transform  # noqa: E402
 from load_dolt import per_row_commits  # noqa: E402
@@ -50,6 +51,11 @@ PHASES = ["mysql", "dolt_oneshot", "mysql_rowwise", "dolt_rowinsert", "dolt_rowc
 ENGINE = {"mysql": "MySQL", "mysql_rowwise": "MySQL", "dolt_oneshot": "Dolt",
           "dolt_rowinsert": "Dolt", "dolt_rowcommit": "Dolt"}
 PER_ROW = {"mysql_rowwise", "dolt_rowinsert", "dolt_rowcommit"}
+# How much of a per-row-commit dump one `dolt sql` process is asked to hold. This is the number that
+# decides whether the load fits in memory: the process keeps the commit history it is building, so
+# the peak scales with the chunk and not with the database. It was 150,000 and `employees` -- 3.9
+# million rows, one commit each -- still exhausted a 15.5 GB host. Set by --chunk-statements.
+CHUNK_STATEMENTS = 50_000
 # The phase name is not the mode name. `data_dir()` prefixes anything that is not "oneshot" with
 # "dolt-", so passing the phase produced data/dolt-dolt_oneshot and the measurement pass, which
 # looks in data/dolt, found nothing at all.
@@ -114,17 +120,45 @@ def ensure_data_root(*paths):
         os.makedirs(p, exist_ok=True)
 
 
+def only_worker(keep):
+    """Leave exactly one worker container running beside the source server.
+
+    The loads used to create a container per mode and never remove it, so by the last phase seven
+    were alive at once -- two MySQL servers and five Dolt runners -- each holding memory that the
+    phase actually running had no use for. This stops everything except the one worker the current
+    phase needs, which is what keeps the budget to source + one worker."""
+    alive = [l for l in run("docker", "ps", "--format", "{{.Names}}").stdout.splitlines()
+             if l.startswith(("doltsamples-dolt-runner", "doltsamples-mysql-timing"))
+             and l != keep]
+    if alive:
+        run("docker", "stop", "-t", "30", *alive)
+
+
+def helper(*args, volumes=(), workdir=None, entrypoint="sh"):
+    """A short-lived container for `du` and `rm -rf`, capped so it cannot compete for memory."""
+    cmd = ["docker", "run", "--rm", *mem(MEM_HELPER)]
+    for v in volumes:
+        cmd += ["-v", v]
+    if workdir:
+        cmd += ["-w", workdir]
+    return run(*cmd, "--entrypoint", entrypoint, DOLT_IMAGE, *args)
+
+
 def mysql_up():
     state = run("docker", "inspect", "-f", "{{.State.Status}}", MYSQL_NAME).stdout.strip()
     if state == "running":
         return
     run("docker", "rm", "-f", MYSQL_NAME)
     os.makedirs(MYSQL_DATA, exist_ok=True)
-    p = run("docker", "run", "-d", "--name", MYSQL_NAME,
+    # The buffer pool is set explicitly rather than left to MySQL's default sizing, which reads the
+    # host's memory and not the container's: on a 15.5 GB host inside a 5 GB container it will
+    # happily plan for more than it is allowed to have and be killed for it.
+    p = run("docker", "run", "-d", "--name", MYSQL_NAME, *mem(MEM_WORKER),
             "--label", "doltsamples.transient=true", "--label", "doltsamples.role=mysql-timing",
             "-e", f"MYSQL_ROOT_PASSWORD={MYSQL_PW}",
             "-v", f"{MYSQL_DATA}:/var/lib/mysql", "-v", f"{DUMPS}:/dumps:ro",
-            MYSQL_IMAGE, "mysqld", "--local-infile=1", "--skip-log-bin")
+            MYSQL_IMAGE, "mysqld", "--local-infile=1", "--skip-log-bin",
+            "--innodb-buffer-pool-size=2G", "--innodb-redo-log-capacity=512M")
     if p.returncode != 0:
         sys.exit(f"could not start {MYSQL_IMAGE}: {p.stderr.strip()[:200]}")
     # Probe over TCP, not the socket. On a fresh data directory the MySQL entrypoint initialises the
@@ -165,6 +199,7 @@ def mysql_load(db, per_row, indexes="deferred"):
     # phase runs — and the MySQL phases run first.
     phase = "dolt_rowinsert" if per_row else "dolt_oneshot"
     inside, _ = dolt_prepare(db, phase, indexes)
+    only_worker(MYSQL_NAME)
     mysql_fresh()
     baseline = mysql_datadir_bytes()
     started = time.time()
@@ -209,8 +244,7 @@ def mysql_fresh():
     # 21 units in a row, with the load never attempted.
     ensure_data_root(MYSQL_DATA)
     run("docker", "rm", "-f", MYSQL_NAME)
-    run("docker", "run", "--rm", "-v", f"{MYSQL_DATA}:/d", "--entrypoint", "sh", DOLT_IMAGE,
-        "-c", "rm -rf /d/* /d/.[!.]* 2>/dev/null || true")
+    helper("-c", "rm -rf /d/* /d/.[!.]* 2>/dev/null || true", volumes=[f"{MYSQL_DATA}:/d"])
     mysql_up()
 
 
@@ -222,6 +256,7 @@ def dolt_host_up(mode):
     latter appended the mode once per call and left a trail of containers named
     `doltsamples-dolt-runner-oneshot-oneshot-rowinsert-...`, one leaked per mode change."""
     want = f"{DOLT_HOST_BASE}-{mode}"
+    only_worker(want)
     state = run("docker", "inspect", "-f", "{{.State.Status}}", want).stdout.strip()
     # "running" is not the same as usable. These containers outlive the directories they mount: if
     # data/ is deleted and recreated between runs, the container keeps a mount on the old inode,
@@ -237,7 +272,8 @@ def dolt_host_up(mode):
             "pkill -x dolt 2>/dev/null; sleep 1; pkill -9 -x dolt 2>/dev/null; true")
     if state != "running":
         run("docker", "rm", "-f", want)
-        run("docker", "run", "-d", "--name", want, "--label", "doltsamples.transient=true",
+        run("docker", "run", "-d", "--name", want, *mem(MEM_WORKER),
+            "--label", "doltsamples.transient=true",
             "-v", f"{data_dir(mode)}:/var/lib/dolt", "-v", f"{DUMPS}:/dumps",
             "--entrypoint", "sh", DOLT_IMAGE, "-c", "sleep infinity")
     globals()["DOLT_HOST"] = want
@@ -261,7 +297,7 @@ def dolt_prepare(db, phase, indexes="deferred"):
     return f"/dumps/dolt/{mode}/{db}.sql", notes
 
 
-def chunk_sql(path, statements_per_chunk=150_000):
+def chunk_sql(path, statements_per_chunk=50_000):
     """Split a prepared dump into files of at most N statements.
 
     The per-row-commit loads were killed by the kernel — exit 137 — on the three largest databases,
@@ -310,13 +346,14 @@ def dolt_load(db, phase, indexes="deferred"):
     mode = MODE[phase] + ("" if indexes == "deferred" or phase not in PER_ROW else "_inline")
     target = os.path.join(data_dir(mode), db)
     if os.path.isdir(target):
-        run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt", "--entrypoint", "sh",
-            DOLT_IMAGE, "-c", f"rm -rf /var/lib/dolt/{db}")
+        helper("-c", f"rm -rf /var/lib/dolt/{db}",
+               volumes=[f"{data_dir(mode)}:/var/lib/dolt"])
     os.makedirs(data_dir(mode), exist_ok=True)
     inside, notes = dolt_prepare(db, phase, indexes)
     host_path = os.path.join(DUMPS, "dolt", mode, f"{db}.sql")
     parts = ([os.path.join("/dumps/dolt", mode, os.path.basename(q))
-              for q in chunk_sql(host_path)] if phase == "dolt_rowcommit" else [inside])
+              for q in chunk_sql(host_path, CHUNK_STATEMENTS)]
+             if phase == "dolt_rowcommit" else [inside])
     if len(parts) > 1:
         notes.append(f"loaded in {len(parts)} chunks so no single process is OOM-killed")
 
@@ -355,9 +392,8 @@ def dolt_load(db, phase, indexes="deferred"):
     run("docker", "exec", "-w", f"/var/lib/dolt/{db}", DOLT_HOST, "sh", "-c", final)
     settle_s = time.time() - started
 
-    size = run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/d", "--entrypoint", "sh",
-               DOLT_IMAGE, "-c",
-               f"du -sb /d/{db}; du -sb /d/{db}/.dolt/stats 2>/dev/null || echo 0")
+    size = helper("-c", f"du -sb /d/{db}; du -sb /d/{db}/.dolt/stats 2>/dev/null || echo 0",
+                  volumes=[f"{data_dir(mode)}:/d"])
     lines = [l.split()[0] for l in size.stdout.splitlines() if l.split()]
     total = int(lines[0]) if lines else None
     stats = int(lines[1]) if len(lines) > 1 else 0
@@ -431,7 +467,8 @@ def truncated(db, mode):
         raise RuntimeError(f"cannot verify {db}: the reference MySQL returned no table list")
     for t in tables:
         want = int(mysql_rows_query(f"SELECT COUNT(*) FROM `{db}`.`{t}`")[0][0])
-        p = run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt",
+        p = run("docker", "run", "--rm", *mem(MEM_WORKER),
+                "-v", f"{data_dir(mode)}:/var/lib/dolt",
                 "-w", "/var/lib/dolt", "--entrypoint", "dolt", DOLT_IMAGE,
                 "--use-db", db, "sql", "-r", "csv", "-q", f"SELECT COUNT(*) FROM `{t}`")
         got = next((int(l.strip()) for l in p.stdout.splitlines() if l.strip().isdigit()), None)
@@ -467,6 +504,9 @@ def main():
     ap.add_argument("--repeat-budget", type=float, default=180.0,
                     help="stop repeating a unit once it has spent this many seconds, so a cheap "
                          "load gets its spread and an expensive one is a single honest sample")
+    ap.add_argument("--chunk-statements", type=int, default=CHUNK_STATEMENTS,
+                    help="statements per chunk for the per-row-commit loads. Lower it if a load is "
+                         "killed for memory (exit 137); it costs a process start per chunk")
     ap.add_argument("--floor-gb", type=float, default=8.0,
                     help="stop before starting a unit if less than this many GB are free. The "
                          "per-row-commit phase is the one that can fill a disk: it wrote 160 GB "
@@ -474,6 +514,7 @@ def main():
     ap.add_argument("--resume", action="store_true",
                     help="continue a run recorded on another machine (normally refused)")
     a = ap.parse_args()
+    globals()["CHUNK_STATEMENTS"] = a.chunk_statements
 
     busy = [l for l in run("docker", "ps", "--format", "{{.Names}}").stdout.splitlines()
             if l.startswith(("megasamples-", "doltsamples-")) and "mysql-timing" not in l
