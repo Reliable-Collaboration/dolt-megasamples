@@ -16,6 +16,7 @@ help:
 	@echo "make charts     regenerate the figures only (matplotlib, in .venv)"
 	@echo "make collect    fold the timed run into build/results.json (make report does this)"
 	@echo "make measure-all  row counts and index parity for every mode that was loaded"
+	@echo "make preflight  load every schema into both engines before running the loads"
 	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
 	@echo "make check      fail if the report, the README table or a prose number is stale"
 	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
@@ -71,7 +72,12 @@ charts: .venv/bin/python
 
 # The whole experiment, timed: five loads of every database across both engines, resumable and
 # observable. Expect many hours -- the per-row-commit phase alone is most of it.
-run:
+# Two minutes that can save six hours: load every schema, without its rows, into both engines and
+# report anything either refuses -- especially anything only one of them refuses.
+preflight:
+	@$(PY) scripts/preflight.py
+
+run: preflight
 	@$(PY) scripts/run_all.py
 progress:
 	@$(PY) scripts/progress.py

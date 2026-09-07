@@ -260,15 +260,25 @@ def defer_indexes(sql):
 
 
 def _end_of_rows(body):
-    """Byte offset just past the last row-loading statement, outside any LOCK TABLES block."""
+    """Byte offset just past the last table's data, outside any LOCK TABLES block.
+
+    "After the last INSERT" is not the same as "after the last table". mysqldump writes each table's
+    structure and then its rows, in name order, so a table with no rows contributes a `CREATE TABLE`
+    and no `INSERT` -- and `dvdstore.reorder` is empty and sorts after `products`, the last table
+    that has any. The rebuild block went in after `products`' rows and therefore *before* `reorder`
+    existed: `ERROR 1146: Table 'dvdstore.reorder' doesn't exist`.
+
+    The last `UNLOCK TABLES` is the right anchor: it closes the last table's data section, comes
+    after every `CREATE TABLE` in all 21 dumps, and sits before the views and routines, which is
+    where the block has to be so a rejected `CREATE FUNCTION` cannot abort the file ahead of it."""
+    last_unlock = body.rfind(b"\nUNLOCK TABLES")
+    if last_unlock != -1:
+        end = body.find(b"\n", last_unlock + 1)
+        return end + 1 if end != -1 else len(body)
+    # a dump written without LOCK TABLES: fall back to the end of the last INSERT statement
     last_insert = body.rfind(b"\nINSERT INTO ")
     if last_insert == -1:
         return None
-    unlock = body.find(b"\nUNLOCK TABLES", last_insert)
-    if unlock != -1:
-        end = body.find(b"\n", unlock + 1)
-        return end + 1 if end != -1 else len(body)
-    # no LOCK TABLES in this dump: end of the last INSERT statement instead
     end = body.find(b"\n", last_insert + 1)
     while end != -1 and not body[last_insert + 1:end].rstrip().endswith(b";"):
         last_insert = end

@@ -256,10 +256,19 @@ cd ../dolt-megasamples
 make down                               # stop this repo's own stack: a running Dolt server
                                         # writes into the directories being measured
 make export                             # mysqldump every database, both statement styles
+make preflight                          # every schema into both engines, no rows — two minutes
 make run                                # all five loads, indexes deferred — the primary result
 python3 scripts/run_all.py --indexes inline   # tests 2, 4 and 5 again, indexes maintained
 make report                             # REPORT.md, the README tables, and every figure
 ```
+
+`make run` runs the preflight first. It loads every database's schema — the file with its `INSERT`s
+stripped — into both engines and reports anything either refuses, separately from anything only *one*
+of them refuses. That last case is the one worth two minutes: four faults in this experiment were
+found only when a full run failed partway through, and three of them were files MySQL rejected and
+Dolt accepted, which would otherwise have left the two engines holding different schemas without
+either erroring. The known gaps — the stored routines Dolt does not implement, and one view whose
+body it cannot parse — are classified as such rather than reported as problems.
 
 `make run` takes `--repeat N` (up to N samples per unit, median kept, spread recorded) and
 `--repeat-budget S` (stop repeating a unit after S seconds, so the cheap loads get a spread without
