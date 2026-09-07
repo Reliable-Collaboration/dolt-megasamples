@@ -20,6 +20,7 @@ help:
 	@echo "make audit      check the measurements against invariants that must hold"
 	@echo "make docs       regenerate README.md and JOURNAL.md from docs/templates and build/"
 	@echo "make trace      what the per-row-commit loads cost in memory as history accumulated"
+	@echo "make estimate   project how long a full run takes, from measured rates"
 	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
 	@echo "make check      fail if the report, the README table or a prose number is stale"
 	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
@@ -144,3 +145,6 @@ audit:
 
 trace:
 	@$(PY) scripts/trace_report.py
+
+estimate:
+	@$(PY) scripts/estimate.py
