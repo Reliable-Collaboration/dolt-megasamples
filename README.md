@@ -17,7 +17,7 @@ keeps the history of every change. Those are different enough that "how big will
 will it take?" is not answerable by reasoning about it.
 
 So this measures it, on the 21 sample databases from
-[`mysql-megasamples`](https://github.com/Reliable-Collaboration/mysql-megasamples) — 9,056,697
+[`sql-megasamples`](https://github.com/Reliable-Collaboration/sql-megasamples) — 9,056,697
 rows of real, varied, publicly-licensed data across 248 tables, from teaching schemas
 of a few hundred rows to a star schema of several million.
 
@@ -29,9 +29,9 @@ and `make check` fails if what is on disk disagrees with the evidence.
 | | |
 |---|---|
 | this experiment | <https://github.com/Reliable-Collaboration/dolt-megasamples> |
-| the sample data it runs on | <https://github.com/Reliable-Collaboration/mysql-megasamples> |
+| the sample data it runs on | <https://github.com/Reliable-Collaboration/sql-megasamples> |
 
-The two are separate on purpose. `mysql-megasamples` builds the corpus — 21 databases, their
+The two are separate on purpose. `sql-megasamples` builds the corpus — 21 databases, their
 provenance and their licences — and is useful on its own to anyone who wants realistic sample data
 in MySQL. This repository only measures things, and reads that corpus as its input.
 
@@ -368,10 +368,12 @@ a binary log.
 
 ## Reproducing this
 
-You need Docker, Python 3.11+, and a running `mysql-megasamples` — it is the source of every dump.
+You need Docker, Python 3.11+, and a running `sql-megasamples` MySQL — it is the source of every
+dump. Its checkout is expected beside this one as `../sql-megasamples`; `MEGASAMPLES_DIR` points
+elsewhere.
 
 ```sh
-cd ../mysql-megasamples && make up mysql   # the source server only; the consoles compete
+(cd ../sql-megasamples && make compose && docker compose up -d mysql)   # the source server only
 cd ../dolt-megasamples
 make down                                  # a running Dolt server writes into what is measured
 make export                                # mysqldump every database, both statement styles
@@ -415,7 +417,7 @@ rather than arriving all at once at the end.
 Both stacks can run at once — the ports are one range apart — so the same query can go side by side
 against the same data in two engines.
 
-| | mysql-megasamples | dolt-megasamples |
+| | sql-megasamples | dolt-megasamples |
 |---|---|---|
 | database | `127.0.0.1:3306` | `127.0.0.1:3307` |
 | landing page | <http://127.0.0.1:8080/> | <http://127.0.0.1:8090/> |
@@ -463,5 +465,5 @@ reproducible, the third is run state that any partial run rewrites.
 
 The code in this repository is Apache-2.0. The sample data is not covered by that licence: each
 database keeps the terms it arrived with, several of them share-alike, and
-[`mysql-megasamples`](https://github.com/Reliable-Collaboration/mysql-megasamples) records the
+[`sql-megasamples`](https://github.com/Reliable-Collaboration/sql-megasamples) records the
 provenance and licence of each one.

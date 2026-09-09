@@ -1,4 +1,4 @@
-# dolt-megasamples: load the mysql-megasamples databases into Dolt and compare disk usage.
+# dolt-megasamples: load the sql-megasamples databases into Dolt and compare disk usage.
 # Every target is a thin shim over a script in scripts/, so the experiment can be run without make.
 PY ?= python3
 
@@ -13,7 +13,7 @@ help:
 	@echo "make progress   what the run has done, is doing, and has left"
 	@echo "make watch      the same, redrawn every minute"
 	@echo "make all        the size-only pipeline: export -> load -> measure -> report"
-	@echo "make export     mysqldump every database out of a running mysql-megasamples"
+	@echo "make export     mysqldump every database out of a running sql-megasamples MySQL"
 	@echo "make load       load those dumps into Dolt, commit and gc"
 	@echo "make measure    size both engines and check they hold the same rows"
 	@echo "make report     regenerate REPORT.md, the README tables and the figures"
@@ -33,7 +33,7 @@ help:
 	@echo "make status     what is running"
 	@echo "make clean-data delete the Dolt data directory (written as root inside the container)"
 
-# The experiment needs mysql-megasamples running: it is the source of every dump.
+# The experiment needs sql-megasamples' MySQL running: it is the source of every dump.
 all: export load measure report
 
 export:
@@ -121,7 +121,7 @@ up:
 	@$(PY) scripts/console_page.py
 	@docker compose restart console >/dev/null 2>&1 || true
 	@echo "console at http://127.0.0.1:8090/  (phpMyAdmin 8091, Adminer 8092, DbGate 8093, CloudBeaver 8094)"
-	@echo "Dolt on 127.0.0.1:3307 — mysql-megasamples keeps 3306 and 8080-8084"
+	@echo "Dolt on 127.0.0.1:3307 — sql-megasamples keeps 3306 and 8080-8084"
 
 down:
 	@docker compose down

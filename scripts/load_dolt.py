@@ -94,7 +94,7 @@ def load(db, force, mode="oneshot"):
     # rowcommit has already committed every row; only the other two need a final commit. gc runs
     # for all three, because measuring a journal rather than the packed store would not compare.
     final = ('dolt gc' if mode == "rowcommit" else
-             'dolt add -A && dolt commit -m "import from mysql-megasamples" '
+             'dolt add -A && dolt commit -m "import from sql-megasamples" '
              '--author "megasamples <megasamples@localhost>" ; dolt gc')
     commit = run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt",
                  "-w", f"/var/lib/dolt/{db}", "--entrypoint", "sh", DOLT_IMAGE, "-c", final)

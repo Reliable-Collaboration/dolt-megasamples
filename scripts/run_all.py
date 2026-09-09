@@ -575,7 +575,7 @@ def dolt_load(db, phase, indexes="deferred"):
     commit = ('dolt add -A && dolt commit --allow-empty --author '
               '"megasamples <megasamples@localhost>" -m ')
     final = (commit + '"rebuild deferred indexes" ; dolt gc' if phase == "dolt_rowcommit" else
-             commit + '"import from mysql-megasamples" ; dolt gc')
+             commit + '"import from sql-megasamples" ; dolt gc')
     started = time.time()
     run("docker", "exec", "-w", dolt_repo(mode, db), DOLT_HOST, "sh", "-c", final)
     settle_s = time.time() - started
@@ -718,7 +718,7 @@ def main():
     if busy and not a.allow_busy:
         sys.exit("These containers are running and will compete with the measurements:\n  "
                  + "\n  ".join(busy)
-                 + "\n\nStop them first — `make down` here and in ../mysql-megasamples, keeping\n"
+                 + "\n\nStop them first — `make down` here and in the sql-megasamples checkout, keeping\n"
                    "megasamples-mysql, which is the source of the dumps. --allow-busy overrides.")
 
     ensure_data_root()

@@ -38,7 +38,9 @@ def dumps_dir(per_row=False):
 RESULTS = os.environ.get("DOLTSAMPLES_RESULTS") or os.path.join(ROOT, "build", "results.json")
 
 MYSQL_CONTAINER = os.environ.get("MEGASAMPLES_CONTAINER", "megasamples-mysql")
-MYSQL_IMAGE = os.environ.get("MEGASAMPLES_IMAGE", "mysql-megasamples:dev")
+# the MySQL image sql-megasamples builds; MEGASAMPLES_DIR is that repository's checkout
+MYSQL_IMAGE = os.environ.get("MEGASAMPLES_MYSQL_IMAGE", "sql-megasamples-mysql:dev")
+MEGASAMPLES_DIR = os.environ.get("MEGASAMPLES_DIR", os.path.join(os.path.dirname(ROOT), "sql-megasamples"))
 DOLT_IMAGE = os.environ.get(
     "DOLT_IMAGE",
     "dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6")
@@ -112,7 +114,7 @@ def mysql(sql, container=None):
             "-N", "--batch", "-e", sql)
     if p.returncode != 0:
         sys.exit(f"could not query {container or MYSQL_CONTAINER}: {p.stderr.strip()[:200]}\n"
-                 f"Is mysql-megasamples running? `cd ../mysql-megasamples && make up`")
+                 f"Is sql-megasamples running? `cd {MEGASAMPLES_DIR} && make up`")
     return [line.split("\t") for line in p.stdout.splitlines() if line.strip()]
 
 

@@ -11,7 +11,7 @@
 #   docker compose down            all of it down again
 #   docker compose up -d dolt      just the database
 #
-# Ports are deliberately one range above mysql-megasamples, which uses 3306 and 8080-8084:
+# Ports are deliberately one range above sql-megasamples, which uses 3306 and 8080-8084:
 #
 #   3307  Dolt (MySQL wire protocol)        8090  landing page
 #   8091  phpMyAdmin   8092  Adminer        8093  DbGate      8094  CloudBeaver
@@ -52,7 +52,7 @@ services:
   # One-shot: creates `demo` and `admin` once the server answers, then exits. Uses the MySQL client
   # from the megasamples image because Dolt's own image ships no client.
   dolt-init:
-    image: ${MEGASAMPLES_IMAGE:-mysql-megasamples:dev}
+    image: ${MEGASAMPLES_MYSQL_IMAGE:-sql-megasamples-mysql:dev}
     mem_limit: 512m
     container_name: doltsamples-init
     depends_on: { dolt: { condition: service_healthy } }
