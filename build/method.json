@@ -6,10 +6,10 @@
     "seconds": 0.32
   },
   "empty_footprint": {
-    "databases_checked": 19,
-    "mysql_empty_datadir_bytes": 215374878,
-    "mysql_empty_datadir_samples": 19,
-    "mysql_empty_datadir_spread_bytes": 145,
+    "databases_checked": 21,
+    "mysql_empty_datadir_bytes": 672555285,
+    "mysql_empty_datadir_samples": 21,
+    "mysql_empty_datadir_spread_bytes": 49,
     "mysql_shared_growth_bytes": 0,
     "note": "every MySQL figure in this report excludes the empty-server baseline: it is a per-server cost, not a per-database one, and it does not grow as data is loaded"
   },

@@ -122,11 +122,19 @@ def databases(container=None):
     return [r[0] for r in rows if r[0] not in SKIP]
 
 
-def dolt(*args, mounts=(), workdir=None, mode="oneshot"):
-    """Run a dolt CLI command in a throwaway container over one mode's data directory."""
-    cmd = ["docker", "run", "--rm",
+def dolt(*args, mounts=(), workdir=None, mode="oneshot", db=None):
+    """Run a dolt CLI command in a throwaway container over one database's data directory.
+
+    Each database has its own `--data-dir` -- `data/dolt-<mode>/<db>`, holding the repository at
+    `data/dolt-<mode>/<db>/<db>` -- because Dolt opens every database under its data directory when
+    it starts, so a shared directory made each command pay for all 21. Passing `db` mounts that
+    database's directory; without it the mode's whole tree is mounted, which is the old behaviour
+    and is wrong for anything that names a database.
+    """
+    root = os.path.join(data_dir(mode), db) if db else data_dir(mode)
+    cmd = ["docker", "run", "--rm", *mem(MEM_WORKER),
            "--label", "doltsamples.transient=true",
-           "-v", f"{data_dir(mode)}:/var/lib/dolt",
+           "-v", f"{root}:/var/lib/dolt",
            "-v", f"{DUMPS}:/dumps"]
     for host, inside in mounts:
         cmd += ["-v", f"{host}:{inside}"]

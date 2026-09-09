@@ -40,7 +40,8 @@ def dolt_disk_bytes(db, mode="oneshot"):
     whether anyone had happened to start the server first. So the headline excludes it and reports
     it beside, which is also the honest way to show it: it is real disk either way.
     """
-    p = run("docker", "run", "--rm", "-v", f"{data_dir(mode)}:/var/lib/dolt", "--entrypoint", "sh",
+    p = run("docker", "run", "--rm", "-v", f"{os.path.join(data_dir(mode), db)}:/var/lib/dolt",
+            "--entrypoint", "sh",
             DOLT_IMAGE, "-c",
             f"du -sb /var/lib/dolt/{db}; du -sb /var/lib/dolt/{db}/.dolt/stats 2>/dev/null || echo 0")
     lines = [l.split()[0] for l in p.stdout.splitlines() if l.split()]
@@ -69,7 +70,7 @@ def dolt_rows(db, tables, mode="oneshot"):
     if not tables:
         return 0, {}
     sql = " UNION ALL ".join(f"SELECT '{t}', COUNT(*) FROM `{t}`" for t in tables)
-    p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv", "-q", sql, mode=mode)
+    p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv", "-q", sql, mode=mode, db=db)
     if p.returncode != 0:
         return None, {}
     per = {}
@@ -99,7 +100,7 @@ def indexes(db, mode="oneshot"):
 
     my = norm(mysql(INDEX_SQL.format(db=db)))
     p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv", "-q",
-             INDEX_SQL.format(db=db), mode=mode)
+             INDEX_SQL.format(db=db), mode=mode, db=db)
     rows = []
     for line in p.stdout.splitlines()[1:]:            # skip the csv header
         parts = [x.strip().strip('"') for x in line.split(",")]
@@ -116,7 +117,7 @@ def dolt_commits(db, mode="oneshot"):
     """How much history Dolt is storing. The load makes exactly one data commit per database, so
     this measures Dolt at its most favourable: the least history it can hold and still be Dolt."""
     p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv",
-             "-q", "SELECT COUNT(*) FROM dolt_log", mode=mode)
+             "-q", "SELECT COUNT(*) FROM dolt_log", mode=mode, db=db)
     for line in p.stdout.splitlines():
         if line.strip().isdigit():
             return int(line.strip())
@@ -137,7 +138,8 @@ def object_counts(db, mode="oneshot"):
                             f"WHERE routine_schema='{db}'")[0][0])
     p = dolt("--data-dir", "/var/lib/dolt", "--use-db", db, "sql", "-r", "csv", "-q",
              "SELECT (SELECT COUNT(*) FROM information_schema.views WHERE table_schema=DATABASE()), "
-             "(SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema=DATABASE())")
+             "(SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema=DATABASE())",
+             mode=mode, db=db)
     do_views = do_routines = None
     for line in p.stdout.splitlines():
         parts = [x.strip() for x in line.split(",")]
