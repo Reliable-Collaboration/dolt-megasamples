@@ -31,6 +31,7 @@ import json, os, sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt   # noqa: E402
+from matplotlib.ticker import FuncFormatter, LogLocator   # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG = os.path.join(ROOT, "docs", "img")
@@ -63,6 +64,43 @@ POLICY_TESTS = ["mysql_rowwise", "dolt_rowinsert", "dolt_rowcommit"]
 # Diverging, because the question is a polarity: does keeping the indexes cost more or less than
 # dropping them? Warm and cool poles with a neutral midpoint, so "no difference" reads as nothing.
 POLICY_MORE, POLICY_LESS, POLICY_NONE = "#e34948", "#2a78d6", "#c9c7c2"
+
+
+def bar_label(v):
+    """A value written beside its bar: compact enough to fit, exact enough to be worth reading."""
+    if v >= 1000:
+        return f"{v:,.0f}"
+    if v >= 10:
+        return f"{v:.0f}"
+    if v >= 1:
+        return f"{v:.1f}"
+    return f"{v:.2f}".rstrip("0").rstrip(".")
+
+
+def plain_number(v, _=None):
+    """A tick label people read as a number.
+
+    A log axis defaults to 10^3, 10^4 and so on, which is compact and which most readers have to
+    convert in their heads before the chart means anything. These are quantities -- megabytes,
+    seconds, rows -- so they are written as quantities, with thousands separators above one and
+    without trailing zeros below it."""
+    if v <= 0:
+        return ""
+    if v >= 1:
+        return f"{v:,.0f}"
+    return f"{v:g}".rstrip("0").rstrip(".") if v < 1 else f"{v:g}"
+
+
+def log_axis(ax, which="x"):
+    """Label a log axis with real numbers rather than powers of ten.
+
+    Decades only. Labelling the 2x and 5x between them as well was the first attempt and it made the
+    top of the scale unreadable -- "10,000 20,000 50,000 100,000" runs together in the width those
+    four labels have. The values themselves go on the bars instead, which is what a reader wanting
+    an exact figure is actually after."""
+    axis = ax.xaxis if which == "x" else ax.yaxis
+    axis.set_major_formatter(FuncFormatter(plain_number))
+    axis.set_minor_formatter(FuncFormatter(lambda *_: ""))
 
 
 def style(ax, title, xlabel, pad=12):
@@ -160,14 +198,24 @@ def by_database(results, axis, name, title, xlabel, scale):
         if vals:
             ax.barh(ys, vals, h, label=LABELS[t], color=COLOURS[t])
             for yy, vv, e in zip(ys, vals, errs):
+                at = vv
                 if e:
                     ax.errorbar(vv, yy, xerr=e, fmt="none", ecolor=INK, elinewidth=.8,
                                 capsize=1.6, alpha=.85)
+                    at = vv + e[1][0]      # past the upper whisker, not through it
+                # The value itself, past the end of the bar. On a log axis the bar length is the
+                # only cue to magnitude and it is a deceptive one -- a bar twice as long is ten
+                # times the number -- so the figure is written out rather than left to be read off
+                # a compressed scale.
+                ax.annotate(bar_label(vv), (at, yy), textcoords="offset points", xytext=(4, 0),
+                            va="center", ha="left", fontsize=5.6, color=INK, alpha=.85)
     ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
                   fontsize=7)
     ax.set_xscale("log")
-    style(ax, title, xlabel, pad=30)
-    ax.legend(fontsize=8, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.005))
+    log_axis(ax, "x")
+    style(ax, title, xlabel, pad=46)
+    ax.legend(fontsize=8, frameon=False, ncol=3, loc="lower center",
+              bbox_to_anchor=(0.5, 1.012))
     ax.text(0, -0.055, caption(results, axis), transform=ax.transAxes, fontsize=7.5,
             color=INK, alpha=.75)
     save(fig, name)
@@ -193,6 +241,7 @@ def fig_ratio(results):
     ax.set_yticks(list(y), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs],
                   fontsize=7)
     ax.set_xscale("log")
+    log_axis(ax, "x")
     style(ax, "Disk used, as a ratio of MySQL loaded from the same dump",
           "left of the line is smaller than MySQL; right of it is larger (log scale)", pad=30)
     if drew:
@@ -226,6 +275,7 @@ def fig_cost_by_mode(results):
             ax.text(b.get_x() + b.get_width() / 2, v * 1.08, text + tag, ha="center", fontsize=8,
                     color=INK, fontweight="bold")
         ax.set_yscale("log")
+        log_axis(ax, "y")
         ax.set_ylabel("megabytes on disk" if axis == "bytes" else "seconds to load",
                       color=INK, fontsize=9)
         style(ax, "Disk" if axis == "bytes" else "Time", "")
@@ -365,6 +415,8 @@ def fig_memory():
                         fontsize=7.5, color=colour, fontweight="bold")
         ax.set_xscale("log")
         ax.set_yscale("log")
+        log_axis(ax, "x")
+        log_axis(ax, "y")
         style(ax, "", xlabel)
         if ax is axes[0]:
             ax.set_ylabel("memory the database needed (MB, log scale)", color=INK, fontsize=9)
