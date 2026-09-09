@@ -23,6 +23,15 @@ of a few hundred rows to a star schema of several million.
 with no measurement behind it renders as `[not measured]` rather than as a blank or a stale figure,
 and `make check` fails if what is on disk disagrees with the evidence.
 
+| | |
+|---|---|
+| this experiment | <https://github.com/Reliable-Collaboration/dolt-megasamples> |
+| the sample data it runs on | <https://github.com/Reliable-Collaboration/mysql-megasamples> |
+
+The two are separate on purpose. `mysql-megasamples` builds the corpus — 21 databases, their
+provenance and their licences — and is useful on its own to anyone who wants realistic sample data
+in MySQL. This repository only measures things, and reads that corpus as its input.
+
 ## The tests
 
 The same `mysqldump` files are loaded five ways. Nothing differs but how the rows are written.
