@@ -16,12 +16,12 @@
   "repeatability_from_run": {
     "bytes": {
       "median_spread_percent": 0.0,
-      "units_repeated": 11,
-      "worst_spread_percent": 0.4
+      "units_repeated": 118,
+      "worst_spread_percent": 31.5
     },
     "seconds": {
-      "median_spread_percent": 0.0,
-      "units_repeated": 11,
+      "median_spread_percent": 2.7,
+      "units_repeated": 118,
       "worst_spread_percent": 50.0
     }
   }

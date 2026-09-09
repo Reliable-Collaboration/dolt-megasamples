@@ -2,7 +2,11 @@
 # Every target is a thin shim over a script in scripts/, so the experiment can be run without make.
 PY ?= python3
 
-.PHONY: help all run progress watch export load measure report charts environment method-checks experiment check up down status clean clean-data verify
+# Every target is phony. `docs` is the one that made this matter: a directory named docs/
+# exists, so Make considered the target satisfied and silently skipped it -- both directly
+# and as a prerequisite of `report`, which is why the documents stayed stale while every
+# other step ran. Generated from the targets themselves so a new one cannot be forgotten.
+.PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status trace up watch
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"

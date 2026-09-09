@@ -85,7 +85,7 @@ This is a real result rather than a non-event: statement batching is a load-time
 
 The same rows with a commit after each one take **116.7 GB where the one-commit load takes 524.1 MB** — 228× more. Against MySQL the comparison **inverts**: those databases are 0.29× MySQL loaded normally and **66× MySQL** loaded a commit at a time, a swing of 228× from nothing but how the rows were written.
 
-19 of the 21 end up larger than MySQL. The extreme is `employees`: 3,919,015 rows, 178.3 MB in MySQL, 42.5 MB in one Dolt commit, 63.3 GB in 0 — **363× MySQL for identical data**.
+19 of the 21 end up larger than MySQL. The extreme is `employees`: 3,919,015 rows, 178.3 MB in MySQL, 42.5 MB in one Dolt commit, 63.3 GB in 3,919,018 — **363× MySQL for identical data**.
 
 ![What history costs](docs/img/commit-granularity.png)
 
@@ -149,21 +149,21 @@ This is not overhead to be tuned away. Each commit is an addressable, diffable s
 
 Six things have to be true before a size ratio means anything. All six were checked on every database, not assumed. Three of them are checks on the data, below; the other three are properties of how the load is run, and each is here because it was once false: both engines are given the identical transformed dump (MySQL used to read mysqldump's original), every Dolt load ends with a commit and a clean `dolt_status` (the per-row-commit load used to end with `dolt gc` alone, leaving the index rebuild uncommitted), and every size is taken after `dolt gc` so a journal is never measured in place of a store.
 
-**The same rows.** `COUNT(*)` on both sides, per table, before any size was recorded; `information_schema.table_rows` is an InnoDB estimate and is not used. **21 database(s) disagree**: `adventureworks`, `adventureworks_lt`, `chicago_crimes`, `chinook`, `contoso`, `dvdstore`, `employees`, `enron`, `jaffle_shop`, `lahman`, `northwind`, `nyc_taxi`, `oracle_co`, `oracle_hr`, `oracle_oe`, `oracle_sh`, `pubs`, `sakila`, `smallsets`, `stackexchange_beer`, `wikipedia_simple`
+**The same rows.** `COUNT(*)` on both sides, per table, before any size was recorded; `information_schema.table_rows` is an InnoDB estimate and is not used. **Every table matches.**
 
-**The same indexes.** Compared by definition — table, index name, column position, column, uniqueness — not by count. **21 database(s) differ**: `adventureworks`, `adventureworks_lt`, `chicago_crimes`, `chinook`, `contoso`, `dvdstore`, `employees`, `enron`, `jaffle_shop`, `lahman`, `northwind`, `nyc_taxi`, `oracle_co`, `oracle_hr`, `oracle_oe`, `oracle_sh`, `pubs`, `sakila`, `smallsets`, `stackexchange_beer`, `wikipedia_simple`
+**The same indexes.** Compared by definition — table, index name, column position, column, uniqueness — not by count. **613 indexes in MySQL, 613 in Dolt, identical in every database.**
 
 Checked for every load, not only the one-shot one. The deferred policy takes the secondary indexes out of `CREATE TABLE` and rebuilds them with `ALTER TABLE` after the last row, so "the same indexes at the end" is exactly the thing it could get wrong:
 
 | Dolt load | databases checked | indexes in MySQL | indexes in Dolt | disagreements |
 |---|---:|---:|---:|---|
-| one commit per database | 21 | 613 | 0 | `adventureworks`, `adventureworks_lt`, `chicago_crimes`, `chinook`, `contoso`, `dvdstore`, `employees`, `enron`, `jaffle_shop`, `lahman`, `northwind`, `nyc_taxi`, `oracle_co`, `oracle_hr`, `oracle_oe`, `oracle_sh`, `pubs`, `sakila`, `smallsets`, `stackexchange_beer`, `wikipedia_simple` |
-| one `INSERT` per row, indexes deferred | 21 | 613 | 0 | `adventureworks`, `adventureworks_lt`, `chicago_crimes`, `chinook`, `contoso`, `dvdstore`, `employees`, `enron`, `jaffle_shop`, `lahman`, `northwind`, `nyc_taxi`, `oracle_co`, `oracle_hr`, `oracle_oe`, `oracle_sh`, `pubs`, `sakila`, `smallsets`, `stackexchange_beer`, `wikipedia_simple` |
-| one commit per row, indexes deferred | 21 | 613 | 0 | `adventureworks`, `adventureworks_lt`, `chicago_crimes`, `chinook`, `contoso`, `dvdstore`, `employees`, `enron`, `jaffle_shop`, `lahman`, `northwind`, `nyc_taxi`, `oracle_co`, `oracle_hr`, `oracle_oe`, `oracle_sh`, `pubs`, `sakila`, `smallsets`, `stackexchange_beer`, `wikipedia_simple` |
-| one `INSERT` per row, indexes maintained | 21 | 613 | 0 | `adventureworks`, `adventureworks_lt`, `chicago_crimes`, `chinook`, `contoso`, `dvdstore`, `employees`, `enron`, `jaffle_shop`, `lahman`, `northwind`, `nyc_taxi`, `oracle_co`, `oracle_hr`, `oracle_oe`, `oracle_sh`, `pubs`, `sakila`, `smallsets`, `stackexchange_beer`, `wikipedia_simple` |
-| one commit per row, indexes maintained | 21 | 613 | 0 | `adventureworks`, `adventureworks_lt`, `chicago_crimes`, `chinook`, `contoso`, `dvdstore`, `employees`, `enron`, `jaffle_shop`, `lahman`, `northwind`, `nyc_taxi`, `oracle_co`, `oracle_hr`, `oracle_oe`, `oracle_sh`, `pubs`, `sakila`, `smallsets`, `stackexchange_beer`, `wikipedia_simple` |
+| one commit per database | 21 | 613 | 613 | none |
+| one `INSERT` per row, indexes deferred | 21 | 613 | 613 | none |
+| one commit per row, indexes deferred | 21 | 613 | 613 | none |
+| one `INSERT` per row, indexes maintained | 21 | 613 | 613 | none |
+| one commit per row, indexes maintained | 21 | 613 | 613 | none |
 
-**The history is stated, not assumed.** The one-commit load makes exactly one data commit per database (`dolt_log` shows , two of them Dolt's own `Initialize data repository` and `CREATE DATABASE`), and `dolt_status` is clean afterwards. That is the least history Dolt can hold, which is why section 3 exists: it measures the other end.
+**The history is stated, not assumed.** The one-commit load makes exactly one data commit per database (`dolt_log` shows 3, two of them Dolt's own `Initialize data repository` and `CREATE DATABASE`), and `dolt_status` is clean afterwards. That is the least history Dolt can hold, which is why section 3 exists: it measures the other end.
 
 ## What a running server adds, and why it is not in the figures
 
@@ -265,19 +265,12 @@ Views load once mysqldump's `ALGORITHM=` and `SQL SECURITY` clauses are removed.
 
 | database | views MySQL → Dolt | routines MySQL → Dolt |
 |---|---|---|
-| `adventureworks` | 13 → 0 | 0 → 0 |
-| `adventureworks_lt` | 3 → 0 | 1 → 0 |
-| `dvdstore` | 0 → 0 | 2 → 0 |
-| `employees` | 4 → 0 | 7 → 0 |
-| `enron` | 1 → 0 | 0 → 0 |
-| `northwind` | 16 → 0 | 6 → 0 |
-| `nyc_taxi` | 3 → 0 | 0 → 0 |
-| `oracle_co` | 3 → 0 | 0 → 0 |
-| `oracle_hr` | 1 → 0 | 0 → 0 |
-| `oracle_oe` | 8 → 0 | 0 → 0 |
-| `oracle_sh` | 3 → 0 | 0 → 0 |
-| `pubs` | 1 → 0 | 4 → 0 |
-| `sakila` | 7 → 0 | 6 → 0 |
-| `stackexchange_beer` | 2 → 0 | 0 → 0 |
-| `wikipedia_simple` | 4 → 0 | 0 → 0 |
+| `adventureworks` | 13 → 12 | 0 → 0 |
+| `adventureworks_lt` | 3 → 3 | 1 → 0 |
+| `employees` | 4 → 4 | 7 → 0 |
+| `northwind` | 16 → 15 | 6 → 6 |
+| `oracle_co` | 3 → 2 | 0 → 0 |
+| `oracle_oe` | 8 → 6 | 0 → 0 |
+| `pubs` | 1 → 1 | 4 → 1 |
+| `sakila` | 7 → 7 | 6 → 0 |
 

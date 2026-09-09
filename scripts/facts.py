@@ -96,8 +96,13 @@ def build():                                                    # noqa: C901 - a
     docker = (env or {}).get("docker") or {}
     engines = (env or {}).get("engines") or {}
     f.put("env.cpu", host.get("cpu"), "environment.json:host.cpu")
-    f.put("env.threads", host.get("threads"), "environment.json:host.threads", commas)
-    f.put("env.memory_gb", host.get("memory_gb"), "environment.json:host.memory_gb", one)
+    # The keys are `cpu_threads` and `memory`, not `threads` and `memory_gb`. Guessing them rather
+    # than reading environment.json is why both rendered as [not measured] -- which is the marker
+    # doing its job: a wrong key surfaced as a visible gap instead of a blank or a stale value.
+    f.put("env.threads", host.get("cpu_threads"), "environment.json:host.cpu_threads", commas)
+    f.put("env.memory", host.get("memory"), "environment.json:host.memory")
+    f.put("env.disk", host.get("disk_total"), "environment.json:host.disk_total")
+    f.put("env.filesystem", host.get("filesystem"), "environment.json:host.filesystem")
     f.put("env.kernel", host.get("kernel"), "environment.json:host.kernel")
     f.put("env.docker", docker.get("version"), "environment.json:docker.version")
     f.put("env.mysql_image", engines.get("mysql_image"), "environment.json:engines.mysql_image")
