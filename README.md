@@ -314,6 +314,17 @@ comparing data, and the run shows why it is safe: the InnoDB shared files grew b
 database's own directory. It is still worth knowing before quoting a ratio, because Dolt has no
 equivalent — its cost is the database directory and there is nothing outside it.
 
+**The packing step is a cost of its own, and it is the memory high-water mark.** Every Dolt load
+ends with `dolt gc`, and on a per-row-commit store that is not a rounding error: across the 42
+per-row-commit loads it accounts for **12% of the total wall clock**, rising to 17-21% on the
+largest — `employees` with indexes maintained spent 42.9 minutes packing after a 207.8-minute load.
+
+Memory matters more than time here. On every large database the gc, not the load, was the highest
+memory the container reached: `employees` peaked at 12.4 GB of anonymous memory while loading and
+then ran its gc at **99.94% of a 16 GiB ceiling with every byte of page cache evicted**. Anyone
+sizing a machine from the load figures alone will provision enough to load a database and not
+enough to finish storing it.
+
 **MySQL runs with non-default flags**: `--local-infile=1`, `--skip-log-bin`. The second favours MySQL by not writing
 a binary log.
 

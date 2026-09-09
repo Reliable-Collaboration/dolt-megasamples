@@ -87,6 +87,20 @@ database, while sustained console use drove one database's statistics past the s
 describe. Both are reported, because quoting only the small one would be misleading and quoting only
 the large one would be unreproducible.
 
+## What the packing step costs, which the load figures hide
+
+Every Dolt load here ends with a commit and `dolt gc`, and the gc is timed separately and included
+in the totals. That was a bookkeeping decision at first and turned into a finding: on a per-row-
+commit store the packing is 12% of the wall clock across all 42 such loads, and on the largest
+databases it is a fifth of it.
+
+The memory behaviour is the part worth carrying away. On `employees`, `oracle_sh` and
+`wikipedia_simple` alike, the gc rather than the load was the highest memory the container ever
+held. The load of `employees` with indexes maintained peaked at 12.4 GB of anonymous memory; the gc
+that followed ran at 99.94% of a 16 GiB ceiling with the kernel having already evicted all page
+cache, and completed with nothing to spare. A machine sized from the load curve would have been
+killed during the packing, several hours in, with the data loaded and unusable.
+
 ## What the numbers do not mean
 
 * **This is the least history Dolt can hold.** One commit per database. A real repository has

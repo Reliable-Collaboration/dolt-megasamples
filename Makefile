@@ -6,7 +6,7 @@ PY ?= python3
 # exists, so Make considered the target satisfied and silently skipped it -- both directly
 # and as a prerequisite of `report`, which is why the documents stayed stale while every
 # other step ran. Generated from the targets themselves so a new one cannot be forgotten.
-.PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status trace up watch
+.PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -25,6 +25,7 @@ help:
 	@echo "make docs       regenerate README.md and JOURNAL.md from docs/templates and build/"
 	@echo "make trace      what the per-row-commit loads cost in memory as history accumulated"
 	@echo "make estimate   project how long a full run takes, from measured rates"
+	@echo "make summary    the whole experiment as labelled tables: disk, time, memory, progress"
 	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
 	@echo "make check      fail if the report, the README table or a prose number is stale"
 	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
@@ -152,3 +153,6 @@ trace:
 
 estimate:
 	@$(PY) scripts/estimate.py
+
+summary:
+	@$(PY) scripts/summary.py

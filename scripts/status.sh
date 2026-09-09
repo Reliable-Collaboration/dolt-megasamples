@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # One status block, assembled fully before anything is printed so it arrives as a single
 # notification rather than one per line. Every figure names its unit and what it measures.
-cd /home/mattc/wsldev/dolt-megasamples || exit 1
-LOG=/tmp/claude-1000/-home-mattc-wsldev-mysql-megasamples/72c536ac-76b5-441c-a32b-42a207ab7990/scratchpad/full_experiment.log
+cd "$(dirname "$0")/.." || exit 1
+# the run log, if one was given; without it the phase line is simply omitted
+LOG=${DOLTSAMPLES_RUN_LOG:-build/run.log}
 
 phase=$(grep '^=== ' "$LOG" 2>/dev/null | tail -1 | sed 's/^=== //;s/ 20[0-9-]*T.*//')
 out=$(python3 scripts/summary.py --outstanding 2>/dev/null | sed -n '/OUTSTANDING/,$p')
