@@ -18,11 +18,11 @@
   "host": {
     "cpu": "Intel(R) Core(TM) i9-14900KF",
     "cpu_threads": 32,
-    "disk_free_at_capture": "566.4 GB",
-    "disk_total": "1,006.9 GB",
+    "disk_free_at_capture": "566.3 GiB",
+    "disk_total": "1,006.9 GiB",
     "filesystem": "ext4",
     "kernel": "6.18.33.2-microsoft-standard-WSL2",
-    "memory": "19.5 GB",
+    "memory": "19.5 GiB",
     "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
     "python": "3.14.4"
   }

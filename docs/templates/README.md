@@ -123,26 +123,36 @@ way you ask, and both policies produced byte-identical files.
 
 {{block:index_parity}}
 
-## What Dolt's memory needs
+## What Dolt needs in memory
 
-Measured by bisecting a ladder of container memory ceilings for the smallest one a query survives.
-An OOM kill returns exit 137, so nothing has to be inferred from log output. The same databases are
-stored two ways — identical rows and schema, differing only in history — which separates three
-variables that normally move together.
+Memory is the constraint people meet first, and there are three separate answers depending on what
+you are doing. Each is measured rather than estimated: a container gets a hard ceiling and the work
+either finishes or the kernel kills it, which returns exit 137 and needs no interpretation.
 
-* The floor is **{{memory.floor_mb}} MB**. Every database opens in
-  {{memory.oneshot_max_mb}} MB or less when stored with three commits, up to
-  {{memory.oneshot_max_rows}} rows.
-* **Rows do not predict it.** The same database with the same rows needs the floor with three
-  commits and far more with one commit per row.
-* **Disk does not predict it.** {{memory.disk_pair}}.
-* **Commits do.** Above the floor it is roughly one megabyte per
-  {{memory.commits_per_mb}} commits, holding from {{memory.linear_from}} to
-  {{memory.linear_to}} commits at the ladder's resolution.
-* **The rule breaks at the top.** {{memory.over_budget_db}}, at
-  {{memory.over_budget_rows}} rows and one commit per row, is still killed at
-  {{memory.ladder_top_gb}} GB — far more than the linear rule predicts. Where it lands is not
-  measured, because finding out costs more than this machine's budget allows.
+| what you are doing | what it costs, on the largest database here |
+|---|---|
+| **opening it and running a query** | {{memory.max_open_gb}} GiB |
+| **loading it**, one commit per row | {{memory.peak_load_gb}} GiB of anonymous memory |
+| **packing it** with `dolt gc` afterwards | more than either — it was the high-water mark on every large database |
+
+Those are independent. A database you can build in {{memory.peak_load_gb}} GiB may not open in that
+much, and the packing that finishes the load wants more again. Sizing a machine from the load
+figures alone gets you one that loads a database and then cannot store it.
+
+**What memory tracks is commits — not rows, and not bytes on disk.**
+
+* Every one of the {{corpus.databases}} databases opens in {{memory.oneshot_max_mb}} MiB when it
+  holds three commits, including the largest at {{memory.oneshot_max_rows}} rows. Row count is not
+  the variable.
+* Size on disk is not it either: {{memory.disk_pair}}.
+* Above that floor, {{memory.linear_databases}} databases sit in a narrow band of
+  **{{memory.commits_per_mb_low}} to {{memory.commits_per_mb_high}} commits per MiB**, holding from
+  {{memory.linear_from}} to {{memory.linear_to}} commits. Within that range you can budget from the
+  commit count alone.
+* **The band does not hold at the top.** {{memory.breaks_db}}, at {{memory.breaks_commits}}
+  commits, manages only {{memory.breaks_ratio}} commits per MiB — about {{memory.breaks_factor}}
+  times worse than the rule — and needs {{memory.max_open_gb}} GiB to open and count one table. So
+  the rule is useful up to roughly a million commits and optimistic beyond it.
 
 ![What Dolt's memory tracks](docs/img/memory-by-history.png)
 

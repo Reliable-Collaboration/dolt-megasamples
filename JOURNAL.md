@@ -180,28 +180,28 @@ that a plausible wrong answer cannot satisfy.
 
 | database | rows | 1. MySQL | 2. MySQL<br>row-wise | 3. Dolt<br>1 commit/db | 4. Dolt<br>1 INSERT/row | 5. Dolt<br>1 commit/row |
 |---|---:|---:|---:|---:|---:|---:|
-| `employees` | 3,919,015 | 178.3 MB<br>11s | 176.3 MB<br>**0.99×**<br>1,850s | 42.5 MB<br>**0.24×**<br>29s | 39.9 MB<br>**0.22×**<br>1.4h | 63.3 GB<br>**363×**<br>3.5h |
-| `wikipedia_simple` | 1,167,112 | 314.2 MB<br>15s | 235.2 MB<br>**0.75×**<br>582s | 122.4 MB<br>**0.39×**<br>92s | 123.2 MB<br>**0.39×**<br>1,568s | 12.6 GB<br>**41×**<br>1.0h |
-| `oracle_sh` | 1,063,396 | 220.2 MB<br>8s | 188.4 MB<br>**0.86×**<br>510s | 143.3 MB<br>**0.65×**<br>39s | 143.2 MB<br>**0.65×**<br>1,475s | 14.9 GB<br>**69×**<br>3,517s |
-| `adventureworks` | 759,240 | 335.9 MB<br>8s | 311.0 MB<br>**0.93×**<br>394s | 49.2 MB<br>**0.15×**<br>16s | 49.2 MB<br>**0.15×**<br>1,269s | 7.2 GB<br>**22×**<br>3,454s |
-| `contoso` | 753,467 | 156.3 MB<br>5s | 135.3 MB<br>**0.87×**<br>369s | 39.3 MB<br>**0.25×**<br>14s | 39.4 MB<br>**0.25×**<br>926s | 6.6 GB<br>**43×**<br>2,181s |
-| `lahman` | 706,466 | 191.8 MB<br>6s | 178.9 MB<br>**0.93×**<br>347s | 26.3 MB<br>**0.14×**<br>18s | 26.3 MB<br>**0.14×**<br>953s | 6.5 GB<br>**35×**<br>2,257s |
-| `chicago_crimes` | 259,702 | 84.1 MB<br>4s | 72.1 MB<br>**0.86×**<br>134s | 28.7 MB<br>**0.34×**<br>11s | 28.7 MB<br>**0.34×**<br>359s | 2.3 GB<br>**28×**<br>768s |
-| `dvdstore` | 174,716 | 60.0 MB<br>1s | 50.0 MB<br>**0.83×**<br>84s | 11.9 MB<br>**0.20×**<br>3s | 12.4 MB<br>**0.21×**<br>216s | 1.7 GB<br>**29×**<br>493s |
-| `stackexchange_beer` | 62,523 | 83.6 MB<br>1s | 73.6 MB<br>**0.88×**<br>33s | 14.0 MB<br>**0.17×**<br>8s | 16.1 MB<br>**0.19×**<br>90s | 435.8 MB<br>**5.21×**<br>188s |
-| `enron` | 48,778 | 98.2 MB<br>2s | 66.2 MB<br>**0.67×**<br>30s | 34.1 MB<br>**0.35×**<br>30s | 38.6 MB<br>**0.39×**<br>90s | 357.9 MB<br>**3.64×**<br>161s |
-| `nyc_taxi` | 48,591 | 19.1 MB<br>1s | 16.1 MB<br>**0.84×**<br>25s | 3.0 MB<br>**0.16×**<br>2s | 3.0 MB<br>**0.16×**<br>65s | 331.6 MB<br>**17×**<br>134s |
-| `sakila` | 47,268 | 24.1 MB<br>1s | 22.3 MB<br>**0.92×**<br>23s | 2.0 MB<br>**0.08×**<br>1s | 2.2 MB<br>**0.09×**<br>68s | 300.3 MB<br>**12×**<br>156s |
-| `chinook` | 15,607 | 2.7 MB<br>0s | 2.6 MB<br>**0.97×**<br>8s | 615.0 KB<br>**0.22×**<br>0s | 615.0 KB<br>**0.22×**<br>19s | 77.5 MB<br>**29×**<br>45s |
-| `oracle_oe` | 11,518 | 27.5 MB<br>1s | 19.6 MB<br>**0.71×**<br>7s | 4.3 MB<br>**0.16×**<br>3s | 5.1 MB<br>**0.18×**<br>18s | 70.2 MB<br>**2.55×**<br>36s |
-| `oracle_co` | 8,783 | 1.8 MB<br>0s | 1.8 MB<br>**0.97×**<br>5s | 456.3 KB<br>**0.24×**<br>0s | 456.1 KB<br>**0.24×**<br>11s | 39.1 MB<br>**21×**<br>24s |
-| `adventureworks_lt` | 4,277 | 12.5 MB<br>0s | 11.5 MB<br>**0.92×**<br>4s | 1.0 MB<br>**0.08×**<br>0s | 1.0 MB<br>**0.08×**<br>6s | 20.1 MB<br>**1.61×**<br>13s |
-| `northwind` | 3,308 | 2.6 MB<br>0s | 2.7 MB<br>**1.02×**<br>3s | 518.5 KB<br>**0.19×**<br>0s | 518.5 KB<br>**0.19×**<br>5s | 13.9 MB<br>**5.27×**<br>11s |
-| `smallsets` | 2,147 | 644.0 KB<br>0s | 644.0 KB<br>**1.00×**<br>1s | 164.3 KB<br>**0.26×**<br>0s | 164.3 KB<br>**0.26×**<br>3s | 8.4 MB<br>**13×**<br>6s |
-| `jaffle_shop` | 312 | 372.0 KB<br>0s | 372.0 KB<br>**1.00×**<br>0s | 37.7 KB<br>**0.10×**<br>0s | 37.7 KB<br>**0.10×**<br>1s | 658.2 KB<br>**1.77×**<br>1s |
-| `pubs` | 255 | 1.5 MB<br>0s | 1.5 MB<br>**1.00×**<br>1s | 77.0 KB<br>**0.05×**<br>0s | 77.0 KB<br>**0.05×**<br>1s | 578.5 KB<br>**0.39×**<br>2s |
-| `oracle_hr` | 216 | 1.1 MB<br>0s | 1.1 MB<br>**1.00×**<br>1s | 62.8 KB<br>**0.06×**<br>0s | 62.1 KB<br>**0.06×**<br>1s | 456.0 KB<br>**0.41×**<br>1s |
-| **all 21 with every test** | **9,056,697** | **1.8 GB<br>67s** | **0.86×<br>66× time** | **0.29×<br>4.0× time** | **0.29×<br>182× time** | **66×<br>447× time** |
+| `employees` | 3,919,015 | 178.3 MiB<br>11s | 176.3 MiB<br>**0.99×**<br>1,850s | 42.5 MiB<br>**0.24×**<br>29s | 39.9 MiB<br>**0.22×**<br>1.4h | 63.3 GiB<br>**363×**<br>3.5h |
+| `wikipedia_simple` | 1,167,112 | 314.2 MiB<br>15s | 235.2 MiB<br>**0.75×**<br>582s | 122.4 MiB<br>**0.39×**<br>92s | 123.2 MiB<br>**0.39×**<br>1,568s | 12.6 GiB<br>**41×**<br>1.0h |
+| `oracle_sh` | 1,063,396 | 220.2 MiB<br>8s | 188.4 MiB<br>**0.86×**<br>510s | 143.3 MiB<br>**0.65×**<br>39s | 143.2 MiB<br>**0.65×**<br>1,475s | 14.9 GiB<br>**69×**<br>3,517s |
+| `adventureworks` | 759,240 | 335.9 MiB<br>8s | 311.0 MiB<br>**0.93×**<br>394s | 49.2 MiB<br>**0.15×**<br>16s | 49.2 MiB<br>**0.15×**<br>1,269s | 7.2 GiB<br>**22×**<br>3,454s |
+| `contoso` | 753,467 | 156.3 MiB<br>5s | 135.3 MiB<br>**0.87×**<br>369s | 39.3 MiB<br>**0.25×**<br>14s | 39.4 MiB<br>**0.25×**<br>926s | 6.6 GiB<br>**43×**<br>2,181s |
+| `lahman` | 706,466 | 191.8 MiB<br>6s | 178.9 MiB<br>**0.93×**<br>347s | 26.3 MiB<br>**0.14×**<br>18s | 26.3 MiB<br>**0.14×**<br>953s | 6.5 GiB<br>**35×**<br>2,257s |
+| `chicago_crimes` | 259,702 | 84.1 MiB<br>4s | 72.1 MiB<br>**0.86×**<br>134s | 28.7 MiB<br>**0.34×**<br>11s | 28.7 MiB<br>**0.34×**<br>359s | 2.3 GiB<br>**28×**<br>768s |
+| `dvdstore` | 174,716 | 60.0 MiB<br>1s | 50.0 MiB<br>**0.83×**<br>84s | 11.9 MiB<br>**0.20×**<br>3s | 12.4 MiB<br>**0.21×**<br>216s | 1.7 GiB<br>**29×**<br>493s |
+| `stackexchange_beer` | 62,523 | 83.6 MiB<br>1s | 73.6 MiB<br>**0.88×**<br>33s | 14.0 MiB<br>**0.17×**<br>8s | 16.1 MiB<br>**0.19×**<br>90s | 435.8 MiB<br>**5.21×**<br>188s |
+| `enron` | 48,778 | 98.2 MiB<br>2s | 66.2 MiB<br>**0.67×**<br>30s | 34.1 MiB<br>**0.35×**<br>30s | 38.6 MiB<br>**0.39×**<br>90s | 357.9 MiB<br>**3.64×**<br>161s |
+| `nyc_taxi` | 48,591 | 19.1 MiB<br>1s | 16.1 MiB<br>**0.84×**<br>25s | 3.0 MiB<br>**0.16×**<br>2s | 3.0 MiB<br>**0.16×**<br>65s | 331.6 MiB<br>**17×**<br>134s |
+| `sakila` | 47,268 | 24.1 MiB<br>1s | 22.3 MiB<br>**0.92×**<br>23s | 2.0 MiB<br>**0.08×**<br>1s | 2.2 MiB<br>**0.09×**<br>68s | 300.3 MiB<br>**12×**<br>156s |
+| `chinook` | 15,607 | 2.7 MiB<br>0s | 2.6 MiB<br>**0.97×**<br>8s | 615.0 KiB<br>**0.22×**<br>0s | 615.0 KiB<br>**0.22×**<br>19s | 77.5 MiB<br>**29×**<br>45s |
+| `oracle_oe` | 11,518 | 27.5 MiB<br>1s | 19.6 MiB<br>**0.71×**<br>7s | 4.3 MiB<br>**0.16×**<br>3s | 5.1 MiB<br>**0.18×**<br>18s | 70.2 MiB<br>**2.55×**<br>36s |
+| `oracle_co` | 8,783 | 1.8 MiB<br>0s | 1.8 MiB<br>**0.97×**<br>5s | 456.3 KiB<br>**0.24×**<br>0s | 456.1 KiB<br>**0.24×**<br>11s | 39.1 MiB<br>**21×**<br>24s |
+| `adventureworks_lt` | 4,277 | 12.5 MiB<br>0s | 11.5 MiB<br>**0.92×**<br>4s | 1.0 MiB<br>**0.08×**<br>0s | 1.0 MiB<br>**0.08×**<br>6s | 20.1 MiB<br>**1.61×**<br>13s |
+| `northwind` | 3,308 | 2.6 MiB<br>0s | 2.7 MiB<br>**1.02×**<br>3s | 518.5 KiB<br>**0.19×**<br>0s | 518.5 KiB<br>**0.19×**<br>5s | 13.9 MiB<br>**5.27×**<br>11s |
+| `smallsets` | 2,147 | 644.0 KiB<br>0s | 644.0 KiB<br>**1.00×**<br>1s | 164.3 KiB<br>**0.26×**<br>0s | 164.3 KiB<br>**0.26×**<br>3s | 8.4 MiB<br>**13×**<br>6s |
+| `jaffle_shop` | 312 | 372.0 KiB<br>0s | 372.0 KiB<br>**1.00×**<br>0s | 37.7 KiB<br>**0.10×**<br>0s | 37.7 KiB<br>**0.10×**<br>1s | 658.2 KiB<br>**1.77×**<br>1s |
+| `pubs` | 255 | 1.5 MiB<br>0s | 1.5 MiB<br>**1.00×**<br>1s | 77.0 KiB<br>**0.05×**<br>0s | 77.0 KiB<br>**0.05×**<br>1s | 578.5 KiB<br>**0.39×**<br>2s |
+| `oracle_hr` | 216 | 1.1 MiB<br>0s | 1.1 MiB<br>**1.00×**<br>1s | 62.8 KiB<br>**0.06×**<br>0s | 62.1 KiB<br>**0.06×**<br>1s | 456.0 KiB<br>**0.41×**<br>1s |
+| **all 21 with every test** | **9,056,697** | **1.8 GiB<br>67s** | **0.86×<br>66× time** | **0.29×<br>4.0× time** | **0.29×<br>182× time** | **66×<br>447× time** |
 
 ## Reproducing it
 

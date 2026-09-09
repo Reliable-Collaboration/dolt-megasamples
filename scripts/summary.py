@@ -81,7 +81,9 @@ def peak_load_memory():
 
 
 def mb(n):
-    return f"{n / 1e6:,.0f}" if n else "—"
+    """Mebibytes. Binary throughout, matching `du -h` and `docker stats`, and labelled as such in
+    the table headers -- dividing by 1024 and calling it MB is a 2.4%-per-step lie."""
+    return f"{n / 1024 ** 2:,.0f}" if n else "—"
 
 
 def mins(n):
@@ -89,7 +91,7 @@ def mins(n):
 
 
 def table_disk(u, rows, dbs):
-    print("\nDISK ON DISK — megabytes (MB) occupied by the stored database, `du -sb`\n")
+    print("\nDISK ON DISK — mebibytes (MiB) occupied by the stored database, `du -sb`\n")
     print(f"{'database':20}{'rows':>10}  " + "".join(f"{s:>9}" for s in SHORT))
     for db in dbs:
         cells = [mb(cell(u, p, db, i).get("bytes")) for p, i, _ in TESTS]
@@ -124,21 +126,21 @@ def table_time(u, rows, dbs):
 
 
 def table_memory(u, rows, dbs, peaks, mem):
-    print("\nMEMORY — two different quantities, both in gigabytes (GB)\n")
+    print("\nMEMORY — two different quantities, both in gibibytes (GiB)\n")
     print("  peak load RAM : highest anonymous memory the worker held while loading, cgroup anon")
     print("  open RAM      : smallest container memory limit under which the finished database")
     print("                  could be opened and queried at all\n")
     print(f"{'database':20}{'rows':>10}{'commits':>12}"
-          f"{'peak load RAM':>15}{'open RAM':>11}{'disk MB':>10}")
-    print(f"{'':20}{'(count)':>10}{'(count)':>12}{'(GB, 1 commit/row)':>15}"[:73])
+          f"{'peak load RAM':>15}{'open RAM':>11}{'disk MiB':>10}")
+    print(f"{'':20}{'(count)':>10}{'(count)':>12}{'(GiB, 1 commit/row)':>15}"[:73])
     rc = mem.get("rowcommit") or {}
     for db in dbs:
         v = cell(u, "dolt_rowcommit", db, False)
         pk = peaks.get(db)
         om = (rc.get(db) or {}).get("megabytes")
         print(f"{db:20}{rows.get(db, 0):>10,}{(rc.get(db) or {}).get('commits') or 0:>12,}"
-              f"{(f'{pk / 1e9:.1f}' if pk else '—'):>15}"
-              f"{(f'{om / 1024:.2f}' if om else '>8'):>11}"
+              f"{(f'{pk / 1024 ** 3:.1f}' if pk else '—'):>15}"
+              f"{(f'{om / 1024:.2f}' if om else 'over ladder'):>11}"
               f"{mb(v.get('bytes')):>10}")
 
 

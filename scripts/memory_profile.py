@@ -22,7 +22,9 @@ output. The ladder is searched by bisection, so each database costs about three 
 than eight.
 
 Every measurement is a *ceiling that worked*, not the peak the process reached, so read the numbers
-as "needs no more than this" at the granularity of the ladder.
+as "needs no more than this" at the granularity of the ladder. Where a database fails at every rung
+the result is reported as a bound rather than a number, which is a reason to keep the top of the
+ladder above anything the corpus needs.
 """
 import argparse, json, os, subprocess, sys, time
 
@@ -31,9 +33,12 @@ from common import (DOLT_IMAGE, MYSQL_CONTAINER, ROOT, data_dir, databases, huma
                     run)
 
 OUT = os.path.join(ROOT, "build", "memory.json")
-# Megabytes. Coarse at the top because the interesting resolution is at the bottom, and because an
-# attempt against an 80 GB repository is not cheap.
-LADDER = [64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192]
+# Megabytes. Fine at the bottom, where most databases sit, and continuing far enough up that a
+# result is a measurement rather than "more than the ladder". Stopping at 8192 turned the largest
+# database into a lower bound; it actually needs between 11,264 and 12,288 MB, which the ladder
+# could not say. The top is sized to what a 19.5 GB host can give one container.
+LADDER = [64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192,
+          9216, 10240, 11264, 12288, 13312, 14336, 15360, 16384]
 OPS = {
     "open": "SELECT 1",
     "count": "SELECT COUNT(*) FROM `{table}`",

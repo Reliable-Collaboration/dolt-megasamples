@@ -180,35 +180,89 @@ def _memory_facts(f, memory):
 
     measured = [r["megabytes"] for r in list(one_shot.values()) + list(rc.values())
                 if r.get("megabytes")]
-    f.put("memory.floor_mb", min(measured) if measured else None,
-          "memory.json: smallest ceiling any database needed", commas)
-
-    # the linear region: databases above the floor, with a commit count
     floor = min(measured) if measured else None
-    above = [(r["commits"], r["megabytes"]) for r in rc.values()
+    f.put("memory.floor_mb", floor, "memory.json: smallest ceiling any database needed", commas)
+
+    # Above the floor, how many commits fit in a megabyte -- and where that stops being a
+    # constant. Averaging over every database blends two regimes and produces a number that
+    # describes neither: the ratio holds within a narrow band up to some commit count and then
+    # falls off sharply. A database whose ratio is under half the median is reported as departing
+    # from the rule rather than folded into it, so the break is visible instead of averaged away.
+    above = [(r["commits"], r["megabytes"], db) for db, r in rc.items()
              if r.get("megabytes") and r.get("commits") and r["megabytes"] > (floor or 0)]
     if above:
-        rates = [c / m for c, m in above]
-        f.put("memory.commits_per_mb", sum(rates) / len(rates),
-              "memory.json: mean commits per MB above the floor",
-              lambda x: f"{round(x, -2):,.0f}")
-        f.put("memory.linear_from", min(c for c, _ in above),
-              "memory.json: smallest commit count above the floor", commas)
-        f.put("memory.linear_to", max(c for c, _ in above),
-              "memory.json: largest commit count still measurable", commas)
+        ratios = sorted(c / m for c, m, _ in above)
+        med = ratios[len(ratios) // 2]
+        linear = [x for x in above if x[0] / x[1] >= med / 2]
+        broken = [x for x in above if x[0] / x[1] < med / 2]
+        lr = [c / m for c, m, _ in linear]
+        f.put("memory.commits_per_mb_low", min(lr), "memory.json: commits per MB, linear regime",
+              lambda x: f"{x:,.0f}")
+        f.put("memory.commits_per_mb_high", max(lr), "memory.json: commits per MB, linear regime",
+              lambda x: f"{x:,.0f}")
+        f.put("memory.linear_databases", len(linear),
+              "memory.json: databases following the linear rule", commas)
+        f.put("memory.linear_from", min(c for c, _, _ in linear),
+              "memory.json: smallest commit count in the linear regime", commas)
+        f.put("memory.linear_to", max(c for c, _, _ in linear),
+              "memory.json: largest commit count in the linear regime", commas)
+        if broken:
+            c, m, db = max(broken, key=lambda x: x[0])
+            f.put("memory.breaks_db", f"`{db}`", "memory.json: departs from the linear rule")
+            f.put("memory.breaks_commits", c, "memory.json: its commit count", commas)
+            f.put("memory.breaks_ratio", c / m, "memory.json: its commits per MB",
+                  lambda x: f"{x:,.0f}")
+            f.put("memory.breaks_factor", med / (c / m),
+                  "memory.json: how far off the linear rule it is", lambda x: f"{x:.0f}")
+        else:
+            for k in ("memory.breaks_db", "memory.breaks_commits", "memory.breaks_ratio",
+                      "memory.breaks_factor"):
+                f.put(k, None, "memory.json: no database departs from the rule")
     else:
-        for k in ("memory.commits_per_mb", "memory.linear_from", "memory.linear_to"):
+        for k in ("memory.commits_per_mb_low", "memory.commits_per_mb_high",
+                  "memory.linear_databases", "memory.linear_from", "memory.linear_to",
+                  "memory.breaks_db", "memory.breaks_commits", "memory.breaks_ratio",
+                  "memory.breaks_factor"):
             f.put(k, None, "memory.json")
 
-    # the one that would not open at all
-    over = [(db, r) for db, r in rc.items() if r.get("megabytes") is None]
-    f.put("memory.over_budget_db", f"`{over[0][0]}`" if over else None,
-          "memory.json: killed at the top of the ladder")
-    f.put("memory.ladder_top_gb",
-          (over[0][1].get("ladder_top_mb") or 0) / 1024 if over else None,
-          "memory.json:ladder_top_mb", lambda x: f"{x:.0f}")
-    f.put("memory.over_budget_rows", over[0][1].get("rows") if over else None,
-          "memory.json: rows of the database that would not open", commas)
+    # the most a database needs just to be opened and queried
+    openable = [(db, r["megabytes"]) for db, r in rc.items() if r.get("megabytes")]
+    if openable:
+        db, mb = max(openable, key=lambda x: x[1])
+        f.put("memory.max_open_db", f"`{db}`", "memory.json: largest open requirement")
+        f.put("memory.max_open_gb", mb / 1024, "memory.json: its ceiling in GB",
+              lambda x: f"{x:.1f}")
+        f.put("memory.max_open_rows", (rc.get(db) or {}).get("rows"),
+              "memory.json: its row count", commas)
+        f.put("memory.max_open_commits", (rc.get(db) or {}).get("commits"),
+              "memory.json: its commit count", commas)
+        f.put("memory.max_open_disk", (rc.get(db) or {}).get("disk_bytes"),
+              "memory.json: its size on disk", human)
+    else:
+        for k in ("memory.max_open_db", "memory.max_open_gb", "memory.max_open_rows",
+                  "memory.max_open_commits", "memory.max_open_disk"):
+            f.put(k, None, "memory.json")
+
+    # the most any load held while writing, from the per-chunk traces
+    peak_db, peak = None, 0
+    tdir = os.path.join(BUILD, "trace")
+    for name in (os.listdir(tdir) if os.path.isdir(tdir) else []):
+        if not name.endswith(".json"):
+            continue
+        t = json.load(open(os.path.join(tdir, name), encoding="utf-8"))
+        for smp in t.get("samples") or []:
+            if (smp.get("memory_anon_bytes") or 0) > peak:
+                peak, peak_db = smp["memory_anon_bytes"], t.get("database")
+    f.put("memory.peak_load_gb", peak / 1e9 if peak else None,
+          "build/trace/*.json: highest anonymous memory any load held",
+          lambda x: f"{x:.1f}")
+    f.put("memory.peak_load_db", f"`{peak_db}`" if peak_db else None,
+          "build/trace/*.json: the database it belonged to")
+
+    # There is deliberately no "could not be opened at all" fact any more. The ladder now reaches
+    # past what the largest database in this corpus needs, so every database has a number rather
+    # than a bound, and a fact describing a database that does not exist is one more thing to keep
+    # honest for no benefit.
 
     biggest = max(one_shot.values(), key=lambda r: r.get("rows") or 0, default=None)
     f.put("memory.oneshot_max_mb", max((r.get("megabytes") or 0 for r in one_shot.values()),
@@ -217,21 +271,27 @@ def _memory_facts(f, memory):
     f.put("memory.oneshot_max_rows", (biggest or {}).get("rows"),
           "memory.json: rows in the largest one-shot database", commas)
 
-    # the pair that separates disk from history: more disk, fewer commits, less memory
-    pairs = [(a, b) for a in rc.values() for b in rc.values()
-             if a.get("disk_bytes") and b.get("disk_bytes") and a.get("megabytes")
-             and b.get("megabytes") and a["disk_bytes"] > b["disk_bytes"]
-             and a["commits"] and b["commits"] and a["commits"] < b["commits"]
-             and a["megabytes"] < b["megabytes"]]
-    if pairs:
-        a, b = max(pairs, key=lambda p: p[0]["disk_bytes"] - p[1]["disk_bytes"])
-        names = {id(v): k for k, v in rc.items()}
+    # Disk against memory: two databases needing the identical ceiling while differing in size on
+    # disk. The earlier form of this looked for a strict inversion -- more disk, fewer commits, less
+    # memory -- which the corpus contained once and no longer does. Equal memory at different sizes
+    # makes the same point and is not hostage to one pair of databases.
+    same = {}
+    for db, r in rc.items():
+        if r.get("megabytes") and r.get("disk_bytes"):
+            same.setdefault(r["megabytes"], []).append((r["disk_bytes"], db))
+    pair = None
+    for mb, items in same.items():
+        if len(items) < 2:
+            continue
+        lo, hi = min(items), max(items)
+        if hi[0] > lo[0] * 1.1 and (pair is None or hi[0] - lo[0] > pair[0]):
+            pair = (hi[0] - lo[0], mb, lo, hi)
+    if pair:
+        _, mb, lo, hi = pair
         f.put("memory.disk_pair",
-              f"`{names[id(a)]}` holds {human(a['disk_bytes'])} across {a['commits']:,} commits and "
-              f"opens in {a['megabytes']} MB, while `{names[id(b)]}` holds "
-              f"{human(b['disk_bytes'])} across {b['commits']:,} commits and needs "
-              f"{b['megabytes']} MB",
-              "memory.json: the widest disk-against-commits inversion")
+              f"`{hi[1]}` holds {human(hi[0])} and `{lo[1]}` holds {human(lo[0])}, "
+              f"and both open in the same {mb} MiB",
+              "memory.json: equal ceiling, different size on disk")
     else:
         f.put("memory.disk_pair", None, "memory.json")
 

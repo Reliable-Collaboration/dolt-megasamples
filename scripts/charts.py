@@ -276,7 +276,7 @@ def fig_cost_by_mode(results):
                     color=INK, fontweight="bold")
         ax.set_yscale("log")
         log_axis(ax, "y")
-        ax.set_ylabel("megabytes on disk" if axis == "bytes" else "seconds to load",
+        ax.set_ylabel("mebibytes on disk" if axis == "bytes" else "seconds to load",
                       color=INK, fontsize=9)
         style(ax, "Disk" if axis == "bytes" else "Time", "")
         ax.grid(axis="x", visible=False)
@@ -419,7 +419,7 @@ def fig_memory():
         log_axis(ax, "y")
         style(ax, "", xlabel)
         if ax is axes[0]:
-            ax.set_ylabel("memory the database needed (MB, log scale)", color=INK, fontsize=9)
+            ax.set_ylabel("memory the database needed (MiB, log scale)", color=INK, fontsize=9)
         ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
     axes[0].legend(fontsize=9, frameon=False, loc="upper left")
     fig.suptitle("What Dolt's memory tracks: not the rows, the commits",
@@ -453,7 +453,7 @@ def main():
               f"{os.path.relpath(out, ROOT)}/ and not docs/img/")
     results = load(src)
     by_database(results, "bytes", "disk-by-database.png",
-                "Disk used, every database, every load", "megabytes on disk (log scale)", MB)
+                "Disk used, every database, every load", "mebibytes on disk (log scale)", MB)
     by_database(results, "seconds", "time-by-database.png",
                 "Time to load, every database, every load", "seconds (log scale)", 1)
     fig_ratio(results)

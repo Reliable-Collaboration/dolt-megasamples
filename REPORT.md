@@ -10,8 +10,8 @@ The same 21 sample databases, 9,056,697 rows, loaded into both engines from the 
 | | |
 |---|---|
 | CPU | Intel(R) Core(TM) i9-14900KF (32 threads) |
-| Memory | 19.5 GB |
-| Disk | 1,006.9 GB ext4 |
+| Memory | 19.5 GiB |
+| Disk | 1,006.9 GiB ext4 |
 | Kernel | 6.18.33.2-microsoft-standard-WSL2 |
 | Docker | 29.7.2, storage driver `overlayfs` |
 | MySQL | `mysql:9.7.2` — /usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL) |
@@ -27,11 +27,11 @@ Both axes matter and they do not move together, so both are given for every load
 
 | load | databases | disk | ÷ MySQL | time | ÷ MySQL |
 |---|---:|---:|---:|---:|---:|
-| **MySQL**, extended `INSERT`s | 21 | 1.8 GB | — | 67s | — |
-| **Dolt**, one commit per database | 21 | 524.1 MB | **0.29×** | 269s | **4.0×** |
-| **MySQL**, one `INSERT` per row | 21 | 1.5 GB | 0.86× | 1.2h | **66×** |
-| **Dolt**, one `INSERT` per row | 21 | 530.0 MB | **0.29×** | 3.4h | **182×** |
-| **Dolt**, one commit per row | 21 | 116.7 GB | **66×** | 8.3h | **447×** |
+| **MySQL**, extended `INSERT`s | 21 | 1.8 GiB | — | 67s | — |
+| **Dolt**, one commit per database | 21 | 524.1 MiB | **0.29×** | 269s | **4.0×** |
+| **MySQL**, one `INSERT` per row | 21 | 1.5 GiB | 0.86× | 1.2h | **66×** |
+| **Dolt**, one `INSERT` per row | 21 | 530.0 MiB | **0.29×** | 3.4h | **182×** |
+| **Dolt**, one commit per row | 21 | 116.7 GiB | **66×** | 8.3h | **447×** |
 
 ![What each load costs](docs/img/cost-by-mode.png)
 
@@ -43,7 +43,7 @@ Read the two columns together. The standard Dolt load is a third of MySQL's disk
 
 ## 1. One commit per database
 
-The standard load. **524.1 MB against MySQL's 1.8 GB — 0.29×** over all 21 databases, and the ratio is not uniform: it runs from 0.05× (`pubs`) to 0.65× (`oracle_sh`), a spread of more than 13 to one.
+The standard load. **524.1 MiB against MySQL's 1.8 GiB — 0.29×** over all 21 databases, and the ratio is not uniform: it runs from 0.05× (`pubs`) to 0.65× (`oracle_sh`), a spread of more than 13 to one.
 
 ![All databases](docs/img/totals.png)
 
@@ -59,60 +59,60 @@ This is a real result rather than a non-event: statement batching is a load-time
 
 | database | rows | MySQL | one commit | one INSERT per row | difference | vs MySQL |
 |---|---:|---:|---:|---:|---:|---:|
-| `employees` | 3,919,015 | 178.3 MB | 42.5 MB | 39.9 MB | -6.2% | **0.22×** |
-| `wikipedia_simple` | 1,167,112 | 314.2 MB | 122.4 MB | 123.2 MB | +0.6% | **0.39×** |
-| `oracle_sh` | 1,063,396 | 220.2 MB | 143.3 MB | 143.2 MB | -0.1% | **0.65×** |
-| `adventureworks` | 759,240 | 335.9 MB | 49.2 MB | 49.2 MB | -0.1% | **0.15×** |
-| `contoso` | 753,467 | 156.3 MB | 39.3 MB | 39.4 MB | +0.2% | **0.25×** |
-| `lahman` | 706,466 | 191.8 MB | 26.3 MB | 26.3 MB | -0.2% | **0.14×** |
-| `chicago_crimes` | 259,702 | 84.1 MB | 28.7 MB | 28.7 MB | +0.0% | **0.34×** |
-| `dvdstore` | 174,716 | 60.0 MB | 11.9 MB | 12.4 MB | +3.9% | **0.21×** |
-| `stackexchange_beer` | 62,523 | 83.6 MB | 14.0 MB | 16.1 MB | +15.1% | **0.19×** |
-| `enron` | 48,778 | 98.2 MB | 34.1 MB | 38.6 MB | +13.0% | **0.39×** |
-| `nyc_taxi` | 48,591 | 19.1 MB | 3.0 MB | 3.0 MB | +0.2% | **0.16×** |
-| `sakila` | 47,268 | 24.1 MB | 2.0 MB | 2.2 MB | +7.6% | **0.09×** |
-| `chinook` | 15,607 | 2.7 MB | 615.0 KB | 615.0 KB | -0.0% | **0.22×** |
-| `oracle_oe` | 11,518 | 27.5 MB | 4.3 MB | 5.1 MB | +16.8% | **0.18×** |
-| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 456.1 KB | -0.0% | **0.24×** |
-| `adventureworks_lt` | 4,277 | 12.5 MB | 1.0 MB | 1.0 MB | +0.0% | **0.08×** |
-| `northwind` | 3,308 | 2.6 MB | 518.5 KB | 518.5 KB | -0.0% | **0.19×** |
-| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 164.3 KB | +0.0% | **0.26×** |
-| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 37.7 KB | -0.0% | **0.10×** |
-| `pubs` | 255 | 1.5 MB | 77.0 KB | 77.0 KB | +0.0% | **0.05×** |
-| `oracle_hr` | 216 | 1.1 MB | 62.8 KB | 62.1 KB | -1.1% | **0.06×** |
+| `employees` | 3,919,015 | 178.3 MiB | 42.5 MiB | 39.9 MiB | -6.2% | **0.22×** |
+| `wikipedia_simple` | 1,167,112 | 314.2 MiB | 122.4 MiB | 123.2 MiB | +0.6% | **0.39×** |
+| `oracle_sh` | 1,063,396 | 220.2 MiB | 143.3 MiB | 143.2 MiB | -0.1% | **0.65×** |
+| `adventureworks` | 759,240 | 335.9 MiB | 49.2 MiB | 49.2 MiB | -0.1% | **0.15×** |
+| `contoso` | 753,467 | 156.3 MiB | 39.3 MiB | 39.4 MiB | +0.2% | **0.25×** |
+| `lahman` | 706,466 | 191.8 MiB | 26.3 MiB | 26.3 MiB | -0.2% | **0.14×** |
+| `chicago_crimes` | 259,702 | 84.1 MiB | 28.7 MiB | 28.7 MiB | +0.0% | **0.34×** |
+| `dvdstore` | 174,716 | 60.0 MiB | 11.9 MiB | 12.4 MiB | +3.9% | **0.21×** |
+| `stackexchange_beer` | 62,523 | 83.6 MiB | 14.0 MiB | 16.1 MiB | +15.1% | **0.19×** |
+| `enron` | 48,778 | 98.2 MiB | 34.1 MiB | 38.6 MiB | +13.0% | **0.39×** |
+| `nyc_taxi` | 48,591 | 19.1 MiB | 3.0 MiB | 3.0 MiB | +0.2% | **0.16×** |
+| `sakila` | 47,268 | 24.1 MiB | 2.0 MiB | 2.2 MiB | +7.6% | **0.09×** |
+| `chinook` | 15,607 | 2.7 MiB | 615.0 KiB | 615.0 KiB | -0.0% | **0.22×** |
+| `oracle_oe` | 11,518 | 27.5 MiB | 4.3 MiB | 5.1 MiB | +16.8% | **0.18×** |
+| `oracle_co` | 8,783 | 1.8 MiB | 456.3 KiB | 456.1 KiB | -0.0% | **0.24×** |
+| `adventureworks_lt` | 4,277 | 12.5 MiB | 1.0 MiB | 1.0 MiB | +0.0% | **0.08×** |
+| `northwind` | 3,308 | 2.6 MiB | 518.5 KiB | 518.5 KiB | -0.0% | **0.19×** |
+| `smallsets` | 2,147 | 644.0 KiB | 164.3 KiB | 164.3 KiB | +0.0% | **0.26×** |
+| `jaffle_shop` | 312 | 372.0 KiB | 37.7 KiB | 37.7 KiB | -0.0% | **0.10×** |
+| `pubs` | 255 | 1.5 MiB | 77.0 KiB | 77.0 KiB | +0.0% | **0.05×** |
+| `oracle_hr` | 216 | 1.1 MiB | 62.8 KiB | 62.1 KiB | -1.1% | **0.06×** |
 
 ## 3. One commit per row
 
-The same rows with a commit after each one take **116.7 GB where the one-commit load takes 524.1 MB** — 228× more. Against MySQL the comparison **inverts**: those databases are 0.29× MySQL loaded normally and **66× MySQL** loaded a commit at a time, a swing of 228× from nothing but how the rows were written.
+The same rows with a commit after each one take **116.7 GiB where the one-commit load takes 524.1 MiB** — 228× more. Against MySQL the comparison **inverts**: those databases are 0.29× MySQL loaded normally and **66× MySQL** loaded a commit at a time, a swing of 228× from nothing but how the rows were written.
 
-19 of the 21 end up larger than MySQL. The extreme is `employees`: 3,919,015 rows, 178.3 MB in MySQL, 42.5 MB in one Dolt commit, 63.3 GB in 3,919,018 — **363× MySQL for identical data**.
+19 of the 21 end up larger than MySQL. The extreme is `employees`: 3,919,015 rows, 178.3 MiB in MySQL, 42.5 MiB in one Dolt commit, 63.3 GiB in 3,919,018 — **363× MySQL for identical data**.
 
 ![What history costs](docs/img/commit-granularity.png)
 
 | database | rows | MySQL | one commit | ÷MySQL | one commit per row | ÷MySQL | × one commit |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `employees` | 3,919,015 | 178.3 MB | 42.5 MB | 0.24× | 63.3 GB | **363.4×** | 1524× |
-| `wikipedia_simple` | 1,167,112 | 314.2 MB | 122.4 MB | 0.39× | 12.6 GB | **41.1×** | 105× |
-| `oracle_sh` | 1,063,396 | 220.2 MB | 143.3 MB | 0.65× | 14.9 GB | **69.2×** | 106× |
-| `adventureworks` | 759,240 | 335.9 MB | 49.2 MB | 0.15× | 7.2 GB | **21.8×** | 149× |
-| `contoso` | 753,467 | 156.3 MB | 39.3 MB | 0.25× | 6.6 GB | **43.0×** | 171× |
-| `lahman` | 706,466 | 191.8 MB | 26.3 MB | 0.14× | 6.5 GB | **34.8×** | 254× |
-| `chicago_crimes` | 259,702 | 84.1 MB | 28.7 MB | 0.34× | 2.3 GB | **28.1×** | 82× |
-| `dvdstore` | 174,716 | 60.0 MB | 11.9 MB | 0.20× | 1.7 GB | **29.4×** | 148× |
-| `stackexchange_beer` | 62,523 | 83.6 MB | 14.0 MB | 0.17× | 435.8 MB | **5.2×** | 31× |
-| `enron` | 48,778 | 98.2 MB | 34.1 MB | 0.35× | 357.9 MB | **3.6×** | 10× |
-| `nyc_taxi` | 48,591 | 19.1 MB | 3.0 MB | 0.16× | 331.6 MB | **17.3×** | 110× |
-| `sakila` | 47,268 | 24.1 MB | 2.0 MB | 0.08× | 300.3 MB | **12.5×** | 148× |
-| `chinook` | 15,607 | 2.7 MB | 615.0 KB | 0.22× | 77.5 MB | **28.6×** | 129× |
-| `oracle_oe` | 11,518 | 27.5 MB | 4.3 MB | 0.16× | 70.2 MB | **2.6×** | 16× |
-| `oracle_co` | 8,783 | 1.8 MB | 456.3 KB | 0.24× | 39.1 MB | **21.4×** | 88× |
-| `adventureworks_lt` | 4,277 | 12.5 MB | 1.0 MB | 0.08× | 20.1 MB | **1.6×** | 20× |
-| `northwind` | 3,308 | 2.6 MB | 518.5 KB | 0.19× | 13.9 MB | **5.3×** | 27× |
-| `smallsets` | 2,147 | 644.0 KB | 164.3 KB | 0.26× | 8.4 MB | **13.3×** | 52× |
-| `jaffle_shop` | 312 | 372.0 KB | 37.7 KB | 0.10× | 658.2 KB | **1.8×** | 17× |
-| `pubs` | 255 | 1.5 MB | 77.0 KB | 0.05× | 578.5 KB | **0.4×** | 8× |
-| `oracle_hr` | 216 | 1.1 MB | 62.8 KB | 0.06× | 456.0 KB | **0.4×** | 7× |
-| **these 21** | **9,056,697** | **1.8 GB** | **524.1 MB** | **0.29×** | **116.7 GB** | **66×** | **228×** |
+| `employees` | 3,919,015 | 178.3 MiB | 42.5 MiB | 0.24× | 63.3 GiB | **363.4×** | 1524× |
+| `wikipedia_simple` | 1,167,112 | 314.2 MiB | 122.4 MiB | 0.39× | 12.6 GiB | **41.1×** | 105× |
+| `oracle_sh` | 1,063,396 | 220.2 MiB | 143.3 MiB | 0.65× | 14.9 GiB | **69.2×** | 106× |
+| `adventureworks` | 759,240 | 335.9 MiB | 49.2 MiB | 0.15× | 7.2 GiB | **21.8×** | 149× |
+| `contoso` | 753,467 | 156.3 MiB | 39.3 MiB | 0.25× | 6.6 GiB | **43.0×** | 171× |
+| `lahman` | 706,466 | 191.8 MiB | 26.3 MiB | 0.14× | 6.5 GiB | **34.8×** | 254× |
+| `chicago_crimes` | 259,702 | 84.1 MiB | 28.7 MiB | 0.34× | 2.3 GiB | **28.1×** | 82× |
+| `dvdstore` | 174,716 | 60.0 MiB | 11.9 MiB | 0.20× | 1.7 GiB | **29.4×** | 148× |
+| `stackexchange_beer` | 62,523 | 83.6 MiB | 14.0 MiB | 0.17× | 435.8 MiB | **5.2×** | 31× |
+| `enron` | 48,778 | 98.2 MiB | 34.1 MiB | 0.35× | 357.9 MiB | **3.6×** | 10× |
+| `nyc_taxi` | 48,591 | 19.1 MiB | 3.0 MiB | 0.16× | 331.6 MiB | **17.3×** | 110× |
+| `sakila` | 47,268 | 24.1 MiB | 2.0 MiB | 0.08× | 300.3 MiB | **12.5×** | 148× |
+| `chinook` | 15,607 | 2.7 MiB | 615.0 KiB | 0.22× | 77.5 MiB | **28.6×** | 129× |
+| `oracle_oe` | 11,518 | 27.5 MiB | 4.3 MiB | 0.16× | 70.2 MiB | **2.6×** | 16× |
+| `oracle_co` | 8,783 | 1.8 MiB | 456.3 KiB | 0.24× | 39.1 MiB | **21.4×** | 88× |
+| `adventureworks_lt` | 4,277 | 12.5 MiB | 1.0 MiB | 0.08× | 20.1 MiB | **1.6×** | 20× |
+| `northwind` | 3,308 | 2.6 MiB | 518.5 KiB | 0.19× | 13.9 MiB | **5.3×** | 27× |
+| `smallsets` | 2,147 | 644.0 KiB | 164.3 KiB | 0.26× | 8.4 MiB | **13.3×** | 52× |
+| `jaffle_shop` | 312 | 372.0 KiB | 37.7 KiB | 0.10× | 658.2 KiB | **1.8×** | 17× |
+| `pubs` | 255 | 1.5 MiB | 77.0 KiB | 0.05× | 578.5 KiB | **0.4×** | 8× |
+| `oracle_hr` | 216 | 1.1 MiB | 62.8 KiB | 0.06× | 456.0 KiB | **0.4×** | 7× |
+| **these 21** | **9,056,697** | **1.8 GiB** | **524.1 MiB** | **0.29×** | **116.7 GiB** | **66×** | **228×** |
 
 This is not overhead to be tuned away. Each commit is an addressable, diffable state of the whole database, and keeping a million of them costs what keeping a million of anything costs. The question the number answers is not "is Dolt wasteful" but **"what does my commit rate cost me"**, and it scales with commits, not with rows.
 
@@ -122,28 +122,28 @@ This is not overhead to be tuned away. Each commit is an addressable, diffable s
 
 | database | tables | rows | dump | MySQL logical | MySQL | one commit | one INSERT/row | one commit/row |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `adventureworks` | 69 | 759,240 | 89.6 MB | 119.3 MB | 335.9 MB | 49.2 MB<br>**0.15×** | 49.2 MB<br>**0.15×** | 7.2 GB<br>**22×** |
-| `wikipedia_simple` | 9 | 1,167,112 | 73.6 MB | 64.7 MB | 314.2 MB | 122.4 MB<br>**0.39×** | 123.2 MB<br>**0.39×** | 12.6 GB<br>**41×** |
-| `oracle_sh` | 9 | 1,063,396 | 49.8 MB | 1.7 MB | 220.2 MB | 143.3 MB<br>**0.65×** | 143.2 MB<br>**0.65×** | 14.9 GB<br>**69×** |
-| `lahman` | 27 | 706,466 | 52.5 MB | 75.6 MB | 191.8 MB | 26.3 MB<br>**0.14×** | 26.3 MB<br>**0.14×** | 6.5 GB<br>**35×** |
-| `employees` | 6 | 3,919,015 | 160.6 MB | 146.8 MB | 178.3 MB | 42.5 MB<br>**0.24×** | 39.9 MB<br>**0.22×** | 63.3 GB<br>**363×** |
-| `contoso` | 8 | 753,467 | 65.1 MB | 103.3 MB | 156.3 MB | 39.3 MB<br>**0.25×** | 39.4 MB<br>**0.25×** | 6.6 GB<br>**43×** |
-| `enron` | 3 | 48,778 | 23.4 MB | 38.0 MB | 98.2 MB | 34.1 MB<br>**0.35×** | 38.6 MB<br>**0.39×** | 357.9 MB<br>**3.64×** |
-| `chicago_crimes` | 2 | 259,702 | 51.2 MB | 65.7 MB | 84.1 MB | 28.7 MB<br>**0.34×** | 28.7 MB<br>**0.34×** | 2.3 GB<br>**28×** |
-| `stackexchange_beer` | 11 | 62,523 | 15.0 MB | 6.1 MB | 83.6 MB | 14.0 MB<br>**0.17×** | 16.1 MB<br>**0.19×** | 435.8 MB<br>**5.21×** |
-| `dvdstore` | 9 | 174,716 | 7.4 MB | 16.3 MB | 60.0 MB | 11.9 MB<br>**0.20×** | 12.4 MB<br>**0.21×** | 1.7 GB<br>**29×** |
-| `oracle_oe` | 9 | 11,518 | 1.8 MB | 3.2 MB | 27.5 MB | 4.3 MB<br>**0.16×** | 5.1 MB<br>**0.18×** | 70.2 MB<br>**2.55×** |
-| `sakila` | 16 | 47,268 | 3.2 MB | 432.0 KB | 24.1 MB | 2.0 MB<br>**0.08×** | 2.2 MB<br>**0.09×** | 300.3 MB<br>**12×** |
-| `nyc_taxi` | 2 | 48,591 | 6.6 MB | 10.1 MB | 19.1 MB | 3.0 MB<br>**0.16×** | 3.0 MB<br>**0.16×** | 331.6 MB<br>**17×** |
-| `adventureworks_lt` | 12 | 4,277 | 1.9 MB | 4.1 MB | 12.5 MB | 1.0 MB<br>**0.08×** | 1.0 MB<br>**0.08×** | 20.1 MB<br>**1.61×** |
-| `chinook` | 11 | 15,607 | 457.0 KB | 1.6 MB | 2.7 MB | 615.0 KB<br>**0.22×** | 615.0 KB<br>**0.22×** | 77.5 MB<br>**29×** |
-| `northwind` | 13 | 3,308 | 636.2 KB | 1.4 MB | 2.6 MB | 518.5 KB<br>**0.19×** | 518.5 KB<br>**0.19×** | 13.9 MB<br>**5.27×** |
-| `oracle_co` | 7 | 8,783 | 374.2 KB | 1.1 MB | 1.8 MB | 456.3 KB<br>**0.24×** | 456.1 KB<br>**0.24×** | 39.1 MB<br>**21×** |
-| `pubs` | 11 | 255 | 122.0 KB | 176.0 KB | 1.5 MB | 77.0 KB<br>**0.05×** | 77.0 KB<br>**0.05×** | 578.5 KB<br>**0.39×** |
-| `oracle_hr` | 7 | 216 | 29.7 KB | 112.0 KB | 1.1 MB | 62.8 KB<br>**0.06×** | 62.1 KB<br>**0.06×** | 456.0 KB<br>**0.41×** |
-| `smallsets` | 4 | 2,147 | 231.2 KB | 64.0 KB | 644.0 KB | 164.3 KB<br>**0.26×** | 164.3 KB<br>**0.26×** | 8.4 MB<br>**13×** |
-| `jaffle_shop` | 3 | 312 | 11.4 KB | 80.0 KB | 372.0 KB | 37.7 KB<br>**0.10×** | 37.7 KB<br>**0.10×** | 658.2 KB<br>**1.77×** |
-| **total** | 248 | 9,056,697 | 603.5 MB | 660.0 MB | **1.8 GB** | **524.1 MB<br>0.29×** | | |
+| `adventureworks` | 69 | 759,240 | 89.6 MiB | 119.3 MiB | 335.9 MiB | 49.2 MiB<br>**0.15×** | 49.2 MiB<br>**0.15×** | 7.2 GiB<br>**22×** |
+| `wikipedia_simple` | 9 | 1,167,112 | 73.6 MiB | 64.7 MiB | 314.2 MiB | 122.4 MiB<br>**0.39×** | 123.2 MiB<br>**0.39×** | 12.6 GiB<br>**41×** |
+| `oracle_sh` | 9 | 1,063,396 | 49.8 MiB | 1.7 MiB | 220.2 MiB | 143.3 MiB<br>**0.65×** | 143.2 MiB<br>**0.65×** | 14.9 GiB<br>**69×** |
+| `lahman` | 27 | 706,466 | 52.5 MiB | 75.6 MiB | 191.8 MiB | 26.3 MiB<br>**0.14×** | 26.3 MiB<br>**0.14×** | 6.5 GiB<br>**35×** |
+| `employees` | 6 | 3,919,015 | 160.6 MiB | 146.8 MiB | 178.3 MiB | 42.5 MiB<br>**0.24×** | 39.9 MiB<br>**0.22×** | 63.3 GiB<br>**363×** |
+| `contoso` | 8 | 753,467 | 65.1 MiB | 103.3 MiB | 156.3 MiB | 39.3 MiB<br>**0.25×** | 39.4 MiB<br>**0.25×** | 6.6 GiB<br>**43×** |
+| `enron` | 3 | 48,778 | 23.4 MiB | 38.0 MiB | 98.2 MiB | 34.1 MiB<br>**0.35×** | 38.6 MiB<br>**0.39×** | 357.9 MiB<br>**3.64×** |
+| `chicago_crimes` | 2 | 259,702 | 51.2 MiB | 65.7 MiB | 84.1 MiB | 28.7 MiB<br>**0.34×** | 28.7 MiB<br>**0.34×** | 2.3 GiB<br>**28×** |
+| `stackexchange_beer` | 11 | 62,523 | 15.0 MiB | 6.1 MiB | 83.6 MiB | 14.0 MiB<br>**0.17×** | 16.1 MiB<br>**0.19×** | 435.8 MiB<br>**5.21×** |
+| `dvdstore` | 9 | 174,716 | 7.4 MiB | 16.3 MiB | 60.0 MiB | 11.9 MiB<br>**0.20×** | 12.4 MiB<br>**0.21×** | 1.7 GiB<br>**29×** |
+| `oracle_oe` | 9 | 11,518 | 1.8 MiB | 3.2 MiB | 27.5 MiB | 4.3 MiB<br>**0.16×** | 5.1 MiB<br>**0.18×** | 70.2 MiB<br>**2.55×** |
+| `sakila` | 16 | 47,268 | 3.2 MiB | 432.0 KiB | 24.1 MiB | 2.0 MiB<br>**0.08×** | 2.2 MiB<br>**0.09×** | 300.3 MiB<br>**12×** |
+| `nyc_taxi` | 2 | 48,591 | 6.6 MiB | 10.1 MiB | 19.1 MiB | 3.0 MiB<br>**0.16×** | 3.0 MiB<br>**0.16×** | 331.6 MiB<br>**17×** |
+| `adventureworks_lt` | 12 | 4,277 | 1.9 MiB | 4.1 MiB | 12.5 MiB | 1.0 MiB<br>**0.08×** | 1.0 MiB<br>**0.08×** | 20.1 MiB<br>**1.61×** |
+| `chinook` | 11 | 15,607 | 457.0 KiB | 1.6 MiB | 2.7 MiB | 615.0 KiB<br>**0.22×** | 615.0 KiB<br>**0.22×** | 77.5 MiB<br>**29×** |
+| `northwind` | 13 | 3,308 | 636.2 KiB | 1.4 MiB | 2.6 MiB | 518.5 KiB<br>**0.19×** | 518.5 KiB<br>**0.19×** | 13.9 MiB<br>**5.27×** |
+| `oracle_co` | 7 | 8,783 | 374.2 KiB | 1.1 MiB | 1.8 MiB | 456.3 KiB<br>**0.24×** | 456.1 KiB<br>**0.24×** | 39.1 MiB<br>**21×** |
+| `pubs` | 11 | 255 | 122.0 KiB | 176.0 KiB | 1.5 MiB | 77.0 KiB<br>**0.05×** | 77.0 KiB<br>**0.05×** | 578.5 KiB<br>**0.39×** |
+| `oracle_hr` | 7 | 216 | 29.7 KiB | 112.0 KiB | 1.1 MiB | 62.8 KiB<br>**0.06×** | 62.1 KiB<br>**0.06×** | 456.0 KiB<br>**0.41×** |
+| `smallsets` | 4 | 2,147 | 231.2 KiB | 64.0 KiB | 644.0 KiB | 164.3 KiB<br>**0.26×** | 164.3 KiB<br>**0.26×** | 8.4 MiB<br>**13×** |
+| `jaffle_shop` | 3 | 312 | 11.4 KiB | 80.0 KiB | 372.0 KiB | 37.7 KiB<br>**0.10×** | 37.7 KiB<br>**0.10×** | 658.2 KiB<br>**1.77×** |
+| **total** | 248 | 9,056,697 | 603.5 MiB | 660.0 MiB | **1.8 GiB** | **524.1 MiB<br>0.29×** | | |
 
 ## Is the comparison valid?
 
@@ -171,7 +171,7 @@ Every size above was measured with **no server running**: the load is done by th
 
 Measured on a copy: starting a server and reading every table in every database wrote **0 B** in total, an even 22 KB per database.
 
-**That is a floor, not the cost.** During this project's own console use — four web clients browsing the data over a working session — `adventureworks`'s statistics reached **68.2 MB, more than the 49.2 MB of data they describe**. A single pass over every table does not reproduce that, so the growth is driven by sustained querying in a way this experiment has not characterised. It is recorded because it is real disk that a real deployment will use, and because 22 KB would be a misleading thing to remember.
+**That is a floor, not the cost.** During this project's own console use — four web clients browsing the data over a working session — `adventureworks`'s statistics reached **68.2 MB, more than the 49.2 MiB of data they describe**. A single pass over every table does not reproduce that, so the growth is driven by sustained querying in a way this experiment has not characterised. It is recorded because it is real disk that a real deployment will use, and because 22 KB would be a misleading thing to remember.
 
 ## What maintaining the indexes costs
 
@@ -181,82 +181,82 @@ Tests 2, 4 and 5 run twice: once with the secondary indexes and foreign keys dro
 
 | database | disk, deferred | disk, inline | change | time, deferred | time, inline | change |
 |---|---:|---:|---:|---:|---:|---:|
-| `employees` | 176.3 MB | 178.3 MB | +1.1% | 1,850s | 1,846s | -0.2% |
-| `wikipedia_simple` | 235.2 MB | 402.2 MB | +71.0% | 582s | 606s | +4.1% |
-| `oracle_sh` | 188.4 MB | 220.2 MB | +16.9% | 510s | 552s | +8.3% |
-| `adventureworks` | 311.0 MB | 335.9 MB | +8.0% | 394s | 406s | +3.0% |
-| `contoso` | 135.3 MB | 156.3 MB | +15.5% | 369s | 380s | +3.0% |
-| `lahman` | 178.9 MB | 191.8 MB | +7.3% | 347s | 355s | +2.3% |
-| `chicago_crimes` | 72.1 MB | 84.1 MB | +16.6% | 134s | 143s | +6.3% |
-| `dvdstore` | 50.0 MB | 60.1 MB | +20.2% | 84s | 85s | +1.5% |
-| `stackexchange_beer` | 73.6 MB | 88.6 MB | +20.4% | 33s | 35s | +4.5% |
-| `enron` | 66.2 MB | 134.2 MB | +102.7% | 30s | 31s | +3.0% |
-| `nyc_taxi` | 16.1 MB | 19.1 MB | +18.6% | 25s | 26s | +1.6% |
-| `sakila` | 22.3 MB | 24.1 MB | +8.1% | 23s | 24s | +5.2% |
-| `chinook` | 2.6 MB | 2.7 MB | +3.6% | 8s | 8s | +1.3% |
-| `oracle_oe` | 19.6 MB | 27.6 MB | +41.1% | 7s | 7s | -1.4% |
-| `oracle_co` | 1.8 MB | 1.8 MB | +2.6% | 5s | 5s | +2.2% |
-| `adventureworks_lt` | 11.5 MB | 12.5 MB | +8.4% | 4s | 3s | -26.3% |
-| `northwind` | 2.7 MB | 2.6 MB | -1.8% | 3s | 2s | -25.9% |
-| `smallsets` | 644.0 KB | 644.0 KB | +0.0% | 1s | 1s | +0.0% |
-| `jaffle_shop` | 372.0 KB | 372.0 KB | +0.0% | 0s | 0s | +0.0% |
-| `pubs` | 1.5 MB | 1.5 MB | +0.0% | 1s | 0s | -33.3% |
-| `oracle_hr` | 1.1 MB | 1.1 MB | +0.0% | 1s | 0s | -50.0% |
-| **21 databases** | **1.5 GB** | **1.9 GB** | **+24.2%** | **1.2h** | **1.3h** | **+2.4%** |
+| `employees` | 176.3 MiB | 178.3 MiB | +1.1% | 1,850s | 1,846s | -0.2% |
+| `wikipedia_simple` | 235.2 MiB | 402.2 MiB | +71.0% | 582s | 606s | +4.1% |
+| `oracle_sh` | 188.4 MiB | 220.2 MiB | +16.9% | 510s | 552s | +8.3% |
+| `adventureworks` | 311.0 MiB | 335.9 MiB | +8.0% | 394s | 406s | +3.0% |
+| `contoso` | 135.3 MiB | 156.3 MiB | +15.5% | 369s | 380s | +3.0% |
+| `lahman` | 178.9 MiB | 191.8 MiB | +7.3% | 347s | 355s | +2.3% |
+| `chicago_crimes` | 72.1 MiB | 84.1 MiB | +16.6% | 134s | 143s | +6.3% |
+| `dvdstore` | 50.0 MiB | 60.1 MiB | +20.2% | 84s | 85s | +1.5% |
+| `stackexchange_beer` | 73.6 MiB | 88.6 MiB | +20.4% | 33s | 35s | +4.5% |
+| `enron` | 66.2 MiB | 134.2 MiB | +102.7% | 30s | 31s | +3.0% |
+| `nyc_taxi` | 16.1 MiB | 19.1 MiB | +18.6% | 25s | 26s | +1.6% |
+| `sakila` | 22.3 MiB | 24.1 MiB | +8.1% | 23s | 24s | +5.2% |
+| `chinook` | 2.6 MiB | 2.7 MiB | +3.6% | 8s | 8s | +1.3% |
+| `oracle_oe` | 19.6 MiB | 27.6 MiB | +41.1% | 7s | 7s | -1.4% |
+| `oracle_co` | 1.8 MiB | 1.8 MiB | +2.6% | 5s | 5s | +2.2% |
+| `adventureworks_lt` | 11.5 MiB | 12.5 MiB | +8.4% | 4s | 3s | -26.3% |
+| `northwind` | 2.7 MiB | 2.6 MiB | -1.8% | 3s | 2s | -25.9% |
+| `smallsets` | 644.0 KiB | 644.0 KiB | +0.0% | 1s | 1s | +0.0% |
+| `jaffle_shop` | 372.0 KiB | 372.0 KiB | +0.0% | 0s | 0s | +0.0% |
+| `pubs` | 1.5 MiB | 1.5 MiB | +0.0% | 1s | 0s | -33.3% |
+| `oracle_hr` | 1.1 MiB | 1.1 MiB | +0.0% | 1s | 0s | -50.0% |
+| **21 databases** | **1.5 GiB** | **1.9 GiB** | **+24.2%** | **1.2h** | **1.3h** | **+2.4%** |
 
 ### Dolt, one `INSERT` per row, one commit
 
 | database | disk, deferred | disk, inline | change | time, deferred | time, inline | change |
 |---|---:|---:|---:|---:|---:|---:|
-| `employees` | 39.9 MB | 39.3 MB | -1.5% | 1.4h | 1.4h | +1.0% |
-| `wikipedia_simple` | 123.2 MB | 113.9 MB | -7.5% | 1,568s | 1,898s | +21.0% |
-| `oracle_sh` | 143.2 MB | 135.5 MB | -5.3% | 1,475s | 2,111s | +43.1% |
-| `adventureworks` | 49.2 MB | 48.9 MB | -0.6% | 1,269s | 1,502s | +18.3% |
-| `contoso` | 39.4 MB | 39.3 MB | -0.3% | 926s | 1,061s | +14.6% |
-| `lahman` | 26.3 MB | 26.4 MB | +0.6% | 953s | 1,019s | +7.0% |
-| `chicago_crimes` | 28.7 MB | 28.8 MB | +0.2% | 359s | 520s | +44.7% |
-| `dvdstore` | 12.4 MB | 11.9 MB | -3.8% | 216s | 251s | +16.7% |
-| `stackexchange_beer` | 16.1 MB | 14.0 MB | -13.3% | 90s | 119s | +32.4% |
-| `enron` | 38.6 MB | 34.3 MB | -11.1% | 90s | 183s | +103.0% |
-| `nyc_taxi` | 3.0 MB | 3.0 MB | +0.1% | 65s | 79s | +21.0% |
-| `sakila` | 2.2 MB | 2.0 MB | -7.9% | 68s | 82s | +20.5% |
-| `chinook` | 615.0 KB | 615.0 KB | +0.0% | 19s | 21s | +10.5% |
-| `oracle_oe` | 5.1 MB | 4.2 MB | -17.3% | 18s | 33s | +88.6% |
-| `oracle_co` | 456.1 KB | 456.3 KB | +0.0% | 11s | 12s | +10.1% |
-| `adventureworks_lt` | 1.0 MB | 1.0 MB | -0.0% | 6s | 6s | +10.3% |
-| `northwind` | 518.5 KB | 518.5 KB | +0.0% | 5s | 6s | +19.6% |
-| `smallsets` | 164.3 KB | 164.3 KB | +0.0% | 3s | 3s | -3.3% |
-| `jaffle_shop` | 37.7 KB | 37.7 KB | +0.0% | 1s | 0s | -28.6% |
-| `pubs` | 77.0 KB | 77.0 KB | -0.0% | 1s | 1s | +0.0% |
-| `oracle_hr` | 62.1 KB | 62.8 KB | +1.1% | 1s | 1s | +0.0% |
-| **21 databases** | **530.0 MB** | **504.4 MB** | **-4.8%** | **3.4h** | **3.9h** | **+14.9%** |
+| `employees` | 39.9 MiB | 39.3 MiB | -1.5% | 1.4h | 1.4h | +1.0% |
+| `wikipedia_simple` | 123.2 MiB | 113.9 MiB | -7.5% | 1,568s | 1,898s | +21.0% |
+| `oracle_sh` | 143.2 MiB | 135.5 MiB | -5.3% | 1,475s | 2,111s | +43.1% |
+| `adventureworks` | 49.2 MiB | 48.9 MiB | -0.6% | 1,269s | 1,502s | +18.3% |
+| `contoso` | 39.4 MiB | 39.3 MiB | -0.3% | 926s | 1,061s | +14.6% |
+| `lahman` | 26.3 MiB | 26.4 MiB | +0.6% | 953s | 1,019s | +7.0% |
+| `chicago_crimes` | 28.7 MiB | 28.8 MiB | +0.2% | 359s | 520s | +44.7% |
+| `dvdstore` | 12.4 MiB | 11.9 MiB | -3.8% | 216s | 251s | +16.7% |
+| `stackexchange_beer` | 16.1 MiB | 14.0 MiB | -13.3% | 90s | 119s | +32.4% |
+| `enron` | 38.6 MiB | 34.3 MiB | -11.1% | 90s | 183s | +103.0% |
+| `nyc_taxi` | 3.0 MiB | 3.0 MiB | +0.1% | 65s | 79s | +21.0% |
+| `sakila` | 2.2 MiB | 2.0 MiB | -7.9% | 68s | 82s | +20.5% |
+| `chinook` | 615.0 KiB | 615.0 KiB | +0.0% | 19s | 21s | +10.5% |
+| `oracle_oe` | 5.1 MiB | 4.2 MiB | -17.3% | 18s | 33s | +88.6% |
+| `oracle_co` | 456.1 KiB | 456.3 KiB | +0.0% | 11s | 12s | +10.1% |
+| `adventureworks_lt` | 1.0 MiB | 1.0 MiB | -0.0% | 6s | 6s | +10.3% |
+| `northwind` | 518.5 KiB | 518.5 KiB | +0.0% | 5s | 6s | +19.6% |
+| `smallsets` | 164.3 KiB | 164.3 KiB | +0.0% | 3s | 3s | -3.3% |
+| `jaffle_shop` | 37.7 KiB | 37.7 KiB | +0.0% | 1s | 0s | -28.6% |
+| `pubs` | 77.0 KiB | 77.0 KiB | -0.0% | 1s | 1s | +0.0% |
+| `oracle_hr` | 62.1 KiB | 62.8 KiB | +1.1% | 1s | 1s | +0.0% |
+| **21 databases** | **530.0 MiB** | **504.4 MiB** | **-4.8%** | **3.4h** | **3.9h** | **+14.9%** |
 
 ### Dolt, one commit per row
 
 | database | disk, deferred | disk, inline | change | time, deferred | time, inline | change |
 |---|---:|---:|---:|---:|---:|---:|
-| `employees` | 63.3 GB | 67.7 GB | +7.1% | 3.5h | 4.2h | +17.8% |
-| `wikipedia_simple` | 12.6 GB | 28.2 GB | +123.9% | 1.0h | 1.3h | +28.5% |
-| `oracle_sh` | 14.9 GB | 56.0 GB | +276.4% | 3,517s | 1.5h | +55.5% |
-| `adventureworks` | 7.2 GB | 15.0 GB | +109.5% | 3,454s | 1.9h | +97.5% |
-| `contoso` | 6.6 GB | 11.1 GB | +69.6% | 2,181s | 2,726s | +25.0% |
-| `lahman` | 6.5 GB | 8.7 GB | +34.0% | 2,257s | 2,579s | +14.3% |
-| `chicago_crimes` | 2.3 GB | 10.4 GB | +349.6% | 768s | 1,105s | +43.9% |
-| `dvdstore` | 1.7 GB | 3.3 GB | +93.6% | 493s | 575s | +16.6% |
-| `stackexchange_beer` | 435.8 MB | 2.0 GB | +361.5% | 188s | 260s | +38.5% |
-| `enron` | 357.9 MB | 5.9 GB | +1576.3% | 161s | 376s | +133.1% |
-| `nyc_taxi` | 331.6 MB | 923.2 MB | +178.4% | 134s | 162s | +20.8% |
-| `sakila` | 300.3 MB | 690.4 MB | +129.9% | 156s | 206s | +31.9% |
-| `chinook` | 77.5 MB | 114.3 MB | +47.5% | 45s | 51s | +14.6% |
-| `oracle_oe` | 70.2 MB | 816.5 MB | +1062.4% | 36s | 70s | +96.1% |
-| `oracle_co` | 39.1 MB | 66.6 MB | +70.2% | 24s | 27s | +12.3% |
-| `adventureworks_lt` | 20.1 MB | 38.0 MB | +89.0% | 13s | 14s | +10.8% |
-| `northwind` | 13.9 MB | 26.9 MB | +93.9% | 11s | 12s | +17.0% |
-| `smallsets` | 8.4 MB | 8.3 MB | -0.6% | 6s | 6s | +0.0% |
-| `jaffle_shop` | 658.2 KB | 735.4 KB | +11.7% | 1s | 2s | +7.1% |
-| `pubs` | 578.5 KB | 794.4 KB | +37.3% | 2s | 1s | -6.7% |
-| `oracle_hr` | 456.0 KB | 823.1 KB | +80.5% | 1s | 1s | +0.0% |
-| **21 databases** | **116.7 GB** | **211.0 GB** | **+80.9%** | **8.3h** | **11.2h** | **+34.6%** |
+| `employees` | 63.3 GiB | 67.7 GiB | +7.1% | 3.5h | 4.2h | +17.8% |
+| `wikipedia_simple` | 12.6 GiB | 28.2 GiB | +123.9% | 1.0h | 1.3h | +28.5% |
+| `oracle_sh` | 14.9 GiB | 56.0 GiB | +276.4% | 3,517s | 1.5h | +55.5% |
+| `adventureworks` | 7.2 GiB | 15.0 GiB | +109.5% | 3,454s | 1.9h | +97.5% |
+| `contoso` | 6.6 GiB | 11.1 GiB | +69.6% | 2,181s | 2,726s | +25.0% |
+| `lahman` | 6.5 GiB | 8.7 GiB | +34.0% | 2,257s | 2,579s | +14.3% |
+| `chicago_crimes` | 2.3 GiB | 10.4 GiB | +349.6% | 768s | 1,105s | +43.9% |
+| `dvdstore` | 1.7 GiB | 3.3 GiB | +93.6% | 493s | 575s | +16.6% |
+| `stackexchange_beer` | 435.8 MiB | 2.0 GiB | +361.5% | 188s | 260s | +38.5% |
+| `enron` | 357.9 MiB | 5.9 GiB | +1576.3% | 161s | 376s | +133.1% |
+| `nyc_taxi` | 331.6 MiB | 923.2 MiB | +178.4% | 134s | 162s | +20.8% |
+| `sakila` | 300.3 MiB | 690.4 MiB | +129.9% | 156s | 206s | +31.9% |
+| `chinook` | 77.5 MiB | 114.3 MiB | +47.5% | 45s | 51s | +14.6% |
+| `oracle_oe` | 70.2 MiB | 816.5 MiB | +1062.4% | 36s | 70s | +96.1% |
+| `oracle_co` | 39.1 MiB | 66.6 MiB | +70.2% | 24s | 27s | +12.3% |
+| `adventureworks_lt` | 20.1 MiB | 38.0 MiB | +89.0% | 13s | 14s | +10.8% |
+| `northwind` | 13.9 MiB | 26.9 MiB | +93.9% | 11s | 12s | +17.0% |
+| `smallsets` | 8.4 MiB | 8.3 MiB | -0.6% | 6s | 6s | +0.0% |
+| `jaffle_shop` | 658.2 KiB | 735.4 KiB | +11.7% | 1s | 2s | +7.1% |
+| `pubs` | 578.5 KiB | 794.4 KiB | +37.3% | 2s | 1s | -6.7% |
+| `oracle_hr` | 456.0 KiB | 823.1 KiB | +80.5% | 1s | 1s | +0.0% |
+| **21 databases** | **116.7 GiB** | **211.0 GiB** | **+80.9%** | **8.3h** | **11.2h** | **+34.6%** |
 
 
 ## Schema objects Dolt would not take

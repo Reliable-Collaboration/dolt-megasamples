@@ -152,7 +152,14 @@ def save_results(data):
 
 
 def human(n):
-    for unit in ("B", "KB", "MB", "GB"):
-        if abs(n) < 1024 or unit == "GB":
+    """Bytes as a readable size, in binary units labelled as binary units.
+
+    This divided by 1024 and labelled the result KB, MB, GB, which names a decimal unit for a
+    binary quantity and is wrong by 2.4% per step -- 67,930,493,203 bytes came out as "63.3 GB"
+    when it is 67.9 GB decimal, or 63.3 GiB. The division was never the problem; the label was.
+    Binary is the right choice here because it is what `docker stats` and `du -h` report, and those
+    are the numbers a reader will be comparing against."""
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if abs(n) < 1024 or unit == "GiB":
             return f"{n:,.0f} {unit}" if unit == "B" else f"{n:,.1f} {unit}"
         n /= 1024
