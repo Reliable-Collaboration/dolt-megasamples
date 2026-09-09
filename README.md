@@ -4,7 +4,7 @@
 
 # dolt-megasamples
 
-**HUMAN NOTE**: This experiement was heavily AI driven and influenced and has only received "moderate" human oversight, and has not been peer reviewed.
+**HUMAN NOTE**: This experiment was heavily AI driven and influenced and has only received "moderate" human oversight, and has not been peer reviewed.
 PLEASE VERIFY THE FINDINGS YOU TAKE AWAY FROM THIS.
 
 **An experiment: for the same data, what does [Dolt](https://github.com/dolthub/dolt) cost against

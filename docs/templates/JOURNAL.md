@@ -1,5 +1,8 @@
 # Journal
 
+**HUMAN NOTE**: This experiment was heavily AI driven and influenced and has only received "moderate" human oversight, and has not been peer reviewed.
+PLEASE VERIFY THE FINDINGS YOU TAKE AWAY FROM THIS.
+
 The lab notebook: why the experiment is built the way it is, what its numbers do not support, and
 what went wrong getting them. The results themselves are in [`README.md`](README.md) and
 [`REPORT.md`](REPORT.md); this is the reasoning around them.

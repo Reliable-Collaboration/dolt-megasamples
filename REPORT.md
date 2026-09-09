@@ -3,6 +3,10 @@
 
 # Disk usage: MySQL 9.7.2 against Dolt 2.3.2
 
+**HUMAN NOTE**: This experiment was heavily AI driven and influenced and has only received
+"moderate" human oversight, and has not been peer reviewed.
+PLEASE VERIFY THE FINDINGS YOU TAKE AWAY FROM THIS.
+
 The same 21 sample databases, 9,056,697 rows, loaded into both engines from the same `mysqldump` files and measured the same way: `du -sb` of the directory each engine keeps the database in.
 
 ## The machine
