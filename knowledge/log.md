@@ -2,6 +2,7 @@
 
 ## 2026-09-10
 
+* **Creation**: [running the pairs](/runbooks/pairs-run.md) -- the order of the steps, what each needs, how the first run was sequenced, what to do with a unit that records an error.
 * **Update**: the first DoltgreSQL loads refused every row of pubs (`regexp_like` checks) and of adventureworks_lt's two generated-column tables (after their primary key was added); rules G3 and G4 added to `scripts/doltgres_dialect.py`, both databases proved loadable in both forms on a throwaway server, recorded in [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) and [the dialect rules](/decisions/pair-dialect-rules.md); the affected units are rerun.
 * **Creation**: the bundle, in the form of sql-megasamples' (`scripts/okf_check.py` and `scripts/okf_fix_quotes.py` are copies of its checker and canonicaliser): [conventions](/runbooks/knowledge-bundle-conventions.md).
 * **Creation**: the source records read for the two engines: [DoltgreSQL README](/sources/doltgresql-readme.md), [DoltgreSQL release v1.3.1](/sources/doltgresql-release-v1-3-1.md), [DoltLite README](/sources/doltlite-readme.md), [DoltLite release v0.50.9](/sources/doltlite-release-v0-50-9.md), [DoltLite LICENSE.md](/sources/doltlite-license.md), [SQLite download page](/sources/sqlite-download-page.md).
