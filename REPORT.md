@@ -20,6 +20,9 @@ The same 21 sample databases, 9,056,697 rows, loaded into both engines from the 
 | Docker | 29.7.2, storage driver `overlayfs` |
 | MySQL | `mysql:9.7.2` — /usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL) |
 | Dolt | `dolthub/dolt-sql-server` — dolt version 2.3.2 |
+| PostgreSQL | `postgres` — postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2) |
+| DoltgreSQL | `dolthub/doltgresql` — 1.3.1, pinned by digest |
+| DoltLite | `doltsamples-doltlite:0.50.9` — DoltLite v0.50.9 (SQLite 3.54.0, 64-bit), beside sqlite3 3.46.1 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1 (64-bit) |
 | Tuning | no performance tuning — stock images, stock storage settings; MySQL is started with the two flags below |
 | MySQL flags | `--local-infile=1`, `--skip-log-bin` |
 

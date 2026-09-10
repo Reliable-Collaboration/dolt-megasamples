@@ -7,18 +7,25 @@
     "dolt_flags": [],
     "dolt_image": "dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6",
     "dolt_version": "dolt version 2.3.2",
+    "doltgres_image": "dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851",
+    "doltgres_version": "1.3.1",
+    "doltlite_image": "doltsamples-doltlite:0.50.9",
+    "doltlite_version": "DoltLite v0.50.9 (SQLite 3.54.0, 64-bit)",
     "mysql_flags": [
       "--local-infile=1",
       "--skip-log-bin"
     ],
     "mysql_image": "mysql:9.7.2",
     "mysql_version": "/usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL)",
+    "postgres_image": "postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+    "postgres_version": "postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2)",
+    "sqlite3_version": "3.46.1 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1 (64-bit)",
     "tuning": "no performance tuning \u2014 stock images, stock storage settings; MySQL is started with the two flags below"
   },
   "host": {
     "cpu": "Intel(R) Core(TM) i9-14900KF",
     "cpu_threads": 32,
-    "disk_free_at_capture": "566.3 GiB",
+    "disk_free_at_capture": "558.9 GiB",
     "disk_total": "1,006.9 GiB",
     "filesystem": "ext4",
     "kernel": "6.18.33.2-microsoft-standard-WSL2",

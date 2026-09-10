@@ -171,9 +171,13 @@ Where the pairs depart from the MySQL/Dolt tests, and why:
 
 ### PostgreSQL and DoltgreSQL
 
+![What each load costs, PostgreSQL and DoltgreSQL](docs/img/pairs-pg.png)
+
 {{block:pg_pair_table}}
 
 ### SQLite and DoltLite
+
+![What each load costs, SQLite and DoltLite](docs/img/pairs-lite.png)
 
 {{block:lite_pair_table}}
 

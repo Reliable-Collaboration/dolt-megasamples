@@ -438,6 +438,68 @@ def fig_memory():
     save(fig, "memory-by-history.png")
 
 
+# ------------------------------------------------------------------- the two further pairs ---
+PAIR_TESTS = {"pg": ["postgres", "postgres_rowwise", "doltgres_oneshot", "doltgres_rowinsert", "doltgres_rowcommit"],
+              "lite": ["sqlite", "sqlite_rowwise", "doltlite_oneshot", "doltlite_rowinsert", "doltlite_rowcommit"]}
+PAIR_SHORT = {"postgres": "PostgreSQL\nCOPY", "postgres_rowwise": "PostgreSQL\n1 INSERT/row",
+              "doltgres_oneshot": "DoltgreSQL\n1 commit/db", "doltgres_rowinsert": "DoltgreSQL\n1 INSERT/row",
+              "doltgres_rowcommit": "DoltgreSQL\n1 commit/row",
+              "sqlite": "SQLite\none transaction", "sqlite_rowwise": "SQLite\n1 INSERT/row",
+              "doltlite_oneshot": "DoltLite\n1 commit/db", "doltlite_rowinsert": "DoltLite\n1 INSERT/row",
+              "doltlite_rowcommit": "DoltLite\n1 commit/row"}
+PAIR_TITLES = {"pg": "PostgreSQL and DoltgreSQL", "lite": "SQLite and DoltLite"}
+
+
+def pair_value(r, test, axis):
+    """One unit of a pair, or None: the settled size, or load plus settle time."""
+    u = None
+    for pair in PAIR_TESTS:
+        if test in PAIR_TESTS[pair]:
+            u = ((r.get("pairs") or {}).get(pair) or {}).get(test)
+    if not u:
+        return None
+    if axis == "bytes":
+        return u.get("disk_bytes")
+    return u.get("total_seconds") if test not in ("postgres", "sqlite") else u.get("load_seconds")
+
+
+def fig_pairs(results):
+    """The same five bars as cost-by-mode for each of the two further pairs: totals over the
+    databases where every load of the pair has a result, disk and time, against the pair's own
+    baseline. The same colours stand for the same shapes as in the MySQL/Dolt figures."""
+    for pair, tests in PAIR_TESTS.items():
+        dbs = [d for d, r in results.items()
+               if all(pair_value(r, t, "bytes") and pair_value(r, t, "seconds") is not None for t in tests)]
+        if not dbs:
+            print(f"  ! pairs-{pair} skipped: no database has every measurement of the pair yet")
+            continue
+        rows = sum(((results[d].get("pairs") or {}).get("source_rows") or {}).get(pair) or 0 for d in dbs)
+        fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.4))
+        for ax, axis in zip(axes, ("bytes", "seconds")):
+            vals = [sum(pair_value(results[d], t, axis) or 0 for d in dbs) for t in tests]
+            base = vals[0] or 1
+            shown = [v / MB for v in vals] if axis == "bytes" else vals
+            bars = ax.bar([PAIR_SHORT[t] for t in tests], shown, color=[COLOURS[t] for t in TESTS], width=.62)
+            for b, v, raw in zip(bars, shown, vals):
+                tag = "" if raw == vals[0] else (f"\n{raw / base:.2f}×" if raw / base < 10 else f"\n{raw / base:.0f}×")
+                text = f"{v:,.0f} MB" if axis == "bytes" else (f"{v:,.0f}s" if v < 3600 else f"{v / 3600:,.1f}h")
+                ax.text(b.get_x() + b.get_width() / 2, max(v, 1e-3) * 1.08, text + tag, ha="center", fontsize=8,
+                        color=INK, fontweight="bold")
+            ax.set_yscale("log")
+            log_axis(ax, "y")
+            ax.set_ylabel("mebibytes on disk" if axis == "bytes" else "seconds to load", color=INK, fontsize=9)
+            style(ax, "Disk" if axis == "bytes" else "Time", "")
+            ax.grid(axis="x", visible=False)
+            ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
+            ax.set_ylim(top=max(shown) * 8, bottom=max(min(x for x in shown if x > 0) / 4, 1e-3))
+            ax.tick_params(axis="x", labelsize=7.5)
+        fig.suptitle(f"What each load costs, {PAIR_TITLES[pair]} — {len(dbs)} of {len(results)} databases, "
+                     f"{rows:,} rows, against the pair's baseline",
+                     fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.03)
+        fig.tight_layout()
+        save(fig, f"pairs-{pair}.png")
+
+
 def main():
     # Figures rendered from anything other than the real results file go somewhere else. Passing a
     # path is for checking a new figure against fabricated full coverage without waiting hours for a
@@ -458,6 +520,7 @@ def main():
                 "Time to load, every database, every load", "seconds (log scale)", 1)
     fig_ratio(results)
     fig_cost_by_mode(results)
+    fig_pairs(results)
     fig_index_policy(results)
     fig_memory()
     for axis in ("bytes", "seconds"):

@@ -99,7 +99,7 @@ way you ask, and both policies produced byte-identical files.
   0.32 s, and used to be paid twice per Dolt load and not at all by MySQL.
 * **Repeats, where a repeat is affordable.** Each unit runs up to three times and the median of every
   sample is kept, until it has spent its repeat budget; after that it is a single sample. Of the
-  units recorded so far, 105 of 223 were measured once. Across
+  units recorded so far, 106 of 224 were measured once. Across
   the repeated ones the spread is 0.0% median and
   31.5% worst for size, and 2.7% median and
   50.0% worst for time.
@@ -288,6 +288,8 @@ Where the pairs depart from the MySQL/Dolt tests, and why:
 
 ### PostgreSQL and DoltgreSQL
 
+![What each load costs, PostgreSQL and DoltgreSQL](docs/img/pairs-pg.png)
+
 | database | rows | 1. PostgreSQL<br>COPY | 2. PostgreSQL<br>1 INSERT/row | 3. DoltgreSQL<br>1 commit/db | 4. DoltgreSQL<br>1 INSERT/row | 5. DoltgreSQL<br>1 commit/row |
 |---|---:|---:|---:|---:|---:|---:|
 | `dvdstore` | 174,716 | 26.5 MiB<br>0s | 25.2 MiB<br>**0.95×**<br>78s | 10.8 MiB<br>**0.41×**<br>4s | 10.8 MiB<br>**0.41×**<br>305s | — |
@@ -308,6 +310,8 @@ Where the pairs depart from the MySQL/Dolt tests, and why:
 *Each cell is disk then time; a versioned cell also gives the size as a multiple of test 1. 8 database(s) do not yet have every test and are excluded from the totals row: `adventureworks_lt`, `chinook`, `dvdstore`, `nyc_taxi`, `oracle_oe`, `pubs`, `sakila`, `stackexchange_beer`.*
 
 ### SQLite and DoltLite
+
+![What each load costs, SQLite and DoltLite](docs/img/pairs-lite.png)
 
 *No SQLite / DoltLite unit has been measured yet.*
 
@@ -475,6 +479,9 @@ The following are not measured yet, and appear in this document as `[not measure
 | Docker | 29.7.2, storage driver `overlayfs` |
 | MySQL | `mysql:9.7.2` — /usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL) |
 | Dolt | `dolthub/dolt-sql-server` — dolt version 2.3.2 |
+| PostgreSQL | `postgres` — postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2) |
+| DoltgreSQL | `dolthub/doltgresql` — 1.3.1, pinned by digest |
+| DoltLite | `doltsamples-doltlite:0.50.9` — DoltLite v0.50.9 (SQLite 3.54.0, 64-bit), beside sqlite3 3.46.1 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1 (64-bit) |
 | Tuning | no performance tuning — stock images, stock storage settings; MySQL is started with the two flags below |
 | MySQL flags | `--local-infile=1`, `--skip-log-bin` |
 

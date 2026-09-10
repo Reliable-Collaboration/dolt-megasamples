@@ -189,6 +189,9 @@ def environment_table():
         f"| Docker | {d['version']}, storage driver `{d['storage_driver']}` |",
         f"| MySQL | `{g['mysql_image']}` — {g['mysql_version']} |",
         f"| Dolt | `{g['dolt_image'].split('@')[0]}` — {g['dolt_version']} |",
+        f"| PostgreSQL | `{g.get('postgres_image', '').split('@')[0]}` — {g.get('postgres_version', 'not recorded')} |",
+        f"| DoltgreSQL | `{g.get('doltgres_image', '').split('@')[0]}` — {g.get('doltgres_version', 'not recorded')}, pinned by digest |",
+        f"| DoltLite | `{g.get('doltlite_image', '')}` — {g.get('doltlite_version', 'not recorded')}, beside sqlite3 {g.get('sqlite3_version', 'not recorded')} |",
         f"| Tuning | {g['tuning']} |",
         f"| MySQL flags | {', '.join('`' + f + '`' for f in g['mysql_flags'])} |",
     ])
