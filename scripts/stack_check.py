@@ -100,12 +100,20 @@ def main():
         check(f"DoltgreSQL as {user}: {pg_db}.{pg_table}", out == str(pg_want), out)
         rc, out = pg(user, pw, pg_db, "SELECT COUNT(*) FROM dolt_log")
         check(f"DoltgreSQL as {user}: dolt_log", rc == 0 and out.isdigit(), out)
-        # a scratch database, as for Dolt: nothing is written into a served store
-        pg(user, pw, "postgres", "DROP DATABASE IF EXISTS probe_stack_check")
-        rc, out = pg(user, pw, "postgres", "CREATE DATABASE probe_stack_check")
-        if rc == 0:
-            pg(user, pw, "postgres", "DROP DATABASE probe_stack_check")
-        check(f"DoltgreSQL as {user}: {'may' if want_write else 'may not'} write", (rc == 0) == want_write, out[-100:])
+        if want_write:
+            # a scratch database, as for Dolt: nothing is written into a served store
+            pg(user, pw, "postgres", "DROP DATABASE IF EXISTS probe_stack_check")
+            rc, out = pg(user, pw, "postgres", "CREATE DATABASE probe_stack_check")
+            if rc == 0:
+                pg(user, pw, "postgres", "DROP DATABASE probe_stack_check")
+            check(f"DoltgreSQL as {user}: may write", rc == 0, out[-100:])
+        else:
+            # what DoltgreSQL 1.3.1 enforces is table privileges; it lets any role create and drop
+            # databases (knowledge/tools/doltgresql-1-3-1.md), so the refusal tested is a table's
+            rc, out = pg(user, pw, pg_db, "CREATE TABLE probe_stack_check (id int)")
+            if rc == 0:
+                pg("admin", PW["admin"], pg_db, "DROP TABLE probe_stack_check")
+            check(f"DoltgreSQL as {user}: may not write into a served database", rc != 0, out[-100:])
     short = []
     for db in dbs:
         rc, out = pg("demo", PW["demo"], db, "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' "

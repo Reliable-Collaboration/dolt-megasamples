@@ -10,11 +10,11 @@ tags:
 status: stable
 trust: verified
 generated:
-  by: claude-code/claude-fable-5-1
-  at: "2026-09-10T07:20:00Z"
+  by: claude-code/claude-opus-5
+  at: "2026-09-10T20:00:00Z"
 verified:
-- by: claude-code/claude-fable-5-1
-  at: "2026-09-10T07:20:00Z"
+- by: claude-code/claude-opus-5
+  at: "2026-09-10T20:00:00Z"
 sources:
 - resource: /sources/doltgresql-readme.md
   title: DoltgreSQL README
@@ -42,6 +42,7 @@ Everything below was observed on 2026-09-10 against `dolthub/doltgresql@sha256:6
 Found by refusal, on the quick subset's schemas (`scripts/preflight_pairs.py`, 2026-09-10) and on sakila's rows; each is either a dialect rule (dropped before the load, on both engines of the pair) or a recorded refusal the report counts:
 
 * **Accounts.** `CREATE ROLE demo LOGIN PASSWORD 'demo'`, `CREATE ROLE admin LOGIN PASSWORD 'admin' SUPERUSER`, `GRANT USAGE ON SCHEMA public TO demo` and `GRANT SELECT ON ALL TABLES IN SCHEMA public TO demo` are accepted. With only those, `demo` is refused an `INSERT` (`permission denied for table discounts`) but also `SELECT COUNT(*)` (`permission denied for routine count`): unlike PostgreSQL, EXECUTE on functions is not granted to everyone by default. `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pg_catalog TO demo` (and `... IN SCHEMA public`) makes the read-only account usable; the stack's init step applies all four ([stood-up instances](/decisions/stood-up-instances.md), verified by `scripts/stack_check.py` on 2026-09-10).
+* **Database privileges are not enforced.** A login role with no superuser, database-creation or role-creation attribute (`rolsuper`, `rolcreatedb` and `rolcreaterole` all false in `pg_roles`) can `CREATE DATABASE` and `DROP DATABASE`, including a database created and owned by `postgres`, and `ALTER ROLE ... NOCREATEDB` changes nothing; it can also call version-control functions such as `dolt_branch`. Table privileges are enforced: the same role is refused `CREATE TABLE` in `public` ("permission denied for schema public") and `SELECT`, `INSERT` and `DROP TABLE` on a table it holds no grant on (probed on a throwaway server, 2026-09-10, after `make test-stack` found `demo` creating a database). The stood-up instance's `demo` account therefore reads every table but can also drop a sample database; the landing page and README say so, and an issue draft is in `docs/upstream/`.
 * **`USING gin` indexes** are refused ("index method gin is not yet supported"); the `@@` text-search operator too ("@@ is not yet supported"). Dialect rule G1 drops the index on both sides: [dialect rules](/decisions/pair-dialect-rules.md).
 * **`xpath()`** is not implemented ("function: 'xpath' not found"): `adventureworks_lt.vproductmodelcatalogdescription` is refused. **`JSON_TABLE`** is not parsed ("at or near "columns": syntax error"): `oracle_co.product_reviews` is refused (Dolt refused the same view). Both are recorded per unit as schema objects not taken.
 * **A table with a `STORED` generated column takes exactly one alteration.** The `CREATE TABLE` is accepted and the column is computed on INSERT (`linetotal` 10.000000 for 2.5 × 4; `SUM(linetotal)` over adventureworks_lt's 542 detail rows 207,482.4327, the source's value). The first `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY` or `CREATE INDEX` after it succeeds; after that the server has re-serialised the generated expression into text it cannot parse back (`Invalid default value for '(coalesce("a" * "b" as a * b,0.0))': at or near "as": syntax error` -- with or without a cast in the expression), and every later alteration, `INSERT` and `COPY` fails with it; adding a foreign key answers `receiveMessage recovered panic: ...` and the server carries on. Dialect rule G4 writes the primary key inside `CREATE TABLE` for such a table and drops its other indexes, unique constraints and foreign keys out loud; with that, both forms of adventureworks_lt load (2026-09-10). Open question: [generated column alteration](/questions/doltgresql-generated-column-alteration.md).

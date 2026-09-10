@@ -50,7 +50,9 @@ CONNECT = [
         ("version control", "dolt_log, dolt_diff and the rest are tables and procedures: SELECT * FROM dolt_log; CALL dolt_commit('-Am', '...')")]),
     (f"DoltgreSQL {DOLTGRES_VERSION} (PostgreSQL protocol)", [
         ("address", f"127.0.0.1 port {P['doltgres']}"),
-        ("accounts", f"demo / {SHOWN['demo']} (read only) · admin / {SHOWN['admin']} (superuser) · postgres / {SHOWN['doltgres']}"),
+        ("accounts", f"demo / {SHOWN['demo']} (reads every table) · admin / {SHOWN['admin']} (superuser) · postgres / {SHOWN['doltgres']}"),
+        ("caution", "DoltgreSQL 1.3.1 does not enforce database privileges: any account, demo included, can create and drop "
+                    "databases, and a dropped database is gone from this stack until it is loaded again"),
         ("client", f"PGPASSWORD={SHOWN['demo']} psql -h 127.0.0.1 -p {P['doltgres']} -U demo -d sakila"),
         ("URL", f"postgresql://demo:{SHOWN['demo']}@127.0.0.1:{P['doltgres']}/sakila"),
         ("JDBC", f"jdbc:postgresql://127.0.0.1:{P['doltgres']}/sakila"),

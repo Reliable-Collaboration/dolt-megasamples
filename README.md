@@ -576,7 +576,9 @@ stores of the larger databases are big files, and the ones DoltLite could not co
 working footprint of the load.
 
 The accounts are the same on both sides and on both servers: `demo` / `demo` reads, `admin` /
-`admin` writes. Each console opens on the read-only one. Every service carries a memory limit, so
+`admin` writes. One exception was measured: DoltgreSQL 1.3.1 does not enforce database
+privileges, so on it any account, `demo` included, can create and drop databases; table privileges
+are enforced. Each console opens on the read-only one. Every service carries a memory limit, so
 both stacks together fit comfortably on a modest machine. DoltgreSQL serves the one-commit loads
 (`data/doltgres-oneshot`) and the DoltLite container holds the one-commit files
 (`data/doltlite-oneshot`); `make lite-image` builds its image first. The landing page says how to
