@@ -128,11 +128,12 @@ check:
 	@$(MAKE) --no-print-directory okf-check
 
 up:
+	@docker image inspect doltsamples-doltlite:0.50.9 >/dev/null 2>&1 || $(MAKE) --no-print-directory lite-image
 	@docker compose up -d
 	@$(PY) scripts/console_page.py
 	@docker compose restart console >/dev/null 2>&1 || true
-	@echo "console at http://127.0.0.1:8090/  (phpMyAdmin 8091, Adminer 8092, DbGate 8093, CloudBeaver 8094)"
-	@echo "Dolt on 127.0.0.1:3307 — sql-megasamples keeps 3306 and 8080-8084"
+	@echo "console at http://127.0.0.1:8090/  (phpMyAdmin 8091, Adminer 8092, DbGate 8093, CloudBeaver 8094, Workbench 8095)"
+	@echo "Dolt on 127.0.0.1:3307, DoltgreSQL on 127.0.0.1:5433, DoltLite files in doltsamples-doltlite — sql-megasamples keeps 3306, 5432 and 8080-8084"
 
 down:
 	@docker compose down
