@@ -2,6 +2,7 @@
 
 ## 2026-09-10
 
+* **Creation**: [patch or work around](/decisions/engine-bugs-patch-or-work-around.md), pending -- where each of the seven engine defects lives in the pinned source, how large a fix would be, that none is fixed after the pinned releases, and what a patched build would take; each report draft in `docs/upstream/` now says where its defect comes from, [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) where the database-privilege gap comes from, and [VACUUM memory](/questions/doltlite-vacuum-memory.md) the limit DoltLite hits.
 * **Creation**: [the DoltLite pin](/decisions/doltlite-version-pin.md) -- the maintainer's decision that DoltLite v0.50.9 and DoltgreSQL 1.3.1 stay pinned unless explicitly asked otherwise, and that every document marks them as pinned; [the DoltgreSQL pin](/decisions/doltgresql-version-pin.md) carries the same policy, and the README gains a generated *Pinned versions* table covering every engine.
 * **Update**: the maintainer's decision to leave employees' row-by-row loads for last, after every other result is in; the runner gains `--skip-row-by-row`.
 * **Update**: `scripts/audit.py`'s check that a failed settle step is reported unsettled compared the live `build/progress.json` with the committed `build/results.json`, so `make check` failed during a run as soon as a newly measured unit's settle failed; a unit that finished after the newest unit the snapshot holds is now skipped by name, and every earlier one must still be reported (tested both ways).

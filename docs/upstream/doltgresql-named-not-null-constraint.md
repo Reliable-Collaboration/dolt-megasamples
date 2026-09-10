@@ -14,3 +14,5 @@ CREATE TABLE t (
 ```
 
 **Result:** `non-foreign key column constraint names are not yet supported`, and the table is not created, so everything defined over it fails too. PostgreSQL 18 accepts it, and pg_dump 18 writes this form for every NOT NULL constraint whose name is not the generated one (the AdventureWorks sample has six, in three tables).
+
+**Where it comes from** (read in the v1.3.1 source, not patched): `nodeColumnTableDef` in `server/ast/column_table_def.go` (lines 35-39) refuses a constraint name on `NOT NULL`, `DEFAULT` and `UNIQUE` alike. Accepting the name on `NOT NULL`, even without keeping it, would let such tables load.

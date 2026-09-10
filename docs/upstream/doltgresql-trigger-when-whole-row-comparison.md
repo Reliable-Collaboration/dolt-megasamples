@@ -22,4 +22,6 @@ UPDATE actor SET first_name = first_name WHERE actor_id = 1;
 
 **Result:** the trigger is created, and the `UPDATE` answers `ERROR: record "old" has no field "*"`. The same body under `WHEN (old.first_name IS DISTINCT FROM new.first_name OR old.last_update IS DISTINCT FROM new.last_update)` works (an unchanged row leaves `last_update`, a changed one moves it), so the whole-row comparison in the `WHEN` clause is what is not evaluated. PostgreSQL accepts both forms and, for a no-op update, reports `UPDATE 1` where DoltgreSQL reports `UPDATE 0`.
 
+**Where it may come from** (a reading of the v1.3.1 source, not run): the `WHEN` clause is compiled as a PL/pgSQL `RETURN` (`server/ast/create_trigger.go` lines 86-106), and variable substitution joins `old`, `.` and `*` into one name and then looks up a field called `*` (`server/plpgsql/statements.go` line 547, `server/plpgsql/interpreter_stack.go` lines 212-233).
+
 **Why it matters:** `WHEN (old.* IS DISTINCT FROM new.*)` is the idiom for "only when the row changed" and pg_dump reproduces it verbatim.

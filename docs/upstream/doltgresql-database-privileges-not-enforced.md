@@ -19,4 +19,6 @@ DROP DATABASE victim;        -- DROP DATABASE
 
 **Result:** both succeed, and `victim`, which `postgres` created, is gone. The same role can call `dolt_branch(...)`. Table privileges are enforced: `demo` is refused `CREATE TABLE` in `public` and `SELECT`, `INSERT` and `DROP TABLE` on a table it has no grant on. Expected, as in PostgreSQL: `CREATE DATABASE` refused without `CREATEDB`, and `DROP DATABASE` refused to anyone but the owner or a superuser.
 
+**Where it comes from** (read in the v1.3.1 source, not patched): `CREATE DATABASE` and `DROP DATABASE` are converted to go-mysql-server `DBDDL` nodes that carry no authorization information (`server/ast/create_database.go` line 103, `server/ast/drop_database.go` line 33), and `HandleAuth` in `server/auth/auth_handler.go` returns without a check when that information is empty (line 86), so neither statement is checked against `rolsuper`, `rolcreatedb` or ownership.
+
 **Why it matters:** a read-only account cannot be offered on a shared DoltgreSQL server, since it can drop every database.

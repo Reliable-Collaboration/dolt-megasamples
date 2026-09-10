@@ -15,4 +15,6 @@ INSERT INTO g2 VALUES (1, 2.5, 4, DEFAULT);
 
 **Result:** `ERROR: Invalid default value for '(coalesce("a" * "b"::NUMERIC as a * b::NUMERIC,0.0))': at or near "as": syntax error`. The same error answers any later `CREATE INDEX`, `COPY` or `ALTER TABLE` on the table; adding a foreign key answers `receiveMessage recovered panic: Invalid default value ...`. Without the `ALTER`, the `INSERT` succeeds and the column is computed (10.000000). The order of the two alterations does not matter, nor does the cast (`COALESCE(a * b, 0.0)` fails the same way). Expected: PostgreSQL 18.6 accepts all of it.
 
+**Where it may come from** (a reading of the v1.3.1 source, not run): function arguments are wrapped in go-mysql-server aliases that print as `x as y` (`server/ast/select.go` lines 190-194). `CREATE TABLE` strips them, but after an alteration the generated expression is printed again by `PgCoalesce.String()` (`server/expression/coalesce.go` lines 162-168), which lacks the alias bypass doltgresql's own functions have (`server/functions/framework/compiled_function.go` lines 295-298); the refused expression above contains the alias. Issue #810 looks like the same family.
+
 **Why it matters:** pg_dump writes every primary key as an `ALTER TABLE ... ADD CONSTRAINT` after `CREATE TABLE`, so any dumped table with a stored generated column becomes unwritable after restore.

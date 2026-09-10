@@ -15,4 +15,6 @@ SELECT '[' || (class)::text || ']' FROM c1;
 
 **Result:** the `INSERT` answers `Check constraint "c1_ck" violated`; with the check removed, the `SELECT` answers `[L ]`. PostgreSQL answers `[L]` (the cast from bpchar to text strips the padding) and accepts the row; `COPY` behaves the same way on both. `rtrim((class)::text)` restores PostgreSQL's behaviour on DoltgreSQL.
 
+**Where it comes from** (read in the v1.3.1 source, not patched): the implicit cast from `bpchar` to `text` in `server/cast/char.go` (lines 98-104) returns the value unchanged, where PostgreSQL strips the trailing blanks.
+
 **Why it matters:** pg_dump writes `character(n)` values padded, and the AdventureWorks sample's `CHECK` constraints over `class`, `productline` and `style` refuse every row of `production_product` on restore.
