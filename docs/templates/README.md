@@ -360,6 +360,19 @@ make up      # Dolt plus its consoles
 make down
 ```
 
+**Choosing what is served.** Every load shape leaves its own stores behind, and the stack can serve
+any one of them: `make up` serves the one-commit loads; `make up SERVE=rowcommit` serves the
+one-commit-per-row loads, whose history is what Dolt Workbench exists to show (`rowinsert`,
+`rowinsert_inline` and `rowcommit_inline` are the other choices). `SERVE_DATABASES="sakila chinook"`
+narrows it, `SERVE_DATABASES=all` serves every database the shape holds, and the same names in
+`.env` as `DOLTSAMPLES_SERVE` and `DOLTSAMPLES_SERVE_DATABASES` make the choice stick. One rule
+applies itself: the Dolt server is held to its memory limit (`DOLT_MEM=8g` raises it, default
+1536m) using the memory study below, taking databases smallest need first, because a per-row-commit
+history can need gigabytes to open -- `make up` names what it left out and why. DoltgreSQL and
+DoltLite have no such study yet and serve whatever the shape holds for them; their per-row-commit
+stores of the larger databases are big files, and the ones DoltLite could not collect are the
+working footprint of the load.
+
 The accounts are the same on both sides and on both servers: `demo` / `demo` reads, `admin` /
 `admin` writes. Each console opens on the read-only one. Every service carries a memory limit, so
 both stacks together fit comfortably on a modest machine. DoltgreSQL serves the one-commit loads
@@ -372,7 +385,7 @@ carries its own DoltLite -- so for the others the shell is the client.
 
 **Dolt Workbench** at <http://127.0.0.1:8095/> is the only one that shows what makes Dolt Dolt —
 branches, commits, and diffs between them. Its saved connections are written before it starts
-(`scripts/workbench_store.py`: both accounts on Dolt and on DoltgreSQL, and one connection per
+(`scripts/stack_config.py`: both accounts on Dolt and on DoltgreSQL, and one connection per
 DoltLite file, which the Workbench opens through its own bundled DoltLite), so pick one from its
 list; it keeps one current connection at a time, set by the last pick. The server URLs name
 `dolt` and `doltgres`, not `127.0.0.1`, and the files sit at `/data/doltlite/`: its API connects

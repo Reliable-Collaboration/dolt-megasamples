@@ -34,9 +34,10 @@ services:
     environment:
       DOLT_ROOT_PASSWORD: ${DOLT_ROOT_PASSWORD:-root}
       DOLT_ROOT_HOST: "%"
-    # compose.override.yaml, written by scripts/dolt_server_config.py on every `make up`, mounts
-    # each repository the loads wrote at /var/lib/dolt/<db>: the timed runner keeps them one level
-    # deeper (data/dolt/<db>/<db>) than the server looks, and Dolt 2.3's config cannot name paths.
+    # compose.override.yaml, written by scripts/stack_config.py on every `make up`, mounts each
+    # repository of the chosen load shape (make up SERVE=rowcommit) at /var/lib/dolt/<db>: the timed
+    # runner keeps them one level deeper than the server looks, and Dolt 2.3's config cannot name
+    # paths. Without the override, the one-commit loads below are served as they are.
     volumes:
       - ./data/dolt:/var/lib/dolt
     # No `command:`. The image's entrypoint already starts `dolt sql-server` with its own --host,
@@ -203,8 +204,8 @@ services:
     environment:
       GRAPHQLAPI_URL: http://127.0.0.1:9002/graphql
     volumes:
-      # the saved connections (both accounts on Dolt and on DoltgreSQL), written by
-      # scripts/workbench_store.py on every `make up`; the Workbench adds to the same file
+      # the saved connections (both accounts on Dolt and on DoltgreSQL, one per served DoltLite
+      # file), written by scripts/stack_config.py on every `make up`; the Workbench adds to the same file
       - ./docker/workbench/store:/app/graphql-server/store
       # the DoltLite files, one saved connection each: the Workbench's bundled DoltLite opens
       # them in its own process (several processes may share a file; one writer at a time)

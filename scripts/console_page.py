@@ -71,8 +71,30 @@ def sizes(r):
             "doltlite": ((pairs.get("lite") or {}).get("doltlite_oneshot") or {}).get("disk_bytes")}
 
 
+SERVE = os.path.join(ROOT, "build", "serve.json")
+
+
+def serving():
+    """What scripts/stack_config.py wrote for this `make up`, or the one-commit default."""
+    if not os.path.exists(SERVE):
+        return {"mode": "oneshot", "label": "one commit per database", "engines": {}}
+    import json
+    return json.load(open(SERVE, encoding="utf-8"))
+
+
+def commits_served(r, mode):
+    """Commits per engine in the served shape, from the measurements."""
+    dolt = ((r.get("modes") or {}).get(mode) or {}).get("commits")
+    pairs = r.get("pairs") or {}
+    pg = ((pairs.get("pg") or {}).get(f"doltgres_{mode}") or {}).get("commits")
+    lite = ((pairs.get("lite") or {}).get(f"doltlite_{mode}") or {}).get("commits")
+    return dolt, pg, lite
+
+
 def main():
     results = load_results()
+    serve = serving()
+    mode = serve["mode"]
     items = [(db, r, sizes(r)) for db, r in sorted(results.items())]
     items = [(db, r, s) for db, r, s in items if any(s.values())]
     if not items:
@@ -100,6 +122,8 @@ def main():
                   for k, v in rows) + '</table></div>' for title, rows in CONNECT)
 
     head = ['<th>database</th><th class="n">rows</th><th class="n">MySQL</th><th class="n">Dolt</th><th class="n">ratio</th><th></th>']
+    if mode != "oneshot":
+        head.append('<th class="n">commits served<br>Dolt / DoltgreSQL / DoltLite</th>')
     if have_pg:
         head.append('<th class="n">PostgreSQL</th><th class="n">DoltgreSQL</th>')
     if have_lite:
@@ -120,12 +144,29 @@ def main():
                f'<td class="n">{fmt(s["mysql"])}</td><td class="n">{fmt(s["dolt"])}</td>'
                f'<td class="n">{f"{ratio:.2f}×" if ratio else "—"}</td>'
                f'<td><div class="bar"><i style="width:{bar:.1f}%"></i></div></td>')
+        if mode != "oneshot":
+            e = serve.get("engines") or {}
+            c = commits_served(r, mode)
+            cells = []
+            for engine, n in zip(("dolt", "doltgres", "doltlite"), c):
+                on = db in ((e.get(engine) or {}).get("databases") or [])
+                cells.append(f"{n:,}" if (on and n) else ("—" if not on else "?"))
+            row += f'<td class="n">{" / ".join(cells)}</td>'
         if have_pg:
             row += f'<td class="n">{fmt(s["postgres"])}</td><td class="n">{fmt(s["doltgres"])}</td>'
         if have_lite:
             row += f'<td class="n">{fmt(s["sqlite"])}</td><td class="n">{fmt(s["doltlite"])}</td>'
         cards.append(row + "</tr>")
 
+    e = serve.get("engines") or {}
+    served_line = ""
+    if mode != "oneshot":
+        counts = ", ".join(f"{name} {len((e.get(k) or {}).get('databases') or [])}"
+                           for k, name in (("dolt", "Dolt"), ("doltgres", "DoltgreSQL"), ("doltlite", "DoltLite")))
+        left = sum(len((e.get(k) or {}).get("left_out") or {}) for k in ("dolt", "doltgres", "doltlite"))
+        served_line = (f' <b>Serving the {html.escape(mode)} loads</b> ({html.escape(serve["label"])}): {counts} databases'
+                       + (f'; {left} left out for memory or because the shape was not loaded for them, see <code>build/serve.json</code>' if left else '')
+                       + '. The commits column says how much history each served database carries; the sizes are still the one-commit loads.')
     more = ""
     if have_pg or have_lite:
         more = (" The same rows were also loaded into PostgreSQL and DoltgreSQL, and into SQLite and DoltLite, "
@@ -158,7 +199,7 @@ def main():
 <h1>dolt-megasamples</h1>
 <p class="lead">The sql-megasamples databases loaded into Dolt — and into DoltgreSQL and DoltLite — with what each costs
 on disk beside the engine it mirrors. The Dolt column is the one-commit load, {do / my:.2f}× MySQL across
-{len(base)} databases.{granularity}{more}</p>
+{len(base)} databases.{granularity}{more}{served_line}</p>
 
 <h2>Consoles, by what they can open</h2>
 <div class="consoles">

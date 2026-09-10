@@ -37,7 +37,9 @@ help:
 	@echo "make summary    the whole experiment as labelled tables: disk, time, memory, progress"
 	@echo "make experiment the row-INSERT and per-row-commit loads, then the report"
 	@echo "make check      fail if the report, the README table or a prose number is stale"
-	@echo "make up         Dolt plus its four consoles (3307, 8090-8094)"
+	@echo "make up         Dolt, DoltgreSQL, the DoltLite files and the consoles (3307, 5433, 8090-8095)"
+	@echo "                SERVE=rowcommit serves the one-commit-per-row loads (default oneshot; also rowinsert,"
+	@echo "                rowinsert_inline, rowcommit_inline); SERVE_DATABASES=\"sakila chinook\" or all; DOLT_MEM=8g"
 	@echo "make down       all of it down again"
 	@echo "make status     what is running"
 	@echo "make clean-data delete the Dolt data directory (written as root inside the container)"
@@ -129,8 +131,7 @@ check:
 
 up:
 	@docker image inspect doltsamples-doltlite:0.50.9 >/dev/null 2>&1 || $(MAKE) --no-print-directory lite-image
-	@$(PY) scripts/dolt_server_config.py
-	@$(PY) scripts/workbench_store.py
+	@DOLTSAMPLES_SERVE="$(SERVE)" DOLTSAMPLES_SERVE_DATABASES="$(SERVE_DATABASES)" DOLTSAMPLES_DOLT_MEM="$(DOLT_MEM)" DOLTSAMPLES_DOLTGRES_MEM="$(DOLTGRES_MEM)" $(PY) scripts/stack_config.py
 	@docker compose up -d
 	@$(PY) scripts/console_page.py
 	@docker compose restart console >/dev/null 2>&1 || true

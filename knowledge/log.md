@@ -2,6 +2,7 @@
 
 ## 2026-09-10
 
+* **Update**: the stack serves a chosen load shape (`make up SERVE=rowcommit` for the per-row-commit history), with the Dolt server held to its memory limit by the memory study; `scripts/stack_config.py` replaces the two generators: [stood-up instances](/decisions/stood-up-instances.md).
 * **Update**: every DoltLite file is a saved Dolt Workbench connection -- the Workbench's bundled DoltLite reads the v0.50.9 files -- checked by `make test-stack`: [stood-up instances](/decisions/stood-up-instances.md), [DoltLite v0.50.9](/tools/doltlite-0-50-9.md).
 * **Update**: the Dolt Workbench's four connections (both accounts, both engines) are saved before it starts and checked by `make test-stack`; how its API selects a connection is recorded in [stood-up instances](/decisions/stood-up-instances.md).
 * **Verification**: the morning fold -- 264 pair units into `build/results.json`, every document and figure regenerated, `make check` clean; the one-commit loads redone with rules G6 and G7 so the served DoltgreSQL databases take updates; one `dolt_gc()` failure on the way, recorded in [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md).

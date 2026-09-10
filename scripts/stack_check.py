@@ -46,15 +46,42 @@ def http(url, seconds=90):
     return None, last
 
 
+def probe_table(db):
+    """The largest table of a served database and its row count, from the export's reference."""
+    import json as _json
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "dumps", "postgres",
+                        f"{db}.reference.json")
+    if not os.path.exists(path):
+        return None, None
+    rows = _json.load(open(path, encoding="utf-8"))["rows"]
+    t, n = max(rows.items(), key=lambda kv: kv[1] or 0)
+    return t.split(".", 1)[1], n
+
+
+def served(engine):
+    """What scripts/stack_config.py said the stack serves for an engine; sakila first when present."""
+    import json as _json
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "serve.json")
+    dbs = []
+    if os.path.exists(path):
+        dbs = _json.load(open(path, encoding="utf-8"))["engines"].get(engine, {}).get("databases") or []
+    return sorted(dbs, key=lambda d: (d != "sakila", d))
+
+
 def main():
     # Dolt over the MySQL protocol, through the mysql client of the sql-megasamples image
+    dolt_db = (served("dolt") or ["sakila"])[0]
+    table, want = probe_table(dolt_db)
     for user, pw, want_write in (("demo", "demo", False), ("admin", "admin", True)):
         p = run("docker", "run", "--rm", "--network", NETWORK, "--label", "doltsamples.transient=true", MYSQL_IMAGE,
-                "mysql", "-hdolt", f"-u{user}", f"-p{pw}", "-N", "-e", "SELECT COUNT(*) FROM sakila.film")
-        check(f"Dolt as {user}: sakila.film", p.stdout.strip() == "1000", p.stdout.strip() or p.stderr.strip()[-100:])
+                "mysql", "-hdolt", f"-u{user}", f"-p{pw}", "-N", "-e", f"SELECT COUNT(*) FROM {dolt_db}.{table}")
+        check(f"Dolt as {user}: {dolt_db}.{table}", p.stdout.strip() == str(want), p.stdout.strip() or p.stderr.strip()[-100:])
+        # a table created and dropped again (DDL is not transactional on either engine, so a
+        # rollback would not undo it); any leftover from an interrupted run is dropped first
         p = run("docker", "run", "--rm", "--network", NETWORK, "--label", "doltsamples.transient=true", MYSQL_IMAGE,
                 "mysql", "-hdolt", f"-u{user}", f"-p{pw}", "-N", "-e",
-                "START TRANSACTION; INSERT INTO sakila.language(name) VALUES ('probe'); ROLLBACK")
+                f"USE {dolt_db}; DROP TABLE IF EXISTS probe_stack_check; CREATE TABLE probe_stack_check (id int); "
+                f"DROP TABLE probe_stack_check")
         check(f"Dolt as {user}: {'may' if want_write else 'may not'} write", (p.returncode == 0) == want_write,
               (p.stderr.strip().splitlines() or ["ok"])[-1][-100:])
     # DoltgreSQL
@@ -62,12 +89,15 @@ def main():
                  "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY 1")
     dbs = out.splitlines() if rc == 0 else []
     check("DoltgreSQL answers as postgres", rc == 0, f"{len(dbs)} databases" if rc == 0 else out)
+    pg_db = (served("doltgres") or ["sakila"])[0]
+    pg_table, pg_want = probe_table(pg_db)
     for user, pw, want_write in (("demo", "demo", False), ("admin", "admin", True)):
-        rc, out = pg(user, pw, "sakila", "SELECT COUNT(*) FROM film")
-        check(f"DoltgreSQL as {user}: sakila.film", out == "1000", out)
-        rc, out = pg(user, pw, "sakila", "SELECT COUNT(*) FROM dolt_log")
+        rc, out = pg(user, pw, pg_db, f'SELECT COUNT(*) FROM "{pg_table}"')
+        check(f"DoltgreSQL as {user}: {pg_db}.{pg_table}", out == str(pg_want), out)
+        rc, out = pg(user, pw, pg_db, "SELECT COUNT(*) FROM dolt_log")
         check(f"DoltgreSQL as {user}: dolt_log", rc == 0 and out.isdigit(), out)
-        rc, out = pg(user, pw, "sakila", "BEGIN; INSERT INTO language(name) VALUES ('probe'); ROLLBACK")
+        rc, out = pg(user, pw, pg_db, "DROP TABLE IF EXISTS probe_stack_check; CREATE TABLE probe_stack_check (id int); "
+                                      "DROP TABLE probe_stack_check")
         check(f"DoltgreSQL as {user}: {'may' if want_write else 'may not'} write", (rc == 0) == want_write, out[-100:])
     short = []
     for db in dbs:
@@ -117,15 +147,20 @@ def main():
     lite_files = sorted(f[:-len(".doltlite")] for f in files)
     check(f"Workbench: a saved connection for each of {len(lite_files)} DoltLite files", lite_saved == lite_files,
           f"{len(lite_saved)} saved" + ("" if lite_saved == lite_files else f"; missing {sorted(set(lite_files) - set(lite_saved))[:5]}"))
-    probes = [("DoltgreSQL (read-only)", "postgresql://demo:demo@doltgres:5432/sakila", "Postgres"),
-              ("dolt-megasamples (read-only)", "mysql://demo:demo@dolt:3306/sakila", "Mysql")]
-    if "sakila" in lite_files:
-        probes.insert(0, ("DoltLite sakila", "file:///data/doltlite/sakila.doltlite", "Sqlite"))
-    for name, url, kind in probes:
+    # connect with the saved connections as saved: the Workbench refuses a known name with a
+    # different URL, and the saved URL names whichever database the stack serves first
+    saved_url = {c["name"]: c["connectionUrl"] for c in gql("{ storedConnections { name connectionUrl } }")
+                 .get("data", {}).get("storedConnections") or []}
+    probes = [("DoltgreSQL (read-only)", "Postgres"), ("dolt-megasamples (read-only)", "Mysql")]
+    if lite_files:
+        lite_db = sorted(lite_files, key=lambda d: (d != "sakila", d))[0]
+        probes.insert(0, (f"DoltLite {lite_db}", "Sqlite"))
+    for name, kind in probes:
+        url = saved_url.get(name, "")
         r = gql(f'mutation {{ addDatabaseConnection(name: "{name}", connectionUrl: "{url}", type: {kind}, '
                 f'hideDoltFeatures: false, useSSL: false) {{ currentDatabase }} }}')
         db = ((r.get("data") or {}).get("addDatabaseConnection") or {}).get("currentDatabase")
-        check(f"Workbench connects with {name}", db == "sakila", db or str(r.get("errors", [{}])[0].get("message", ""))[:100])
+        check(f"Workbench connects with {name}", bool(db), db or str(r.get("errors", [{}])[0].get("message", ""))[:100])
     failed = [n for n, ok, _ in results if not ok]
     print(f"\n{len(results) - len(failed)} of {len(results)} checks passed" + (": " + ", ".join(failed) if failed else ""))
     return 1 if failed else 0
