@@ -2,6 +2,7 @@
 
 ## 2026-09-10
 
+* **Verification**: the stack with the two fixes in passed every check of `scripts/stack_check.py` (22 of 22): [stood-up instances](/decisions/stood-up-instances.md).
 * **Update**: the preflight of the six databases outside the quick subset found one more DoltgreSQL refusal, named NOT NULL column constraints (adventureworks, 3 tables); rule G5 added and proved on a throwaway server, [the dialect rules](/decisions/pair-dialect-rules.md) carry the six rows and [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) the limit, with `convert_from` beside it.
 * **Verification**: the stack with DoltgreSQL and DoltLite beside Dolt stood up and was checked (`scripts/stack_check.py`); two faults found and fixed -- Adminer's 403 on a login link naming a user, and the Dolt service seeing no database because of the repository layout -- recorded with the accounts' EXECUTE grant in [stood-up instances](/decisions/stood-up-instances.md), now accepted, and in [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md).
 * **Creation**: [DoltLite's VACUUM memory](/questions/doltlite-vacuum-memory.md) -- a 5 GB per-row-commit file with inline indexes could not be collected; the unit is recorded as failed and [DoltLite v0.50.9](/tools/doltlite-0-50-9.md) carries the limit.
