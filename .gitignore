@@ -14,3 +14,8 @@ build/img-preview/
 # the schema preflight scratch area, written as root by the Dolt container
 build/preflight/
 build/trace/
+# the DoltLite packages scripts/lite_image.py downloads and checks, and the night-run drivers and their logs
+build/doltlite/
+build/run-*
+build/stack-*.log
+build/preflight-*.log
