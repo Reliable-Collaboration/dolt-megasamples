@@ -34,7 +34,8 @@ shell's own processes, not a server, and serves everything present.
 import argparse, json, os, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT  # noqa: E402
+from common import ROOT, run  # noqa: E402
+import stack_settings  # noqa: E402
 
 MODES = ["oneshot", "rowinsert", "rowcommit", "rowinsert_inline", "rowcommit_inline"]
 DATA = os.path.join(ROOT, "data")
@@ -90,8 +91,10 @@ def present(engine, mode):
             elif os.path.isdir(flat):
                 found[name] = os.path.join(d, name)
         elif engine == "doltgres":
-            if os.path.isdir(os.path.join(d, name, ".dolt")) and name != "postgres":
-                found[name] = os.path.join(d, name)
+            if os.path.isdir(os.path.join(d, name, name, ".dolt")):        # one server root per unit
+                found[name] = os.path.join(d, name, name)
+            elif name != "postgres" and os.path.isdir(os.path.join(d, name, ".dolt")):
+                found[name] = os.path.join(d, name)                        # the first runner's shared root
         elif engine == "doltlite" and name.endswith(".doltlite"):
             found[name[:-len(".doltlite")]] = os.path.join(d, name)
     return found
@@ -141,13 +144,64 @@ def rel(path):
     return "./" + os.path.relpath(path, ROOT)
 
 
+def ensure_doltgres_catalog(password):
+    """DoltgreSQL's own `postgres` database, in the served root itself.
+
+    The image creates it only when it starts over an empty data directory, and the served root is
+    not empty once databases are mounted into it; without a catalog the health check, the account
+    step and psql's default database have nothing to connect to. The first version mounted one
+    borrowed from a measured store, which `make clean-pairs` could take away and which tied the stack
+    to the timed run's layout. The served root is initialised on its own instead, once: the image
+    started over it with nothing mounted, stopped as soon as it answers."""
+    base = os.path.join(DATA, "doltgres-serve")
+    if os.path.isdir(os.path.join(base, "postgres", ".dolt")):
+        return "present"
+    from pairs import DOLTGRES_IMAGE, LITE_IMAGE
+    name = "doltsamples-doltgres-catalog"
+    run("docker", "stop", "-t", "30", "doltsamples-doltgres")
+    run("docker", "rm", "-f", name)
+    run("docker", "run", "--rm", "-v", f"{base}:/d", "--entrypoint", "sh", LITE_IMAGE, "-c",
+        "rm -rf /d/* /d/.[!.]* 2>/dev/null || true")
+    p = run("docker", "run", "-d", "--name", name, "--label", "doltsamples.transient=true", "--memory", "1g",
+            "-e", f"DOLTGRES_PASSWORD={password}", "-v", f"{base}:/var/lib/doltgres", DOLTGRES_IMAGE)
+    if p.returncode != 0:
+        return f"could not be initialised: {p.stderr.strip()[:120]}"
+    ok = 0
+    for _ in range(180):
+        q = run("docker", "exec", "-e", f"PGPASSWORD={password}", name, "psql", "-X", "-h", "127.0.0.1",
+                "-U", "postgres", "-d", "postgres", "-tAc", "SELECT 1")
+        ok = ok + 1 if q.returncode == 0 else 0
+        if ok == 2:
+            break
+        time.sleep(1)
+    run("docker", "stop", "-t", "30", name)
+    run("docker", "rm", "-f", name)
+    return "created" if os.path.isdir(os.path.join(base, "postgres", ".dolt")) else "missing (initialisation did not create it)"
+
+
+def print_urls():
+    s = stack_settings.load()
+    P, C = s["ports"], s["containers"]
+    mode = "oneshot"
+    if os.path.exists(SERVE):
+        mode = json.load(open(SERVE, encoding="utf-8")).get("mode", mode)
+    print(f"console at http://127.0.0.1:{P['console']}/  (phpMyAdmin {P['phpmyadmin']}, Adminer {P['adminer']}, "
+          f"DbGate {P['dbgate']}, CloudBeaver {P['cloudbeaver']}, Workbench {P['workbench']})")
+    print(f"serving the {mode} loads: Dolt on 127.0.0.1:{P['dolt']}, DoltgreSQL on 127.0.0.1:{P['doltgres']}, "
+          f"DoltLite files in {C['doltlite']} -- sql-megasamples keeps 3306, 5432 and 8080-8084")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--serve", choices=MODES)
     ap.add_argument("--databases", help='space-separated names, or "all"')
     ap.add_argument("--dolt-mem")
     ap.add_argument("--doltgres-mem")
+    ap.add_argument("--urls", action="store_true", help="print where the last `make up` put everything, and stop")
     a = ap.parse_args()
+    if a.urls:
+        print_urls()
+        return 0
     env = dotenv()
     mode = setting("DOLTSAMPLES_SERVE", a.serve, env, "oneshot")
     if mode not in MODES:
@@ -168,6 +222,9 @@ def main():
     # neutral bases, created as this user before Docker can create them as root
     for base in ("dolt-serve", "doltgres-serve", "doltlite-serve"):
         os.makedirs(os.path.join(DATA, base), exist_ok=True)
+    settings = stack_settings.resolve()
+    serve["stack"] = settings
+    catalog = ensure_doltgres_catalog(settings["passwords"]["doltgres"])
     e = serve["engines"]
     lines = ["# Generated by scripts/stack_config.py on every `make up` -- do not edit.",
              f"# Serving the {mode} loads ({LABEL[mode]}); compose merges this into compose.yaml.",
@@ -176,14 +233,6 @@ def main():
     lines += [f"      - {p}:/var/lib/dolt/{db}" for db, p in sorted(e["dolt"]["paths"].items())]
     lines += ["  doltgres:", f"    mem_limit: {mem['doltgres']}", "    volumes:", "      - ./data/doltgres-serve:/var/lib/doltgres"]
     lines += [f"      - {p}:/var/lib/doltgres/{db}" for db, p in sorted(e["doltgres"]["paths"].items())]
-    # DoltgreSQL's own `postgres` database, which its entrypoint creates only into an empty data
-    # directory and which the health check, the account step and psql's default connect to: served
-    # from whichever mode directory has one (the one-commit loads made it first)
-    for m in [mode] + MODES:
-        pg_own = os.path.join(mode_dir("doltgres", m), "postgres")
-        if os.path.isdir(os.path.join(pg_own, ".dolt")):
-            lines.append(f"      - {rel(pg_own)}:/var/lib/doltgres/postgres")
-            break
     lines += ["  doltlite:", "    volumes:", "      - ./data/doltlite-serve:/data"]
     lines += [f"      - {p}:/data/{db}.doltlite" for db, p in sorted(e["doltlite"]["paths"].items())]
     lines += ["  workbench:", "    volumes:", "      - ./docker/workbench/store:/app/graphql-server/store",
@@ -192,8 +241,7 @@ def main():
     with open(OVERRIDE, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
 
-    demo, admin = env.get("DEMO_PASSWORD") or os.environ.get("DEMO_PASSWORD", "demo"), \
-        env.get("ADMIN_PASSWORD") or os.environ.get("ADMIN_PASSWORD", "admin")
+    demo, admin = settings["passwords"]["demo"], settings["passwords"]["admin"]
     first = (e["dolt"]["databases"] or ["sakila"])[0]
     first_pg = (e["doltgres"]["databases"] or ["sakila"])[0]
     store = [
@@ -215,7 +263,8 @@ def main():
 
     print(f"  . serving the {mode} loads ({LABEL[mode]}): Dolt {len(e['dolt']['databases'])}, "
           f"DoltgreSQL {len(e['doltgres']['databases'])}, DoltLite {len(e['doltlite']['databases'])} database(s); "
-          f"{len(store)} Workbench connections; {os.path.relpath(OVERRIDE, ROOT)} and {os.path.relpath(SERVE, ROOT)} written")
+          f"{len(store)} Workbench connections; DoltgreSQL catalog {catalog}; {os.path.relpath(OVERRIDE, ROOT)} and "
+          f"{os.path.relpath(SERVE, ROOT)} written")
     for engine, v in e.items():
         for db, why in sorted(v["left_out"].items()):
             print(f"  ! {engine}: {db} not served: {why}")

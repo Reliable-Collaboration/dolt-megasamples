@@ -202,6 +202,22 @@ def pairs_are_consistent(a, results):
                         ", ".join(u.get("indexes_extra") or [])[:80])
 
 
+def pair_settles_reported(a, results):
+    """A pair unit whose settle step failed is reported unsettled, whichever runner recorded it."""
+    if not os.path.exists(PROGRESS):
+        return
+    from collect_pairs import settle_failed
+    p = json.load(open(PROGRESS, encoding="utf-8"))
+    for key, u in sorted((p.get("units") or {}).items()):
+        if not u.get("pair") or u.get("status") != "done" or not settle_failed(u):
+            continue
+        parts = key.split("/")
+        name = parts[0] + ("_inline" if parts[2:] == ["inline"] else "")
+        got = ((((results.get(parts[1]) or {}).get("pairs") or {}).get(u["pair"]) or {}).get(name)) or {}
+        a.check(got.get("settled") is False and not got.get("disk_bytes"),
+                f"{parts[1]} {name}: its failed settle step is reported as unsettled", f"settled={got.get('settled')}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--strict", action="store_true",
@@ -222,6 +238,7 @@ def main():
         sizes_are_positive(a, results)
         dolt_matches_mysql(a, results)
         pairs_are_consistent(a, results)
+        pair_settles_reported(a, results)
     else:
         a.skip("size and parity invariants", "no build/results.json")
     transform_preserved_the_rows(a)

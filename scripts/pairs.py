@@ -456,6 +456,51 @@ def _lite_script(binary, inside_path, lines, container, script_host, script_insi
 
 
 # -------------------------------------------------------------------------------- parity ---
+IDX = re.compile(r"^create (unique )?index ([^\s(]+) on (?:only )?([^\s(]+) ?(?:using (\w+) ?)?\((.*)$")
+
+
+def canonical_index(entry):
+    """One PostgreSQL-pair index as both engines should agree on it.
+
+    pg_indexes.indexdef is printed text, and the two engines print the same index differently:
+    PostgreSQL quotes an identifier that is a keyword (`"position"`), DoltgreSQL does not. Comparing
+    the text made every such difference a missing index plus an extra one. The definition is read
+    back into its parts instead -- unique or not, the table, the method (btree when an engine leaves
+    it out), the key list and whatever follows it -- with identifier quotes removed, whitespace
+    collapsed and everything outside string literals case-folded. The name stays in the second field,
+    where the refusal matching looks for it. SQLite-pair entries, already built from PRAGMA
+    index_list and index_info, pass through unchanged."""
+    parts = entry.split("|", 2)
+    if len(parts) != 3 or not parts[2].lstrip().upper().startswith("CREATE"):
+        return entry
+    table, name, ddl = parts
+    out, i, n = [], 0, len(ddl)
+    while i < n:
+        c = ddl[i]
+        if c == "'":
+            j = i + 1
+            while j < n:
+                if ddl[j] == "'":
+                    if j + 1 < n and ddl[j + 1] == "'":
+                        j += 2
+                        continue
+                    break
+                j += 1
+            out.append(ddl[i:j + 1])
+            i = j + 1
+            continue
+        if c != '"':
+            out.append(c.lower())
+        i += 1
+    text = re.sub(r"\s*([(),])\s*", r"\1", " ".join("".join(out).split()))
+    table = table.replace('"', "").lower()
+    m = IDX.match(text)
+    if not m:
+        return f"{table}|{name}|{text}"
+    unique, _, on, method, rest = m.groups()
+    return f"{table}|{name}|unique={bool(unique)}|on={on}|using={method or 'btree'}|({rest}"
+
+
 def compare(ref, got, dropped=()):
     """What is short: a row-count message or None, and the index report."""
     short = None
@@ -465,10 +510,8 @@ def compare(ref, got, dropped=()):
             short = f"{t} has {g if g is not None else 'no'} rows, expected {want:,}"
             break
     dropped = set(dropped)
-    # PostgreSQL quotes an identifier that is a keyword in indexdef (`"position"`) and DoltgreSQL
-    # does not; the quotes say nothing about the index, so both sides are compared without them
-    want_idx = {i.replace('"', "") for i in ref["indexes"] if i.split("|")[1] not in dropped}
-    got_idx = {i.replace('"', "") for i in got["indexes"]}
+    want_idx = {canonical_index(i) for i in ref["indexes"] if i.split("|")[1] not in dropped}
+    got_idx = {canonical_index(i) for i in got["indexes"]}
     report = {"missing": sorted(want_idx - got_idx), "extra": sorted(got_idx - want_idx),
               "dropped_by_dialect": sorted(dropped), "checked": len(want_idx)}
     extra_tables = sorted(set(got["rows"]) - set(ref["rows"]))
@@ -570,13 +613,25 @@ def finish(outcome, errors, ref, got, dropped):
 
 
 # ------------------------------------------------------------------------------ DoltgreSQL ---
-def doltgres_up(mode):
-    d = ensure_dir(data_dir("doltgres", mode))
-    if state(DOLTGRES_RUNNER) == "running" and mounts(DOLTGRES_RUNNER).get(DOLTGRES_DATA) == d:
-        return
+def doltgres_root(mode, db):
+    """One unit's own data directory: the server's `postgres` catalog and this one database."""
+    return os.path.join(data_dir("doltgres", mode), db)
+
+
+def doltgres_up(mode, db):
+    """A fresh server over an empty root for one unit, so what a load costs is that database's alone.
+
+    The first version kept one server per shape and loaded every database of the shape into it, the
+    way one MySQL server holds many schemas. A Dolt server holds every database under its data
+    directory, so each unit's memory peak carried every store loaded before it: in run order, a
+    255-row database peaked at 976 MiB after eleven others had been loaded (2026-09-10 review). That
+    is the contamination run_all.py avoided for Dolt with one data directory per database. Starting a
+    server costs a few seconds, outside the timed window; the store lands at `<root>/<db>`."""
+    root = ensure_dir(doltgres_root(mode, db))
     run("docker", "rm", "-f", DOLTGRES_RUNNER)
+    wipe(root)
     p = run("docker", "run", "-d", "--name", DOLTGRES_RUNNER, *mem(MEM_WORKER), "-e", f"DOLTGRES_PASSWORD={PW}",
-            "-v", f"{d}:{DOLTGRES_DATA}", "-v", f"{DUMPS}:/dumps:ro", DOLTGRES_IMAGE)
+            "-v", f"{root}:{DOLTGRES_DATA}", "-v", f"{DUMPS}:/dumps:ro", DOLTGRES_IMAGE)
     if p.returncode != 0:
         raise RuntimeError(f"could not start {DOLTGRES_RUNNER}: {p.stderr.strip()[:200]}")
     wait_pg(DOLTGRES_RUNNER)
@@ -593,32 +648,35 @@ def load_doltgres(db, phase, indexes="deferred"):
     inside, notes, dropped, mode = prepare("pg", db, phase, indexes)
     text = open(os.path.join(PREPARED, "pg", mode, f"{db}.sql"), encoding="utf-8").read()
     stop_others(DOLTGRES_RUNNER)
-    doltgres_up(mode)
-    psql(DOLTGRES_RUNNER, "postgres", f'DROP DATABASE IF EXISTS {q(db)}')
-    if run("docker", "exec", DOLTGRES_RUNNER, "test", "-d", f"{DOLTGRES_DATA}/{db}").returncode == 0:
-        run("docker", "exec", DOLTGRES_RUNNER, "rm", "-rf", f"{DOLTGRES_DATA}/{db}")
-    psql_value(DOLTGRES_RUNNER, "postgres", f'CREATE DATABASE {q(db)}')
-    sampler = sampler_start(DOLTGRES_RUNNER)
-    started = time.time()
-    p = psql_file(DOLTGRES_RUNNER, db, inside)
-    load_s = time.time() - started
-    anon, total = sampler.stop()
-    errors = psql_errors(p, text)
-    before, _ = doltgres_bytes(db)
-    started = time.time()
-    c1 = psql(DOLTGRES_RUNNER, db, "SELECT dolt_commit('-A', '--allow-empty', '-m', 'import from sql-megasamples')")
-    c2 = psql(DOLTGRES_RUNNER, db, "SELECT dolt_gc()")
-    settle_s = time.time() - started
-    for c, what in ((c1, "dolt_commit"), (c2, "dolt_gc")):
-        if c.returncode != 0:
-            errors.append({"line": 0, "message": f"{what}: {(c.stderr or '').strip()[:200]}", "object": "settle"})
-    size, stats = doltgres_bytes(db)
-    commits = psql(DOLTGRES_RUNNER, db, "SELECT COUNT(*) FROM dolt_log").stdout.strip()
+    doltgres_up(mode, db)
+    try:
+        psql_value(DOLTGRES_RUNNER, "postgres", f'CREATE DATABASE {q(db)}')
+        sampler = sampler_start(DOLTGRES_RUNNER)
+        started = time.time()
+        p = psql_file(DOLTGRES_RUNNER, db, inside)
+        load_s = time.time() - started
+        anon, total = sampler.stop()
+        errors = psql_errors(p, text)
+        before, _ = doltgres_bytes(db)
+        started = time.time()
+        c1 = psql(DOLTGRES_RUNNER, db, "SELECT dolt_commit('-A', '--allow-empty', '-m', 'import from sql-megasamples')")
+        c2 = psql(DOLTGRES_RUNNER, db, "SELECT dolt_gc()")
+        settle_s = time.time() - started
+        for c, what in ((c1, "dolt_commit"), (c2, "dolt_gc")):
+            if c.returncode != 0:
+                errors.append({"line": 0, "message": f"{what}: {(c.stderr or '').strip()[:200]}", "object": "settle"})
+        size, stats = doltgres_bytes(db)
+        commits = psql(DOLTGRES_RUNNER, db, "SELECT COUNT(*) FROM dolt_log").stdout.strip()
+        catalog = pg_catalog(DOLTGRES_RUNNER, db)
+    finally:
+        # the server goes with the unit; its root stays, holding the store the stack can serve
+        run("docker", "rm", "-f", DOLTGRES_RUNNER)
     outcome = {"exit_code": p.returncode, "seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
                "bytes": size, "bytes_before_settle": before, "stats_bytes": stats,
                "commits": int(commits) if commits.isdigit() else None,
-               "memory_anon_peak_bytes": anon, "memory_total_peak_bytes": total, "notes": notes}
-    return finish(outcome, errors, reference("pg", db), pg_catalog(DOLTGRES_RUNNER, db), dropped)
+               "memory_anon_peak_bytes": anon, "memory_total_peak_bytes": total, "notes": notes,
+               "isolation": "one server per unit"}
+    return finish(outcome, errors, reference("pg", db), catalog, dropped)
 
 
 # ------------------------------------------------------------------ SQLite and DoltLite ---

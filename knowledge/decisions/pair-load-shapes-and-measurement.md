@@ -11,11 +11,11 @@ tags:
 status: stable
 trust: verified
 generated:
-  by: claude-code/claude-fable-5-1
-  at: "2026-09-10T03:45:00Z"
+  by: claude-code/claude-opus-5
+  at: "2026-09-10T18:20:00Z"
 verified:
-- by: claude-code/claude-fable-5-1
-  at: "2026-09-10T03:45:00Z"
+- by: claude-code/claude-opus-5
+  at: "2026-09-10T18:20:00Z"
 sources:
 - resource: /tools/doltgresql-1-3-1.md
   title: DoltgreSQL 1.3.1
@@ -65,8 +65,8 @@ The baseline of a per-row shape loads the same file its versioned counterpart lo
 
 * **Wall clock** around one command in a container that is already up: `psql -q -o /dev/null -v ON_ERROR_STOP=0 -f` inside the server's container; `sqlite3 file ".read ..."` and `doltlite file ".read ..."` inside one worker container. `settle_seconds` is timed separately: `CHECKPOINT` for PostgreSQL; `dolt_commit` then `dolt_gc()` for DoltgreSQL; nothing for SQLite (the file is complete when the shell exits); `dolt_commit` then `VACUUM` for DoltLite.
 * **Disk** after the settle step: PostgreSQL's data directory without `pg_wal`, minus the empty-server baseline (`pg_database_size` recorded beside it); DoltgreSQL's `<datadir>/<db>` minus `.dolt/stats`; the SQLite file with any `-journal`/`-wal` sidecar; the DoltLite file. For the two Dolt engines the size before the settle step is recorded too (`bytes_before_settle`), because it is the working footprint a load needs and it is up to 37× the settled size (DoltLite, sakila autocommitted).
-* **Memory** from the host's cgroup files every two seconds: peak `anon` and peak total for every unit of every engine (the first pair traced only Dolt).
-* **Parity before size**: every table's row count and the index set (`pg_indexes.indexdef`; `PRAGMA index_list`/`index_info`) against the reference recorded at export, minus what the dialect dropped. A missing index the engine refused out loud is recorded as a schema object not taken; a missing index with no refusal to explain it fails the unit. FTS5 shadow tables are left out of the reference, since the index is rebuilt.
+* **Memory** from the host's cgroup files every two seconds: peak `anon` and peak total for every unit of every engine (the first pair traced only Dolt). Each DoltgreSQL load runs in a server started for it alone over its own root, `data/doltgres-<shape>/<db>/`, holding the server's `postgres` catalog and that one database: the first run's one server per shape carried every store loaded before into each peak, and every DoltgreSQL unit was measured again ([review dispositions](/decisions/review-2026-09-10-pairs-dispositions.md)). PostgreSQL already ran in a fresh server per load; SQLite and DoltLite run a shell per load, whose anonymous memory ends with it.
+* **Parity before size**: every table's row count and the index set (`pg_indexes.indexdef` read back into its parts -- uniqueness, table, method, key list -- so a printing difference such as PostgreSQL quoting a keyword column is not a missing index; `PRAGMA index_list`/`index_info`) against the reference recorded at export, minus what the dialect dropped. A missing index the engine refused out loud is recorded as a schema object not taken; a missing index with no refusal to explain it fails the unit. FTS5 shadow tables are left out of the reference, since the index is rebuilt.
 * **One worker at a time**, memory-capped (`DOLTSAMPLES_MEM_WORKER`, 16 GiB on the 19.5 GiB host); every other stack stopped; cheapest-first within a phase; resumable; a disk floor; `--max-rows` to run the small databases across every shape before the long loads start.
 
 **Stated limitations of the pairs:** the client versions (psql 18.6 versus 17.11) and the SQLite versions (3.46.1 versus the fork's 3.54.0 base) differ between the two sides; the SQLite baseline gets no `VACUUM`; the PostgreSQL pair's data is loaded without foreign keys in force in both policies.

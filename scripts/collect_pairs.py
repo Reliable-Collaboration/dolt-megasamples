@@ -17,6 +17,18 @@ from pairs import ENGINE, PHASES, reference  # noqa: E402
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
 
 
+def settle_failed(u):
+    """Whether a unit's garbage collection failed, judged from the errors every unit records.
+
+    The `settled` flag is newer than some of the units, and one of those (DoltLite, dvdstore, per-row
+    commits with the indexes inline) carries the very out-of-memory error the flag was made for, so
+    the flag alone let its uncollected footprint through as a size."""
+    if u.get("settled") is False:
+        return True
+    return any(e.get("object") == "settle" or str(e.get("message", "")).startswith("settle:")
+               for e in u.get("errors") or [])
+
+
 def refusals(u):
     """The schema objects the engine would not take, one line each, deduplicated by object."""
     seen, out = set(), []
@@ -34,7 +46,12 @@ def main():
         sys.exit("no build/progress.json; `make run-pg` or `make run-lite` produces it")
     p = json.load(open(PROGRESS, encoding="utf-8"))
     r = load_results()
-    counted = 0
+    # the pair entries are a function of the recorded units, rebuilt on every fold, so a unit that was
+    # superseded or cleaned cannot leave its old numbers in the documents
+    for entry in r.values():
+        if isinstance(entry, dict):
+            entry.pop("pairs", None)
+    counted = shared = 0
     for key, u in p["units"].items():
         pair = u.get("pair")
         if not pair or u.get("status") != "done":
@@ -42,6 +59,11 @@ def main():
         parts = key.split("/")
         phase, db = parts[0], parts[1]
         suffix = "_inline" if parts[2:] == ["inline"] else ""
+        # the method requires a DoltgreSQL load in a server of its own; a unit measured on the first
+        # runner's shared server is not reported, and the chain measures it again
+        if ENGINE[phase] == "doltgres" and u.get("isolation") != "one server per unit":
+            shared += 1
+            continue
         entry = r.setdefault(db, {}).setdefault("pairs", {})
         entry.setdefault("source_rows", {})[pair] = u.get("source_rows")
         # the rows a per-row load writes: a virtual table's rows are its content table's, counted
@@ -54,10 +76,14 @@ def main():
                 v or 0 for t, v in ref["rows"].items() if t not in virtual)
         except RuntimeError:
             pass
+        settled = not settle_failed(u)
         m = entry.setdefault(pair, {})
         m[phase + suffix] = {
             "engine": ENGINE[phase],
-            "disk_bytes": u.get("bytes"),
+            # a store that could not be collected has a footprint, not a settled size: every consumer
+            # of disk_bytes -- tables, totals, figures, facts, the audit -- then leaves it out alike
+            "disk_bytes": u.get("bytes") if settled else None,
+            "footprint_bytes": None if settled else u.get("bytes"),
             "bytes_before_settle": u.get("bytes_before_settle"),
             "database_bytes": u.get("database_bytes"),
             "empty_database_bytes": u.get("empty_database_bytes"),
@@ -65,7 +91,7 @@ def main():
             "settle_seconds": u.get("settle_seconds"),
             "total_seconds": round((u.get("seconds") or 0) + (u.get("settle_seconds") or 0), 1),
             "commits": u.get("commits"),
-            "settled": u.get("settled", True),
+            "settled": settled,
             "memory_anon_peak_bytes": u.get("memory_anon_peak_bytes"),
             "memory_total_peak_bytes": u.get("memory_total_peak_bytes"),
             "error_count": u.get("error_count", 0),
@@ -81,6 +107,8 @@ def main():
         counted += 1
     save_results(r)
     print(f"  . folded {counted} completed pair units into build/results.json")
+    if shared:
+        print(f"  . left out {shared} DoltgreSQL unit(s) measured on a shared server; they are measured again")
     for pair in PHASES:
         base = PHASES[pair][0]
         dbs = sorted(d for d in r if (r[d].get("pairs", {}).get(pair) or {}).get(base, {}).get("disk_bytes"))

@@ -136,9 +136,7 @@ up:
 	@DOLTSAMPLES_SERVE="$(SERVE)" DOLTSAMPLES_SERVE_DATABASES="$(SERVE_DATABASES)" DOLTSAMPLES_DOLT_MEM="$(DOLT_MEM)" DOLTSAMPLES_DOLTGRES_MEM="$(DOLTGRES_MEM)" $(PY) scripts/stack_config.py
 	@docker compose up -d
 	@$(PY) scripts/console_page.py
-	@docker compose restart console >/dev/null 2>&1 || true
-	@echo "console at http://127.0.0.1:8090/  (phpMyAdmin 8091, Adminer 8092, DbGate 8093, CloudBeaver 8094, Workbench 8095)"
-	@echo "Dolt on 127.0.0.1:3307, DoltgreSQL on 127.0.0.1:5433, DoltLite files in doltsamples-doltlite — sql-megasamples keeps 3306, 5432 and 8080-8084"
+	@$(PY) scripts/stack_config.py --urls
 
 down:
 	@docker compose down
@@ -160,14 +158,10 @@ clean-data:
 	@rm -rf data build/dumps/dolt build/results.json build/progress.json
 	@echo "removed every data/dolt* directory, the transformed dumps, the measurements and the run state"
 
-# The two further pairs' stores and prepared dumps: written as root by the worker containers, so
-# removed through one. The exports (build/dumps/postgres, build/dumps/sqlite), the measurements and
-# the run state are kept; `make clean-data` is the one that removes everything.
+# The two further pairs' stores, prepared dumps and recorded units (scripts/clean_pairs.py says why
+# the records go too); the exports and the MySQL/Dolt measurements are kept.
 clean-pairs:
-	@docker run --rm -v "$(PWD)/data:/data" -v "$(PWD)/build/dumps:/dumps" --entrypoint sh \
-	  doltsamples-doltlite:0.50.9 \
-	  -c 'rm -rf /data/postgres-timing /data/doltgres-* /data/sqlite-* /data/doltlite-* /dumps/pairs' 2>/dev/null || true
-	@echo "removed the PostgreSQL, DoltgreSQL, SQLite and DoltLite stores of every shape and the prepared dumps"
+	@$(PY) scripts/clean_pairs.py
 
 clean: clean-data
 

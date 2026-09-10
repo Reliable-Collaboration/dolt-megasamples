@@ -193,9 +193,9 @@ Where the pairs depart from the MySQL/Dolt tests, and why:
 
 ### Memory
 
-Peak anonymous memory of the worker's cgroup during each load, sampled every two seconds. For the
-two servers it is the server process; for SQLite and DoltLite it is the shell, since both engines
-run in-process.
+Peak anonymous memory of the worker's cgroup during each load, sampled every two seconds. For
+PostgreSQL and DoltgreSQL it is a server started for that one load and holding only that database;
+for SQLite and DoltLite it is the shell, since both engines run in-process.
 
 {{block:pg_pair_memory}}
 
@@ -411,6 +411,9 @@ from inside the compose network.
 | `scripts/lite_image.py`, `docker/doltlite/` | the DoltLite image, built from the release's checksummed packages |
 | `scripts/collect_pairs.py`, `scripts/report_pairs.py` | the pairs' units into `results.json`, and their tables |
 | `scripts/stack_check.py` | `make test-stack`: both accounts on both servers, every DoltLite file, every console |
+| `scripts/stack_config.py`, `scripts/stack_settings.py` | `make up`: which load shape is served, the mounts, the Workbench's connections, DoltgreSQL's served catalog, and the resolved ports and passwords in `build/serve.json` |
+| `scripts/memory_profile_pairs.py`, `scripts/clean_pairs.py` | `make memory-pairs`: what DoltgreSQL and DoltLite need to open each store; `make clean-pairs`: the pairs' stores with their records |
+| `docs/upstream/` | issue drafts for DoltgreSQL and DoltLite, not filed |
 | `knowledge/` | the research trail: what DoltgreSQL and DoltLite are, where each fact came from, the decisions (`make okf-check`) |
 | `build/*.json` | every measurement — the evidence behind every number above |
 

@@ -13,46 +13,50 @@ import html, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import ROOT, human, load_results  # noqa: E402
 from pairs import DOLTGRES_VERSION, LITE_VERSION  # noqa: E402
+import stack_settings  # noqa: E402
 
 OUT = os.path.join(ROOT, "docker", "console", "index.html")
+# ports, passwords and container names as the last `make up` resolved them (scripts/stack_settings.py)
+S = stack_settings.load()
+P, PW, C = S["ports"], S["passwords"], S["containers"]
 # consoles in order of what they can open, most first
-CONSOLES = [("CloudBeaver", 8094, "Dolt and DoltgreSQL",
+CONSOLES = [("CloudBeaver", P["cloudbeaver"], "Dolt and DoltgreSQL",
              "Open as a guest; both accounts of both engines are in the sidebar."),
-            ("DbGate", 8093, "Dolt and DoltgreSQL", "Four connections are preconfigured in the sidebar."),
-            ("Dolt Workbench", 8095, "Dolt, DoltgreSQL and every DoltLite file",
+            ("DbGate", P["dbgate"], "Dolt and DoltgreSQL", "Four connections are preconfigured in the sidebar."),
+            ("Dolt Workbench", P["workbench"], "Dolt, DoltgreSQL and every DoltLite file",
              "Branches, commits and diffs — the part the others cannot show. Both accounts on both servers and "
              "each DoltLite file are saved connections: pick one from its list (it keeps one current connection at a time)."),
-            ("Adminer", 8092, "Dolt and DoltgreSQL",
+            ("Adminer", P["adminer"], "Dolt and DoltgreSQL",
              "Its login form remains: system MySQL, server dolt — or system PostgreSQL, server doltgres — "
              "with either account."),
-            ("phpMyAdmin", 8091, "Dolt only", "Signed in already; the server menu switches account.")]
+            ("phpMyAdmin", P["phpmyadmin"], "Dolt only", "Signed in already; the server menu switches account.")]
 # Adminer answers 403 to a login URL that names a username (its permanent-login guard, measured
 # on the pinned image on 2026-09-10), so the links name the server only and the page above says
 # which account to type.
-DEEP = (("Adminer", "A", "http://127.0.0.1:8092/?server=dolt&db={db}"),
-        ("Adminer on DoltgreSQL", "Aᴘ", "http://127.0.0.1:8092/?pgsql=doltgres&db={db}"),
-        ("phpMyAdmin", "P", "http://127.0.0.1:8091/index.php?route=/database/structure&db={db}&server=1"))
+DEEP = (("Adminer", "A", f"http://127.0.0.1:{P['adminer']}/?server=dolt&db={{db}}"),
+        ("Adminer on DoltgreSQL", "Aᴘ", f"http://127.0.0.1:{P['adminer']}/?pgsql=doltgres&db={{db}}"),
+        ("phpMyAdmin", "P", f"http://127.0.0.1:{P['phpmyadmin']}/index.php?route=/database/structure&db={{db}}&server=1"))
 
 CONNECT = [
-    (f"Dolt (MySQL protocol)", [
-        ("address", "127.0.0.1 port 3307"),
-        ("accounts", "demo / demo (read only) · admin / admin (all privileges) · root / root"),
-        ("client", "mysql -h 127.0.0.1 -P 3307 -u demo -pdemo sakila"),
-        ("URL", "mysql://demo:demo@127.0.0.1:3307/sakila"),
-        ("JDBC", "jdbc:mysql://127.0.0.1:3307/sakila"),
+    ("Dolt (MySQL protocol)", [
+        ("address", f"127.0.0.1 port {P['dolt']}"),
+        ("accounts", f"demo / {PW['demo']} (read only) · admin / {PW['admin']} (all privileges) · root / {PW['dolt_root']}"),
+        ("client", f"mysql -h 127.0.0.1 -P {P['dolt']} -u demo -p{PW['demo']} sakila"),
+        ("URL", f"mysql://demo:{PW['demo']}@127.0.0.1:{P['dolt']}/sakila"),
+        ("JDBC", f"jdbc:mysql://127.0.0.1:{P['dolt']}/sakila"),
         ("version control", "dolt_log, dolt_diff and the rest are tables and procedures: SELECT * FROM dolt_log; CALL dolt_commit('-Am', '...')")]),
     (f"DoltgreSQL {DOLTGRES_VERSION} (PostgreSQL protocol)", [
-        ("address", "127.0.0.1 port 5433"),
-        ("accounts", "demo / demo (read only) · admin / admin (superuser) · postgres / doltsamples"),
-        ("client", "PGPASSWORD=demo psql -h 127.0.0.1 -p 5433 -U demo -d sakila"),
-        ("URL", "postgresql://demo:demo@127.0.0.1:5433/sakila"),
-        ("JDBC", "jdbc:postgresql://127.0.0.1:5433/sakila"),
+        ("address", f"127.0.0.1 port {P['doltgres']}"),
+        ("accounts", f"demo / {PW['demo']} (read only) · admin / {PW['admin']} (superuser) · postgres / {PW['doltgres']}"),
+        ("client", f"PGPASSWORD={PW['demo']} psql -h 127.0.0.1 -p {P['doltgres']} -U demo -d sakila"),
+        ("URL", f"postgresql://demo:{PW['demo']}@127.0.0.1:{P['doltgres']}/sakila"),
+        ("JDBC", f"jdbc:postgresql://127.0.0.1:{P['doltgres']}/sakila"),
         ("version control", "SELECT * FROM dolt_log; SELECT dolt_commit('-Am', '...') — SQL only, there is no CLI"),
-        ("note", "one database per dataset, each its own repository with one commit; some objects were not carried — the report says which")]),
+        ("note", "one database per dataset, each its own repository; some objects were not carried — the report says which")]),
     (f"DoltLite v{LITE_VERSION} (files)", [
-        ("files", "/data/{database}.doltlite inside the doltsamples-doltlite container; no accounts, no server"),
-        ("open", "docker exec -it doltsamples-doltlite doltlite /data/sakila.doltlite"),
-        ("copy one out", "docker cp doltsamples-doltlite:/data/sakila.doltlite ."),
+        ("files", f"/data/{{database}}.doltlite inside the {C['doltlite']} container; no accounts, no server"),
+        ("open", f"docker exec -it {C['doltlite']} doltlite /data/sakila.doltlite"),
+        ("copy one out", f"docker cp {C['doltlite']}:/data/sakila.doltlite ."),
         ("version control", "SELECT * FROM dolt_log; SELECT dolt_commit('-Am', '...'); VACUUM is garbage collection"),
         ("console", "Dolt Workbench opens each file through its own DoltLite: pick the \"DoltLite <database>\" connection"),
         ("note", "a DoltLite file is not SQLite pages: sqlite3, Adminer, DbGate and CloudBeaver cannot open it; the doltlite "

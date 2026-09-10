@@ -7,7 +7,7 @@ stored shape -- the memory study of scripts/memory_profile.py, repeated for the 
 Method, as for Dolt: one query against one database in a container with a hard memory ceiling,
 walking a ladder of ceilings by bisection to the smallest that does not get the process killed.
 For DoltgreSQL the container is the server itself, started over that one database's directory
-(and DoltgreSQL's own `postgres` database, which it needs to answer at all) and asked
+(the unit's own root: DoltgreSQL's `postgres` catalog and that one database) and asked
 `SELECT COUNT(*)` over the database's largest table through its own psql; a kill is the server
 dying under the ceiling before it answers. For DoltLite it is the shell over the file, as it is
 for Dolt. Every result is a ceiling that worked, at the ladder's granularity; a database that
@@ -39,7 +39,7 @@ def present(engine, mode):
     if not os.path.isdir(d):
         return []
     if engine == "doltgres":
-        return sorted(n for n in os.listdir(d) if n != "postgres" and os.path.isdir(os.path.join(d, n, ".dolt")))
+        return sorted(n for n in os.listdir(d) if os.path.isdir(os.path.join(d, n, n, ".dolt")))
     return sorted(n[:-len(".doltlite")] for n in os.listdir(d) if n.endswith(".doltlite"))
 
 
@@ -48,14 +48,6 @@ def largest_table(engine, db):
     rows = reference(pair, db)["rows"]
     t, n = max(rows.items(), key=lambda kv: kv[1] or 0)
     return (t.split(".", 1)[1] if pair == "pg" else t), n
-
-
-def own_postgres_db():
-    for m in MODES:
-        p = os.path.join(DATA, f"doltgres-{m}", "postgres")
-        if os.path.isdir(os.path.join(p, ".dolt")):
-            return p
-    return None
 
 
 def attempt(engine, mode, db, mb, table, timeout):
@@ -75,15 +67,10 @@ def attempt(engine, mode, db, mb, table, timeout):
         if p.returncode == 137 or "Killed" in (p.stderr or ""):
             return "oom"
         return f"exit {p.returncode}: {(p.stderr or p.stdout).strip()[:120]}"
-    # DoltgreSQL: the server over this database alone, in a container under the ceiling
-    base = os.path.join(ROOT, "build", "memory-probe-base")
-    os.makedirs(base, exist_ok=True)
-    mounts = ["-v", f"{store(engine, mode, db)}:/var/lib/doltgres/{db}"]
-    own = own_postgres_db()
-    if own:
-        mounts += ["-v", f"{own}:/var/lib/doltgres/postgres"]
+    # DoltgreSQL: the server over the unit's own root (its `postgres` catalog and this one database),
+    # in a container under the ceiling. Not while the stack serves the same store.
     p = run("docker", "run", "-d", "--name", PROBE, "--memory", f"{mb}m", "--memory-swap", f"{mb}m",
-            "-e", f"DOLTGRES_PASSWORD={PW}", "-v", f"{base}:/var/lib/doltgres", *mounts, DOLTGRES_IMAGE)
+            "-e", f"DOLTGRES_PASSWORD={PW}", "-v", f"{store(engine, mode, db)}:/var/lib/doltgres", DOLTGRES_IMAGE)
     if p.returncode != 0:
         return f"could not start: {p.stderr.strip()[:120]}"
     deadline = time.time() + timeout
@@ -103,8 +90,6 @@ def attempt(engine, mode, db, mb, table, timeout):
             break
         time.sleep(2)
     run("docker", "rm", "-f", PROBE)
-    # the base directory the probe initialised belongs to no measurement
-    run("docker", "run", "--rm", "-v", f"{base}:/b", "--entrypoint", "sh", LITE_IMAGE, "-c", "rm -rf /b/* /b/.[!.]* 2>/dev/null || true")
     return result
 
 

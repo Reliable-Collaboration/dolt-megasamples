@@ -471,7 +471,14 @@ def fig_pairs(results):
         dbs = [d for d, r in results.items()
                if all(pair_value(r, t, "bytes") and pair_value(r, t, "seconds") is not None for t in tests)]
         if not dbs:
-            print(f"  ! pairs-{pair} skipped: no database has every measurement of the pair yet")
+            # a placeholder rather than a skipped file: the README shows whatever image is there, and
+            # an old figure would stand in for measurements that were withdrawn
+            fig, ax = plt.subplots(figsize=(11.5, 1.4))
+            ax.axis("off")
+            ax.text(0.01, 0.5, f"{PAIR_TITLES[pair]}: no database has every measurement of the pair yet; "
+                    f"the figure is drawn when one does.", fontsize=11, color=INK, va="center")
+            save(fig, f"pairs-{pair}.png")
+            print(f"  ! pairs-{pair}: no database has every measurement of the pair yet; drew a placeholder")
             continue
         rows = sum(((results[d].get("pairs") or {}).get("source_rows") or {}).get(pair) or 0 for d in dbs)
         fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.4))

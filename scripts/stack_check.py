@@ -11,12 +11,15 @@ import os, subprocess, sys, time, urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import MYSQL_IMAGE, run  # noqa: E402
+import stack_settings  # noqa: E402
 
-DOLTGRES = "doltsamples-doltgres"
-DOLTLITE = "doltsamples-doltlite"
-NETWORK = "dolt-megasamples_default"
-CONSOLES = [("landing page", 8090), ("phpMyAdmin", 8091), ("Adminer", 8092), ("DbGate", 8093),
-            ("CloudBeaver", 8094), ("Dolt Workbench", 8095)]
+S = stack_settings.load()
+P, PW = S["ports"], S["passwords"]
+DOLTGRES = S["containers"]["doltgres"]
+DOLTLITE = S["containers"]["doltlite"]
+NETWORK = S["network"]
+CONSOLES = [("landing page", P["console"]), ("phpMyAdmin", P["phpmyadmin"]), ("Adminer", P["adminer"]),
+            ("DbGate", P["dbgate"]), ("CloudBeaver", P["cloudbeaver"]), ("Dolt Workbench", P["workbench"])]
 results = []
 
 
@@ -72,7 +75,7 @@ def main():
     # Dolt over the MySQL protocol, through the mysql client of the sql-megasamples image
     dolt_db = (served("dolt") or ["sakila"])[0]
     table, want = probe_table(dolt_db)
-    for user, pw, want_write in (("demo", "demo", False), ("admin", "admin", True)):
+    for user, pw, want_write in (("demo", PW["demo"], False), ("admin", PW["admin"], True)):
         p = run("docker", "run", "--rm", "--network", NETWORK, "--label", "doltsamples.transient=true", MYSQL_IMAGE,
                 "mysql", "-hdolt", f"-u{user}", f"-p{pw}", "-N", "-e", f"SELECT COUNT(*) FROM {dolt_db}.{table}")
         check(f"Dolt as {user}: {dolt_db}.{table}", p.stdout.strip() == str(want), p.stdout.strip() or p.stderr.strip()[-100:])
@@ -85,13 +88,13 @@ def main():
         check(f"Dolt as {user}: {'may' if want_write else 'may not'} write", (p.returncode == 0) == want_write,
               (p.stderr.strip().splitlines() or ["ok"])[-1][-100:])
     # DoltgreSQL
-    rc, out = pg("postgres", os.environ.get("DOLTGRES_PASSWORD", "doltsamples"), "postgres",
+    rc, out = pg("postgres", PW["doltgres"], "postgres",
                  "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY 1")
     dbs = out.splitlines() if rc == 0 else []
     check("DoltgreSQL answers as postgres", rc == 0, f"{len(dbs)} databases" if rc == 0 else out)
     pg_db = (served("doltgres") or ["sakila"])[0]
     pg_table, pg_want = probe_table(pg_db)
-    for user, pw, want_write in (("demo", "demo", False), ("admin", "admin", True)):
+    for user, pw, want_write in (("demo", PW["demo"], False), ("admin", PW["admin"], True)):
         rc, out = pg(user, pw, pg_db, f'SELECT COUNT(*) FROM "{pg_table}"')
         check(f"DoltgreSQL as {user}: {pg_db}.{pg_table}", out == str(pg_want), out)
         rc, out = pg(user, pw, pg_db, "SELECT COUNT(*) FROM dolt_log")
@@ -101,10 +104,10 @@ def main():
         check(f"DoltgreSQL as {user}: {'may' if want_write else 'may not'} write", (rc == 0) == want_write, out[-100:])
     short = []
     for db in dbs:
-        rc, out = pg("demo", "demo", db, "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' "
+        rc, out = pg("demo", PW["demo"], db, "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' "
                                            "AND table_type = 'BASE TABLE' ORDER BY 1 LIMIT 1")
         t = out.splitlines()[0] if rc == 0 and out else None
-        rc2, out2 = pg("demo", "demo", db, f'SELECT COUNT(*) FROM "{t}"') if t else (1, "no table")
+        rc2, out2 = pg("demo", PW["demo"], db, f'SELECT COUNT(*) FROM "{t}"') if t else (1, "no table")
         if not (t and rc2 == 0 and out2.isdigit()):
             short.append(f"{db}: {out2[:60]}")
     check(f"DoltgreSQL as demo: one table of each of {len(dbs)} databases", not short, "; ".join(short))
@@ -124,14 +127,14 @@ def main():
     for name, port in CONSOLES:
         status, err = http(f"http://127.0.0.1:{port}/")
         check(f"{name} on {port}", status is not None and status < 400, err or f"HTTP {status}")
-    for label, url in (("MySQL login for Dolt", "http://127.0.0.1:8092/?server=dolt&db=sakila"),
-                       ("PostgreSQL login for DoltgreSQL", "http://127.0.0.1:8092/?pgsql=doltgres&db=sakila")):
+    for label, url in (("MySQL login for Dolt", f"http://127.0.0.1:{P['adminer']}/?server=dolt&db=sakila"),
+                       ("PostgreSQL login for DoltgreSQL", f"http://127.0.0.1:{P['adminer']}/?pgsql=doltgres&db=sakila")):
         status, err = http(url)
         check(f"Adminer offers the {label}", status == 200, err or f"HTTP {status}")
     # the Workbench's saved connections, and that its API connects with each engine's account
     import json as _json
     def gql(query):
-        req = urllib.request.Request("http://127.0.0.1:9002/graphql", data=_json.dumps({"query": query}).encode(),
+        req = urllib.request.Request(f"http://127.0.0.1:{P['workbench_api']}/graphql", data=_json.dumps({"query": query}).encode(),
                                      headers={"content-type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=30) as r:

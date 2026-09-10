@@ -36,7 +36,18 @@ def units(results, pair):
 UNSETTLED = " †"
 
 
+def shown(u):
+    """A unit's size as the tables print it: settled, or the uncollected footprint marked †."""
+    if not u:
+        return "—"
+    if u.get("settled") is False and u.get("footprint_bytes"):
+        return human(u["footprint_bytes"]) + UNSETTLED
+    return human(u["disk_bytes"]) if u.get("disk_bytes") else "—"
+
+
 def size_time(u, base):
+    if u and u.get("settled") is False and u.get("footprint_bytes"):
+        return f"{shown(u)}<br>{secs(u.get('total_seconds'))}"
     if not u or not u.get("disk_bytes"):
         return "—"
     b = u["disk_bytes"]
@@ -97,13 +108,14 @@ def inline_table(results, pair):
         cells = []
         for ph in per_row:
             d, i = m.get(ph) or {}, m.get(ph + "_inline") or {}
-            if not d.get("disk_bytes") and not i.get("disk_bytes"):
+            if shown(d) == "—" and shown(i) == "—":
                 cells.append("—")
                 continue
-            cells.append(f"{human(d['disk_bytes']) if d.get('disk_bytes') else '—'} → "
-                         f"{human(i['disk_bytes']) if i.get('disk_bytes') else '—'}<br>"
+            cells.append(f"{shown(d)} → {shown(i)}<br>"
                          f"{secs(d.get('total_seconds')) if d else '—'} → {secs(i.get('total_seconds')) if i else '—'}")
         L.append(f"| `{db}` | " + " | ".join(cells) + " |")
+    if any(UNSETTLED in c for c in L):
+        L.append("\n*† The store could not be garbage-collected, so the size is the working footprint after the load.*")
     return "\n".join(L)
 
 

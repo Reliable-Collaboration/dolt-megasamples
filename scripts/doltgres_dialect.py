@@ -169,7 +169,7 @@ def transform(text, database):
                      f"DoltgreSQL 1.3.1 keeps the blank padding a text cast strips in PostgreSQL")
     # G6
     columns = {qualified_table(b): table_columns(b.text) for b in kept if b.type == "TABLE"}
-    expanded = 0
+    expanded, unexpanded = 0, []
     for b in kept:
         if b.type == "TRIGGER" and ROW_WHEN.search(b.text):
             m = TRIGGER_ON.search(b.text)
@@ -177,6 +177,11 @@ def transform(text, database):
             if cols:
                 b.text = ROW_WHEN.sub(lambda mm: row_when(mm, cols), b.text)
                 expanded += 1
+            else:
+                unexpanded.append(b.name)
+    if unexpanded:
+        notes.append(f"G6 could NOT expand the whole-row WHEN of {len(unexpanded)} trigger(s), because the table's "
+                     f"columns were not found; DoltgreSQL will refuse every UPDATE of their tables: {', '.join(unexpanded)}")
     if expanded:
         notes.append(f"G6 expanded the whole-row WHEN comparison of {expanded} trigger(s) column by column; "
                      f"DoltgreSQL 1.3.1 refuses every UPDATE of the table otherwise (record \"old\" has no field \"*\")")
@@ -211,18 +216,8 @@ NOT_A_COLUMN = ("CONSTRAINT", "PRIMARY", "UNIQUE", "CHECK", "FOREIGN", "EXCLUDE"
 
 
 def table_columns(text):
-    """The column names of a CREATE TABLE block, in order, from its indented lines."""
-    inside, cols = False, []
-    for line in text.split("\n"):
-        if CREATE_TABLE.match(line):
-            inside = True
-            continue
-        if inside and line.startswith(");"):
-            break
-        m = COLUMN_LINE.match(line) if inside else None
-        if m and m.group("name").upper() not in NOT_A_COLUMN:
-            cols.append(m.group("name"))
-    return cols
+    """The column names of a CREATE TABLE block, in order (the one walker is table_column_types)."""
+    return list(table_column_types(text))
 
 
 BPCHAR = re.compile(r"^(character|char|bpchar)\b(?!\s+varying)", re.I)
@@ -281,8 +276,12 @@ def drop_check_lines(text, pattern):
         out.append(line)
     if names:
         # the line before ");" must not end with a comma
-        for i, line in enumerate(out):
-            if line.strip() == ");" and i > 0 and out[i - 1].rstrip().endswith(","):
+        ends = [i for i, line in enumerate(out) if line.strip() == ");"]
+        if not ends:
+            raise ValueError(f"G3: a CREATE TABLE without ');' on its own line lost CHECK constraint(s) "
+                             f"{', '.join(names)}, and its column list cannot be repaired")
+        for i in ends:
+            if i > 0 and out[i - 1].rstrip().endswith(","):
                 out[i - 1] = out[i - 1].rstrip()[:-1]
     return "\n".join(out), names
 
@@ -297,7 +296,13 @@ def inline_primary_keys(blocks, tables):
             m = ADD_PK.search(b.text)
             if m and m.group("table") in tables:
                 t = by_name[m.group("table")]
-                t.text = t.text.replace("\n);", f",\n    CONSTRAINT {m.group('name')} PRIMARY KEY ({m.group('cols')})\n);", 1)
+                written = t.text.replace("\n);", f",\n    CONSTRAINT {m.group('name')} PRIMARY KEY ({m.group('cols')})\n);", 1)
+                if written == t.text:
+                    # a CREATE TABLE that does not end in ");" on its own line (WITH, PARTITION BY,
+                    # INHERITS ...) would otherwise be counted as keyed and loaded keyless
+                    raise ValueError(f"G4: the CREATE TABLE of {m.group('table')} does not end with ');' on its own "
+                                     f"line, so its PRIMARY KEY {m.group('name')} cannot be written inside it")
+                t.text = written
                 moved += 1
                 continue
             m = ALTER_TABLE.search(b.text)

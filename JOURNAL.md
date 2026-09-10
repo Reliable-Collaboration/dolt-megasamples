@@ -218,7 +218,7 @@ disagrees with the measurements cannot survive a regeneration.
 
 The corpus runs on PostgreSQL and SQLite as well, and DoltHub ships a versioned engine for each,
 so the five tests were run again for the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs
-(21 and 18 databases with the one-commit load on both
+([not measured] and 21 databases with the one-commit load on both
 engines so far). What was learned before a row was loaded is in `knowledge/` -- every fact about
 the two engines with the source it was read in or the command that produced it -- and the short
 version is this.
@@ -250,7 +250,15 @@ an empty schema costs InnoDB; the difference is that here the floor is large nex
 database, so the ratio of a small database is mostly the floor. Each PostgreSQL unit records the
 floor it measured (`empty_database_bytes`).
 
-**One thing that went wrong.** The first memory sampler for the new pairs ran a shell loop inside
+**A shared server contaminated the DoltgreSQL memory peaks.** The DoltgreSQL loads first ran in
+one server per shape, database after database, the way one PostgreSQL server holds many. A Dolt
+server keeps every database under its data directory open, so each load's memory peak carried every
+store loaded before it: a 255-row database peaked at 976 MiB after eleven others. The code review
+found it in the recorded peaks, which rose with run order rather than with size. Every DoltgreSQL
+load now runs in a server started for it alone, and every DoltgreSQL unit was measured again; the
+first measurements are kept in `build/progress.json` under `superseded`.
+
+**Another thing that went wrong.** The first memory sampler for the new pairs ran a shell loop inside
 the worker container, as the Dolt loads do. Inside a PostgreSQL container that loop is reparented
 to the postmaster when the `docker exec` that started it returns, and killing it put the server
 into recovery: twelve units recorded an error in a row. Memory is now read from the host's cgroup
