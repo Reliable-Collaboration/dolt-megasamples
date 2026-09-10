@@ -20,8 +20,8 @@ CONSOLES = [("CloudBeaver", 8094, "Dolt and DoltgreSQL",
              "Open as a guest; both accounts of both engines are in the sidebar."),
             ("DbGate", 8093, "Dolt and DoltgreSQL", "Four connections are preconfigured in the sidebar."),
             ("Dolt Workbench", 8095, "Dolt and DoltgreSQL",
-             "Branches, commits and diffs — the part the others cannot show. Enter a connection once: "
-             "mysql://admin:admin@dolt:3306/sakila for Dolt, postgresql://admin:admin@doltgres:5432/sakila for DoltgreSQL."),
+             "Branches, commits and diffs — the part the others cannot show. Both accounts on both engines are "
+             "saved connections: pick one from its list (it keeps one current connection at a time)."),
             ("Adminer", 8092, "Dolt and DoltgreSQL",
              "Its login form remains: system MySQL, server dolt — or system PostgreSQL, server doltgres — "
              "with either account."),

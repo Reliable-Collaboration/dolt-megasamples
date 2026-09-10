@@ -202,7 +202,11 @@ services:
       - "127.0.0.1:9002:9002"
     environment:
       GRAPHQLAPI_URL: http://127.0.0.1:9002/graphql
-    depends_on: { dolt: { condition: service_healthy } }
+    volumes:
+      # the saved connections (both accounts on Dolt and on DoltgreSQL), written by
+      # scripts/workbench_store.py on every `make up`; the Workbench adds to the same file
+      - ./docker/workbench/store:/app/graphql-server/store
+    depends_on: { dolt: { condition: service_healthy }, doltgres: { condition: service_healthy } }
     restart: unless-stopped
 
   cloudbeaver:

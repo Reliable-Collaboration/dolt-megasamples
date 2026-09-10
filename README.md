@@ -663,10 +663,10 @@ Adminer and Dolt Workbench open Dolt and DoltgreSQL, phpMyAdmin opens Dolt only,
 opens a DoltLite file -- it is not SQLite pages -- so the shell is the client.
 
 **Dolt Workbench** at <http://127.0.0.1:8095/> is the only one that shows what makes Dolt Dolt —
-branches, commits, and diffs between them. It is also the only console that cannot be
-preconfigured, so enter the connection once: type MySQL, URL
-`mysql://admin:admin@dolt:3306/sakila`. Use `dolt`, not `127.0.0.1`: its API connects from inside
-the compose network.
+branches, commits, and diffs between them. Its saved connections are written before it starts
+(`scripts/workbench_store.py`, both accounts on Dolt and on DoltgreSQL), so pick one from its
+list; it keeps one current connection at a time, set by the last pick. The URLs name `dolt` and
+`doltgres`, not `127.0.0.1`: its API connects from inside the compose network.
 
 ## Layout
 

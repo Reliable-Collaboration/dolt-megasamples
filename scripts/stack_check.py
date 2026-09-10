@@ -98,6 +98,26 @@ def main():
                        ("PostgreSQL login for DoltgreSQL", "http://127.0.0.1:8092/?pgsql=doltgres&db=sakila")):
         status, err = http(url)
         check(f"Adminer offers the {label}", status == 200, err or f"HTTP {status}")
+    # the Workbench's saved connections, and that its API connects with each engine's account
+    import json as _json
+    def gql(query):
+        req = urllib.request.Request("http://127.0.0.1:9002/graphql", data=_json.dumps({"query": query}).encode(),
+                                     headers={"content-type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return _json.loads(r.read().decode())
+        except Exception as e:                                    # noqa: BLE001
+            return {"errors": [{"message": str(e)}]}
+    saved = gql("{ storedConnections { name type } }").get("data", {}).get("storedConnections") or []
+    names = sorted(c["name"] for c in saved)
+    want = ["DoltgreSQL (full access)", "DoltgreSQL (read-only)", "dolt-megasamples (full access)", "dolt-megasamples (read-only)"]
+    check("Workbench: the four saved connections", names == want, ", ".join(names) or "none")
+    for name, url, kind in (("DoltgreSQL (read-only)", "postgresql://demo:demo@doltgres:5432/sakila", "Postgres"),
+                            ("dolt-megasamples (read-only)", "mysql://demo:demo@dolt:3306/sakila", "Mysql")):
+        r = gql(f'mutation {{ addDatabaseConnection(name: "{name}", connectionUrl: "{url}", type: {kind}, '
+                f'hideDoltFeatures: false, useSSL: false) {{ currentDatabase }} }}')
+        db = ((r.get("data") or {}).get("addDatabaseConnection") or {}).get("currentDatabase")
+        check(f"Workbench connects with {name}", db == "sakila", db or str(r.get("errors", [{}])[0].get("message", ""))[:100])
     failed = [n for n, ok, _ in results if not ok]
     print(f"\n{len(results) - len(failed)} of {len(results)} checks passed" + (": " + ", ".join(failed) if failed else ""))
     return 1 if failed else 0
