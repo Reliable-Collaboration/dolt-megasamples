@@ -347,9 +347,6 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
-
 
 def _pair_facts(f, results):
     """The PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs, folded in by scripts/collect_pairs.py."""
@@ -377,3 +374,8 @@ def _pair_facts(f, results):
         refused = [db for db, m in data.items()
                    if any(isinstance(u, dict) and (u.get("refused_objects") or u.get("indexes_refused")) for u in m.values())]
         f.put(f"pairs.{pair}.databases_with_refusals", len(refused), f"results.json:*.pairs.{pair}.*.refused_objects", commas)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
