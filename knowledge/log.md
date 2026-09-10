@@ -1,0 +1,10 @@
+# Log
+
+## 2026-09-10
+
+* **Creation**: the bundle, in the form of sql-megasamples' (`scripts/okf_check.py` and `scripts/okf_fix_quotes.py` are copies of its checker and canonicaliser): [conventions](/runbooks/knowledge-bundle-conventions.md).
+* **Creation**: the source records read for the two engines: [DoltgreSQL README](/sources/doltgresql-readme.md), [DoltgreSQL release v1.3.1](/sources/doltgresql-release-v1-3-1.md), [DoltLite README](/sources/doltlite-readme.md), [DoltLite release v0.50.9](/sources/doltlite-release-v0-50-9.md), [DoltLite LICENSE.md](/sources/doltlite-license.md), [SQLite download page](/sources/sqlite-download-page.md).
+* **Creation**: the tool records, each carrying what was verified by running the engine on sakila before a row of the experiment was loaded: [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md), [DoltLite v0.50.9](/tools/doltlite-0-50-9.md), [PostgreSQL 18.6 as the baseline](/tools/postgresql-18-6-baseline.md), [the sqlite3 shell 3.46.1](/tools/sqlite3-shell-3-46-1.md).
+* **Creation**: the decisions the pairs rest on: [the DoltgreSQL pin](/decisions/doltgresql-version-pin.md), [what "the same file" means for DoltLite](/decisions/doltlite-same-file.md), [the load shapes and the measurement rules](/decisions/pair-load-shapes-and-measurement.md), [the dialect rules and what is recorded instead](/decisions/pair-dialect-rules.md), [the instances that stay up](/decisions/stood-up-instances.md) (pending).
+* **Creation**: the open questions the probes raised: [a second alteration of a table with a generated column](/questions/doltgresql-generated-column-alteration.md), [the trigger body that fails at run time](/questions/doltgresql-trigger-old-record.md), [what DoltLite makes durable per statement](/questions/doltlite-durability-per-statement.md).
+* **Verification**: the preflight gate on the quick subset (15 schemas, both pairs): `python3 scripts/preflight_pairs.py`, results in `build/preflight/pairs.json`, summarised in [the dialect rules](/decisions/pair-dialect-rules.md).

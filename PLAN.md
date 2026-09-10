@@ -113,13 +113,20 @@ each fact came from belongs beside the experiment; this repository has no knowle
 adding one in the `sql-megasamples` form (tool records for the two engines, decision records for
 the dialects and the stack) is the recommended way to keep the evidence reviewable.
 
-## Decisions to take before starting
+## Decisions taken before starting (2026-09-10)
 
-1. **Scope of the per-row-commit shape**: all 21 databases for both new pairs, or the quick subset
-   first with the rest as budget allows.
-2. **DoltLite's beta churn**: pin one release (v0.50.9 today) for the whole run and record it, and
-   accept that a later release may change the numbers; a rerun is the answer, not a moving pin.
-3. **A knowledge bundle here**, or the journal alone, for the facts the two new engines bring.
+1. **Scope of the per-row-commit shape**: the quick subset first (`make -C ../sql-megasamples
+   list-quick`, 15 databases), the remaining databases once the quick subset is sound.
+2. **The pins**: DoltgreSQL 1.3.1 by image digest, marked PINNED in `scripts/pairs.py` and
+   `compose.yaml` with the undo path beside it ([decision](knowledge/decisions/doltgresql-version-pin.md));
+   DoltLite v0.50.9 from its checksummed `.deb` packages, built into an image here
+   (`make lite-image`), never pushed.
+3. **A knowledge bundle here**, in the sql-megasamples form: `knowledge/` (tool, source, decision
+   and question records; `make okf-check`).
 4. **What "the same file" means for DoltLite**: the dump replayed into a DoltLite-format database
-   (chosen above, because a stock file opened by DoltLite is not versioned and would measure
-   SQLite twice), stated plainly in the report.
+   ([decision](knowledge/decisions/doltlite-same-file.md)).
+
+What the first phase found, and how the loads are shaped and measured, is recorded in
+[knowledge/decisions/pair-dialect-rules.md](knowledge/decisions/pair-dialect-rules.md) and
+[knowledge/decisions/pair-load-shapes-and-measurement.md](knowledge/decisions/pair-load-shapes-and-measurement.md);
+the plan above is kept as written, and the decisions say where the work departed from it.
