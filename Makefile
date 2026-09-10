@@ -7,7 +7,7 @@ PY ?= python3
 # and as a prerequisite of `report`, which is why the documents stayed stale while every
 # other step ran. Generated from the targets themselves so a new one cannot be forgotten.
 .PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch \
-        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs
+        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs memory-pairs
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -28,6 +28,7 @@ help:
 	@echo "make export-pairs   pg_dump every database out of sql-megasamples PostgreSQL; copy and dump its SQLite files"
 	@echo "make preflight-pairs  every schema into PostgreSQL, DoltgreSQL, SQLite and DoltLite; what each refuses"
 	@echo "make run-pg | run-lite  the five timed loads of a pair (ARGS=\"--only sakila --indexes inline\")"
+	@echo "make memory-pairs   what DoltgreSQL and DoltLite need to open each database in each shape (build/memory_pairs.json)"
 	@echo "make okf-check      validate the knowledge bundle (knowledge/)"
 	@echo "make test-stack     after make up: both accounts on Dolt and DoltgreSQL, the DoltLite files, every console"
 	@echo "make audit      check the measurements against invariants that must hold"
@@ -198,5 +199,7 @@ run-lite:
 	@$(PY) scripts/run_pairs.py --pair lite $(ARGS)
 test-stack:
 	@$(PY) scripts/stack_check.py
+memory-pairs:
+	@$(PY) scripts/memory_profile_pairs.py $(ARGS)
 okf-check:
 	@$(PY) scripts/okf_check.py --bundle knowledge && $(PY) scripts/okf_fix_quotes.py --bundle knowledge --check

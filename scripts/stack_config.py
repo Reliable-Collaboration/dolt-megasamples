@@ -27,8 +27,9 @@ list serves those. With neither, every database present is served, except that t
 is held to its memory limit: `build/memory.json` (the memory study in README.md) says what each
 database needs to open in each shape, and a per-row-commit history can need gigabytes (employees:
 12 GiB), so databases are taken smallest need first until the limit is reached and the rest are
-named, with the override that would include them. DoltgreSQL and DoltLite have no such study
-yet and serve everything present.
+named, with the override that would include them. DoltgreSQL is held the same way once
+`build/memory_pairs.json` exists (`make memory-pairs`); DoltLite runs in the Workbench's and the
+shell's own processes, not a server, and serves everything present.
 """
 import argparse, json, os, sys, time
 
@@ -41,6 +42,7 @@ OVERRIDE = os.path.join(ROOT, "compose.override.yaml")
 STORE = os.path.join(ROOT, "docker", "workbench", "store", "store.json")
 SERVE = os.path.join(ROOT, "build", "serve.json")
 MEMORY = os.path.join(ROOT, "build", "memory.json")
+MEMORY_PAIRS = os.path.join(ROOT, "build", "memory_pairs.json")   # scripts/memory_profile_pairs.py
 DEFAULT_MEM = {"dolt": "1536m", "doltgres": "1536m"}
 LABEL = {"oneshot": "one commit per database", "rowinsert": "one INSERT per row, one commit per database",
          "rowcommit": "one commit per row", "rowinsert_inline": "one INSERT per row with the indexes inline, one commit",
@@ -109,9 +111,15 @@ def choose(engine, mode, have, wanted, mem_limit):
         names = wanted.split()
         left = {n: "not loaded in this mode for this engine" for n in names if n not in have}
         return {n: have[n] for n in names if n in have}, left
-    if engine != "dolt" or mode == "oneshot" or not os.path.exists(MEMORY):
+    if mode == "oneshot" or engine == "doltlite" or not mem_limit:
         return dict(have), {}
-    study = (json.load(open(MEMORY, encoding="utf-8")).get(mode) or {})
+    if engine == "dolt":
+        study = json.load(open(MEMORY, encoding="utf-8")).get(mode) or {} if os.path.exists(MEMORY) else {}
+    else:
+        study = (json.load(open(MEMORY_PAIRS, encoding="utf-8")).get(engine) or {}).get(mode) or {} \
+            if os.path.exists(MEMORY_PAIRS) else {}
+    if not study:
+        return dict(have), {}
     need = {db: (study.get(db) or {}).get("megabytes") for db in have}
     budget, used, served, left = megabytes(mem_limit), 0.0, {}, {}
     for db in sorted(have, key=lambda d: (need[d] is None, need[d] or 0, d)):
@@ -122,9 +130,10 @@ def choose(engine, mode, have, wanted, mem_limit):
         if used + mb <= budget:
             served[db], used = have[db], used + mb
         else:
-            left[db] = (f"needs {mb:,.0f} MB to open in this shape, which would take the Dolt server past its "
-                        f"{mem_limit} limit ({used:,.0f} MB already committed); DOLT_MEM=... raises the limit, "
-                        f"SERVE_DATABASES=all ignores it")
+            left[db] = (f"needs {mb:,.0f} MB to open in this shape, which would take the "
+                        f"{'Dolt' if engine == 'dolt' else 'DoltgreSQL'} server past its {mem_limit} limit "
+                        f"({used:,.0f} MB already committed); {'DOLT_MEM' if engine == 'dolt' else 'DOLTGRES_MEM'}=... "
+                        f"raises the limit, SERVE_DATABASES=all ignores it")
     return served, left
 
 
