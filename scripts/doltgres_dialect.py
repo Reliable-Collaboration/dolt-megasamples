@@ -52,6 +52,13 @@ Rules (each returns a note when it fired):
      "*"`); with the expansion an unchanged row leaves `last_update` alone and a changed one
      moves it, on both engines. The columns come from the table's own CREATE TABLE block.
 
+  G7 padded-char-in-check. In a CHECK constraint, a `character(n)` column cast to text --
+     `(col)::text` -- is wrapped in `rtrim(...)`. PostgreSQL strips the blank padding when it
+     casts bpchar to text, so the wrap changes nothing there; DoltgreSQL 1.3.1 keeps it, and a
+     check such as `upper((class)::text) = ANY (ARRAY['L','M','H'])` then refuses every padded
+     value the dump carries (`L ` for a `character(2)`), row by row and by COPY alike
+     (adventureworks: `production_product`, four checks).
+
 Shapes (applied per phase by pairs.py):
 
   inline_indexes     every INDEX block and every UNIQUE constraint moved ahead of the first
@@ -149,6 +156,17 @@ def transform(text, database):
     if unnamed:
         notes.append(f"G5 dropped the names of {unnamed} NOT NULL column constraint(s), which DoltgreSQL 1.3.1 "
                      f"refuses (\"non-foreign key column constraint names are not yet supported\")")
+    # G7
+    padded = 0
+    for b in kept:
+        if b.type == "TABLE":
+            chars = [c for c, t in table_column_types(b.text).items() if BPCHAR.match(t)]
+            if chars and "CHECK" in b.text:
+                b.text, n = wrap_char_casts(b.text, chars)
+                padded += n
+    if padded:
+        notes.append(f"G7 wrapped {padded} cast(s) of character(n) columns inside CHECK constraints in rtrim(); "
+                     f"DoltgreSQL 1.3.1 keeps the blank padding a text cast strips in PostgreSQL")
     # G6
     columns = {qualified_table(b): table_columns(b.text) for b in kept if b.type == "TABLE"}
     expanded = 0
@@ -205,6 +223,38 @@ def table_columns(text):
         if m and m.group("name").upper() not in NOT_A_COLUMN:
             cols.append(m.group("name"))
     return cols
+
+
+BPCHAR = re.compile(r"^(character|char|bpchar)\b(?!\s+varying)", re.I)
+CHECK_LINE = re.compile(r"^\s*CONSTRAINT\s+\S+\s+CHECK\s+\(", re.I)
+
+
+def table_column_types(text):
+    """{column: type text} of a CREATE TABLE block."""
+    inside, out = False, {}
+    for line in text.split("\n"):
+        if CREATE_TABLE.match(line):
+            inside = True
+            continue
+        if inside and line.startswith(");"):
+            break
+        m = COLUMN_LINE.match(line) if inside else None
+        if m and m.group("name").upper() not in NOT_A_COLUMN:
+            out[m.group("name")] = line.strip()[len(m.group("name")):].strip()
+    return out
+
+
+def wrap_char_casts(text, chars):
+    """rtrim() around `(col)::text` for the named columns, on CHECK constraint lines only."""
+    n, out = 0, []
+    names = "|".join(re.escape(c) for c in chars)
+    cast = re.compile(r"\((?P<col>" + names + r")\)::text\b")
+    for line in text.split("\n"):
+        if CHECK_LINE.match(line):
+            line, k = cast.subn(lambda m: f"rtrim(({m.group('col')})::text)", line)
+            n += k
+        out.append(line)
+    return "\n".join(out), n
 
 
 def row_when(m, cols):

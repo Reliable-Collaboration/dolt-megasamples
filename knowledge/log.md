@@ -2,6 +2,7 @@
 
 ## 2026-09-10
 
+* **Update**: the first adventureworks load refused every row of `production_product` -- DoltgreSQL keeps a `character(n)` value's padding through a text cast, so its CHECK constraints fail; rule G7 wraps such casts in `rtrim()`, the full database then loads, recorded in [the dialect rules](/decisions/pair-dialect-rules.md) and [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md). The index-parity check also stopped reading a quoted identifier in `indexdef` as a different index (enron's `"position"`).
 * **Deprecation**: [the trigger OLD record question](/questions/doltgresql-trigger-old-record.md) is answered -- the whole-row `WHEN` clause, not the body; rule G6 expands it column by column and the ON UPDATE triggers run on both engines ([the dialect rules](/decisions/pair-dialect-rules.md), [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md), which also records the BEFORE INSERT limit that remains).
 * **Verification**: the stack with the two fixes in passed every check of `scripts/stack_check.py` (22 of 22): [stood-up instances](/decisions/stood-up-instances.md).
 * **Update**: the preflight of the six databases outside the quick subset found one more DoltgreSQL refusal, named NOT NULL column constraints (adventureworks, 3 tables); rule G5 added and proved on a throwaway server, [the dialect rules](/decisions/pair-dialect-rules.md) carry the six rows and [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) the limit, with `convert_from` beside it.

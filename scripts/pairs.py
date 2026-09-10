@@ -465,8 +465,10 @@ def compare(ref, got, dropped=()):
             short = f"{t} has {g if g is not None else 'no'} rows, expected {want:,}"
             break
     dropped = set(dropped)
-    want_idx = {i for i in ref["indexes"] if i.split("|")[1] not in dropped}
-    got_idx = set(got["indexes"])
+    # PostgreSQL quotes an identifier that is a keyword in indexdef (`"position"`) and DoltgreSQL
+    # does not; the quotes say nothing about the index, so both sides are compared without them
+    want_idx = {i.replace('"', "") for i in ref["indexes"] if i.split("|")[1] not in dropped}
+    got_idx = {i.replace('"', "") for i in got["indexes"]}
     report = {"missing": sorted(want_idx - got_idx), "extra": sorted(got_idx - want_idx),
               "dropped_by_dialect": sorted(dropped), "checked": len(want_idx)}
     extra_tables = sorted(set(got["rows"]) - set(ref["rows"]))
