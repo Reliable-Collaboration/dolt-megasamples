@@ -55,6 +55,7 @@ def main():
             "settle_seconds": u.get("settle_seconds"),
             "total_seconds": round((u.get("seconds") or 0) + (u.get("settle_seconds") or 0), 1),
             "commits": u.get("commits"),
+            "settled": u.get("settled", True),
             "memory_anon_peak_bytes": u.get("memory_anon_peak_bytes"),
             "memory_total_peak_bytes": u.get("memory_total_peak_bytes"),
             "error_count": u.get("error_count", 0),

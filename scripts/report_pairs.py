@@ -33,13 +33,17 @@ def units(results, pair):
     return out
 
 
+UNSETTLED = " †"
+
+
 def size_time(u, base):
     if not u or not u.get("disk_bytes"):
         return "—"
     b = u["disk_bytes"]
+    mark = UNSETTLED if u.get("settled") is False else ""
     if base and base.get("disk_bytes") and u is not base:
-        return f"{cell(b, base['disk_bytes'])}<br>{secs(u.get('total_seconds'))}"
-    return f"{human(b)}<br>{secs(u.get('total_seconds') if u is not base else u.get('load_seconds'))}"
+        return f"{cell(b, base['disk_bytes'])}{mark}<br>{secs(u.get('total_seconds'))}"
+    return f"{human(b)}{mark}<br>{secs(u.get('total_seconds') if u is not base else u.get('load_seconds'))}"
 
 
 def pair_table(results, pair, suffix=""):
@@ -54,7 +58,8 @@ def pair_table(results, pair, suffix=""):
         m = data[db]
         base = m.get(phases[0]) or {}
         L.append(f"| `{db}` | {m['__rows']:,} | " + " | ".join(size_time(m.get(k), base) for k in keys) + " |")
-    full = [db for db in data if all((data[db].get(k) or {}).get("disk_bytes") for k in keys)]
+    full = [db for db in data if all((data[db].get(k) or {}).get("disk_bytes") for k in keys)
+            and not any((data[db].get(k) or {}).get("settled") is False for k in keys)]
     if full:
         b = {k: sum(data[db][k]["disk_bytes"] for db in full) for k in keys}
         t = {k: sum((data[db][k].get("total_seconds" if k != phases[0] else "load_seconds") or 0) for db in full)
@@ -69,6 +74,12 @@ def pair_table(results, pair, suffix=""):
         L.append(f"\n*Each cell is disk then time; a versioned cell also gives the size as a multiple of test 1. "
                  f"{len(data) - len(full)} database(s) do not yet have every test and are excluded from the "
                  f"totals row: " + ", ".join(f"`{d}`" for d in missing) + ".*")
+    unsettled = sorted(f"`{db}` ({SHORT[k.replace('_inline', '')].replace('<br>', ', ')})"
+                       for db in data for k in keys if (data[db].get(k) or {}).get("settled") is False)
+    if unsettled:
+        L.append(f"\n*† The store could not be garbage-collected -- DoltLite's `VACUUM` answered \"out of memory\" -- "
+                 f"so this is the working footprint after the load, not a collected size, and it is left out of "
+                 f"the totals row: " + ", ".join(unsettled) + ".*")
     return "\n".join(L)
 
 

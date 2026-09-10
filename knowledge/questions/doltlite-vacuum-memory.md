@@ -22,6 +22,8 @@ sources:
 
 `doltlite /data/doltlite-rowcommit_inline/dvdstore.doltlite "SELECT dolt_commit('-A', '--allow-empty', '-m', '...'); VACUUM;"` answered `out of memory` on a 5,170,967,610-byte file holding 174,718 commits, inside a container capped at 16 GiB; the deferred-policy file of the same database (1.8 GB, the same commits) vacuumed in 5.4 s. Is the limit DoltLite's own (a soft heap limit, an allocation proportional to the file or to the chunk count), the cgroup's, or the shell's, and at what size does it bite?
 
+The same answer came within 2.5 s from chicago_crimes' deferred-policy file (3,626,990,331 bytes, 260,043 commits), so the limit sits between 1.8 GB and 3.6 GB for these files and is not a slow climb to the cgroup's 16 GiB.
+
 # Cheapest experiment
 
 Run the same `VACUUM` on that file again with the host's cgroup memory files sampled every second (`/sys/fs/cgroup/docker/<id>/memory.current` and `memory.stat`'s `anon`) and `PRAGMA soft_heap_limit` / `PRAGMA hard_heap_limit` read first; then the same on the 1.8 GB file. If the peak sits far under 16 GiB when the error comes, the limit is DoltLite's own and the README's `doc/doltlite/storage-format.md` should say what `VACUUM` allocates.
