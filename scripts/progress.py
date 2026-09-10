@@ -33,7 +33,6 @@ def clock(seconds):
 
 
 TITLE = {"pg": "PostgreSQL / DoltgreSQL", "lite": "SQLite / DoltLite"}
-ISOLATED = "one server per unit"
 
 
 def runner_alive(u):
@@ -47,7 +46,7 @@ def pairs_section(p):
     """The two further pairs, by index policy: what is measured, what is left, and a rough estimate
     from the seconds per row of the units measured so far (or of the superseded ones, before any)."""
     try:
-        from pairs import LABEL as PAIR_LABEL, PER_ROW, PHASES, exported, reference
+        from pairs import LABEL as PAIR_LABEL, METHOD, PER_ROW, PHASES, exported, reference
     except Exception as exc:                                        # noqa: BLE001
         print(f"\n  (the pairs cannot be shown: {exc})")
         return
@@ -69,8 +68,8 @@ def pairs_section(p):
             total = 0.0
             for ph in phases:
                 recs = {db: units.get(f"{ph}/{db}{suffix}", {}) for db in dbs}
-                fin = [db for db, u in recs.items() if u.get("status") == "done"
-                       and (not ph.startswith("doltgres") or u.get("isolation") == ISOLATED)]
+                # measured means measured with the method the documents report
+                fin = [db for db, u in recs.items() if u.get("status") == "done" and u.get("method") == METHOD]
                 left = [db for db in dbs if db not in fin]
                 spent = sum(recs[db].get("wall_seconds") or 0 for db in fin)
                 basis = []
@@ -85,11 +84,10 @@ def pairs_section(p):
                 print(f"  {PAIR_LABEL.get(ph, ph):<40}{len(fin):>7}{len(left):>7}{clock(spent):>13}"
                       f"{(clock(est) if left else '—'):>12}")
             print(f"  {'':<40}{'':>7}{'':>7}{'':>13}{clock(total):>12}  (rough)")
-    stale = [k for k, u in units.items() if k.startswith("doltgres_") and u.get("status") == "done"
-             and u.get("isolation") != ISOLATED]
+    stale = [k for k, u in units.items() if u.get("pair") and u.get("status") == "done" and u.get("method") != METHOD]
     if stale or sup:
-        print(f"\n  DoltgreSQL units measured on a shared server: {len(stale)} still recorded, {len(sup)} superseded; "
-              f"each is measured again with one server per unit")
+        print(f"\n  pair units measured with an older method: {len(stale)} still to be measured again; "
+              f"{len(sup)} first records kept under superseded")
 
 
 def main():
