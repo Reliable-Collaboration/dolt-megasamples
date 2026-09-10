@@ -45,7 +45,9 @@ Every step is a Makefile target over one script; every script says what it does 
 5. **`make run-pg`** and **`make run-lite`** -- the five shapes, resumable, cheapest-first,
    `ARGS="--max-rows N"` to keep a pass short, `ARGS="--indexes inline"` for the second policy,
    `ARGS="--redo --only pubs"` to measure a unit again after a dialect change (both engines of the
-   pair, since both load the changed file). Progress in `build/progress.json`; `make progress`.
+   pair, since both load the changed file), `ARGS="--skip-row-by-row employees"` to leave a database's
+   four row-by-row shapes out of a run (its one-shot shapes still run; repeat the flag for more
+   databases). Progress in `build/progress.json`; `make progress`.
 6. **`make report`** -- folds the units into `build/results.json` (`collect_pairs.py`), regenerates
    `README.md`, `JOURNAL.md`, `REPORT.md` and the landing page; **`make check`** fails if any
    document disagrees with the measurements or an invariant fails (`audit.py`).
@@ -61,6 +63,12 @@ remaining databases; then the quick subset up to a million rows; then the one-co
 everything; then the per-row shapes of the largest databases, cheapest first, for as long as the
 night lasted. The drivers were two shell scripts under `build/` (gitignored), each a sequence of
 the commands above; a run interrupted anywhere resumes with the same command.
+
+The second run, after every unit was measured again with method 2, goes smallest first in three
+steps (up to 200,000 rows, up to a million, then everything), the SQLite pair before the PostgreSQL
+pair and both index policies in each step, with `--skip-row-by-row employees` throughout: the
+maintainer decided that employees' row-by-row loads, about 29 hours of machine time, come last, once
+every other result is in.
 
 # What to do when a unit records an error
 

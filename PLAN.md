@@ -127,6 +127,15 @@ the dialects and the stack) is the recommended way to keep the evidence reviewab
 4. **What "the same file" means for DoltLite**: the dump replayed into a DoltLite-format database
    ([decision](knowledge/decisions/doltlite-same-file.md)).
 
+## Decisions taken during the work (2026-09-10)
+
+5. **Employees' row-by-row loads come last.** Its four row-by-row shapes, about 29 hours of machine
+   time under both index policies, run once every other result is in (`--skip-row-by-row employees`
+   until then; [running the pairs](knowledge/runbooks/pairs-run.md)).
+6. **DoltgreSQL's accounts follow Dolt's**: `admin`/`admin` reads and writes, `demo`/`demo` only reads.
+   DoltgreSQL 1.3.1 enforces table privileges but not database privileges, so `demo` can still create
+   and drop databases until a way to stop it is found and recorded in
+   [stood-up instances](knowledge/decisions/stood-up-instances.md).
 What the first phase found, and how the loads are shaped and measured, is recorded in
 [knowledge/decisions/pair-dialect-rules.md](knowledge/decisions/pair-dialect-rules.md) and
 [knowledge/decisions/pair-load-shapes-and-measurement.md](knowledge/decisions/pair-load-shapes-and-measurement.md);
