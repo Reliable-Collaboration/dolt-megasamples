@@ -30,4 +30,4 @@ The current source tarball on the page is `2026/sqlite-autoconf-3530400.tar.gz`,
 
 # What it was used to decide
 
-`doltlite -version` reports `DoltLite v0.50.9 (SQLite 3.54.0, 64-bit)`: the fork tracks SQLite's trunk ahead of the newest release, so no stock `sqlite3` of the same version can be installed for the baseline. The baseline is Debian 13's `sqlite3` 3.46.1, and the version gap is recorded rather than hidden: [the sqlite3 shell 3.46.1](/tools/sqlite3-shell-3-46-1.md), [pair load shapes](/decisions/pair-load-shapes-and-measurement.md).
+`doltlite -version` of the pinned DoltLite reports `DoltLite v0.50.9 (SQLite 3.54.0, 64-bit)`: the fork tracks SQLite's trunk ahead of the newest release, so no stock `sqlite3` of the same version can be installed for the baseline. The baseline is Debian 13's `sqlite3` 3.46.1, and the version gap is recorded rather than hidden: [the sqlite3 shell 3.46.1](/tools/sqlite3-shell-3-46-1.md), [pair load shapes](/decisions/pair-load-shapes-and-measurement.md).

@@ -4,7 +4,8 @@
 Every rule is named, counted and reported per database, and none touches a row. Both engines of
 the pair load the same transformed file (the discipline `dolt_dialect.py` set for MySQL and
 Dolt), so the comparison is between engines, not between inputs. The rules were found by refusal
-on the quick subset (2026-09-10, DoltgreSQL 1.3.1, pg_dump 18.6), not assumed.
+on the quick subset (2026-09-10, DoltgreSQL 1.3.1, pg_dump 18.6), not assumed. DoltgreSQL 1.3.1 is
+pinned (scripts/pairs.py): the rules describe that version and no other.
 
 pg_dump writes one block per object under a header of the form
     --

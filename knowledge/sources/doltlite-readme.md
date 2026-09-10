@@ -63,4 +63,4 @@ The README of `dolthub/doltlite` on its default branch, fetched raw through the 
 
 * A stock SQLite file opened by DoltLite is not versioned, so "the same file" has to mean the dump replayed into a DoltLite-format database: [DoltLite same file](/decisions/doltlite-same-file.md).
 * `VACUUM` is the settle step for DoltLite, the counterpart of `dolt gc`: [pair load shapes](/decisions/pair-load-shapes-and-measurement.md).
-* The `bin/doltlite` shell is the client, and there is no server: the worker container runs the shell over files: [DoltLite v0.50.9](/tools/doltlite-0-50-9.md).
+* The `bin/doltlite` shell is the client, and there is no server: the worker container runs the shell over files: [DoltLite v0.50.9](/tools/doltlite-0-50-9.md), the pinned version.

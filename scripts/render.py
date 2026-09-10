@@ -63,6 +63,7 @@ def blocks():
         "memory_table": guarded(lambda m: memory_table(m), need="memory"),
         "missing_facts": lambda: missing_list(),
         # the two further pairs (scripts/report_pairs.py)
+        "pinned_versions": lambda: report_pairs.pinned_table(),
         "pg_pair_table": guarded(lambda r: report_pairs.pair_table(r, "pg")),
         "lite_pair_table": guarded(lambda r: report_pairs.pair_table(r, "lite")),
         "pg_pair_inline": guarded(lambda r: report_pairs.inline_table(r, "pg")),

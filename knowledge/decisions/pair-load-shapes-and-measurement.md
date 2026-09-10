@@ -47,6 +47,8 @@ The dump layouts, the refusals, and the sizes before and after the settle steps:
 
 # Outcome
 
+**Both engines are pinned.** Every measurement belongs to DoltgreSQL 1.3.1 and DoltLite v0.50.9 exactly, beside PostgreSQL 18.6 and Debian 13's sqlite3 3.46.1, each pinned too; none moves to a newer release unless the maintainer explicitly asks ([the DoltgreSQL pin](/decisions/doltgresql-version-pin.md), [the DoltLite pin](/decisions/doltlite-version-pin.md)).
+
 **Shapes** (keys in `build/progress.json`, definitions in `scripts/pairs.py`):
 
 | PostgreSQL pair | SQLite pair | what the rows are |

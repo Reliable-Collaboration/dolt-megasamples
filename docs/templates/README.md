@@ -31,6 +31,15 @@ The two are separate on purpose. `sql-megasamples` builds the corpus — 21 data
 provenance and their licences — and is useful on its own to anyone who wants realistic sample data
 in MySQL. This repository only measures things, and reads that corpus as its input.
 
+## Pinned versions
+
+Every engine this experiment measures or serves is pinned to one exact version. A newer release is
+never picked up on its own: a pin stays until the maintainer explicitly asks for it to be removed, and
+every number in this document belongs to exactly the versions below. Changing one means changing the
+places named in the table and measuring again; `knowledge/decisions/` records each pin.
+
+{{block:pinned_versions}}
+
 ## The tests
 
 The same `mysqldump` files are loaded five ways. Nothing differs but how the rows are written.
@@ -129,15 +138,15 @@ way you ask, and both policies produced byte-identical files.
 ## The same question for PostgreSQL and SQLite
 
 sql-megasamples' corpus also runs on PostgreSQL and SQLite (ports verified against the MySQL hub),
-and DoltHub ships a versioned engine for each: **DoltgreSQL** {{pairs.doltgres_version}} speaks the
-PostgreSQL wire protocol over Dolt's storage engine; **DoltLite** v{{pairs.doltlite_version}} is a
+and DoltHub ships a versioned engine for each: **DoltgreSQL {{pairs.doltgres_version}}, pinned,** speaks the
+PostgreSQL wire protocol over Dolt's storage engine; **DoltLite v{{pairs.doltlite_version}}, pinned,** is a
 SQLite fork with a versioned storage engine in place of SQLite's B-tree, in beta. The five tests were
 run again for each pair, from that engine's own dump, with the same measurement rules: every load
 timed around one command in a container that is already up, the settle step timed separately
 (`CHECKPOINT`; `dolt_commit` and `dolt_gc()`; nothing; `dolt_commit` and `VACUUM`), memory sampled
 from the worker's cgroup, and the row counts and index set checked against the source before any
-size is kept. The engines are pinned -- DoltgreSQL by image digest, DoltLite by the checksums of its
-packages -- and `knowledge/decisions/` records why and how to undo either.
+size is kept. Both versions stay pinned unless the maintainer explicitly asks for a pin to be removed, so every
+number below belongs to exactly these versions; *Pinned versions* above says how each is pinned.
 
 | # | PostgreSQL / DoltgreSQL | SQLite / DoltLite | how the rows are written |
 |---|---|---|---|

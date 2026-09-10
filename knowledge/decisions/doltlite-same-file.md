@@ -36,7 +36,7 @@ The MySQL/Dolt and PostgreSQL/DoltgreSQL pairs load a dump into two servers. sql
 
 # Evidence
 
-The stock-file behaviour and the replay results (row counts, triggers, views, FTS5, index catalogue all matching the source): [DoltLite v0.50.9](/tools/doltlite-0-50-9.md). A DoltLite file is not readable by `sqlite3` ("file is not a database"), so there is no shared-file shape to measure either way.
+The stock-file behaviour and the replay results (row counts, triggers, views, FTS5, index catalogue all matching the source): [DoltLite v0.50.9](/tools/doltlite-0-50-9.md), the pinned version. A DoltLite file is not readable by `sqlite3` ("file is not a database"), so there is no shared-file shape to measure either way.
 
 # Outcome
 

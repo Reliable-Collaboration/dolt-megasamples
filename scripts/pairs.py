@@ -46,7 +46,8 @@ POSTGRES_IMAGE = os.environ.get(
 # ====================================================================================================
 # PINNED: DoltgreSQL 1.3.1 (the release current on 2026-09-10; published 2026-09-02).
 # Every DoltgreSQL number in this repository was measured against this one build, named by digest so
-# a moved tag cannot change it. TO UNDO THE PIN: set DOLTSAMPLES_DOLTGRES_IMAGE (or edit the default
+# a moved tag cannot change it. The pin stays until the maintainer explicitly asks for it to be removed
+# (decided 2026-09-10). TO UNDO THE PIN: set DOLTSAMPLES_DOLTGRES_IMAGE (or edit the default
 # below, and the `doltgres` service in compose.yaml, which carries the same digest), then rerun the
 # loads -- the numbers belong to the build that produced them. The decision and the digest's
 # provenance: knowledge/decisions/doltgresql-version-pin.md.
@@ -56,8 +57,15 @@ DOLTGRES_IMAGE = os.environ.get(
     "DOLTSAMPLES_DOLTGRES_IMAGE",
     "dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851")
 
-# DoltLite v0.50.9 (published 2026-09-10): no image exists, so docker/doltlite/Dockerfile builds one
-# from these two packages after scripts/lite_image.py has checked them against the recorded sha256.
+# ====================================================================================================
+# PINNED: DoltLite v0.50.9 (published 2026-09-10). Every DoltLite number in this repository was measured
+# with exactly this release. No image exists, so docker/doltlite/Dockerfile builds one from the two
+# packages below after scripts/lite_image.py has checked them against the recorded sha256. The pin stays
+# until the maintainer explicitly asks for it to be removed, even when DoltHub publishes newer releases
+# (decided 2026-09-10). TO CHANGE IT: the version, the URLs and both checksums below together, the
+# package names in docker/doltlite/Dockerfile and the image tag in compose.yaml; then measure again.
+# The decision: knowledge/decisions/doltlite-version-pin.md.
+# ====================================================================================================
 LITE_VERSION = "0.50.9"
 LITE_IMAGE = f"doltsamples-doltlite:{LITE_VERSION}"
 _LITE_RELEASE = f"https://github.com/dolthub/doltlite/releases/download/v{LITE_VERSION}/"

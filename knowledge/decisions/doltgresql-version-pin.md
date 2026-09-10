@@ -45,6 +45,8 @@ Pinned by digest in two places, each under a banner that says PINNED, why, and h
 
 **To undo:** set `DOLTSAMPLES_DOLTGRES_IMAGE` (or edit the default and the compose digest to the new release's), then rerun the DoltgreSQL units (`make run-pg ARGS="--redo --phase doltgres_oneshot ..."`) and the preflight -- the recorded numbers belong to the build that produced them and are not carried across a version change. Log the change as an **Update** to this record with the new digest and date.
 
+**Policy, 2026-09-10:** the pin stays unless the maintainer explicitly asks for it to be removed ("Stick with the pinned version unless explicitely asked to remove the pin. Clearly mark that it is pinned in any documentation so that it's clear."), and every document marks the version as pinned, beside the other engines' pins in the README's *Pinned versions* table. DoltgreSQL 1.3.1 was still the newest release on 2026-09-10 at 22:25 UTC. [The DoltLite pin](/decisions/doltlite-version-pin.md) follows the same rule.
+
 # Status
 
 accepted (2026-09-10; user decision: "Pin Doltgres on the current most recent release but mark that clearly so we can undo it later").

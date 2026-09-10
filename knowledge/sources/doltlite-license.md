@@ -45,4 +45,4 @@ The rest of the file (not quoted) states that the SQLite code the fork is built 
 
 # What it was used to decide
 
-* That running and redistributing the DoltLite image built here is permitted (Apache-2.0 plus public domain), and what `NOTICE` should say if the image is ever shipped: [DoltLite v0.50.9](/tools/doltlite-0-50-9.md). Nothing is published from this repository; the image is built locally by `make lite-image`.
+* That running and redistributing the DoltLite image built here is permitted (Apache-2.0 plus public domain), and what `NOTICE` should say if the image is ever shipped: [DoltLite v0.50.9](/tools/doltlite-0-50-9.md), the pinned version. Nothing is published from this repository; the image is built locally by `make lite-image`.

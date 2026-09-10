@@ -1,3 +1,5 @@
+# PINNED: DoltLite v0.50.9 and debian:13-slim by digest. Both stay until the maintainer explicitly asks
+# for a pin to be removed; see the PINNED note in scripts/pairs.py for what changing one involves.
 # The DoltLite worker and the container that stays up: the pinned .deb packages over Debian 13
 # (DoltLite v0.50.9 links glibc 2.38; Debian 12's 2.36 refuses it) plus Debian's stock sqlite3
 # shell, which is the baseline engine of the SQLite/DoltLite pair. scripts/lite_image.py downloads

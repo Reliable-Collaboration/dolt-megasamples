@@ -4,7 +4,8 @@
 Every rule is named, counted and reported per database, and none touches a row. Both engines of
 the pair load the same transformed file, so a rule that changes the load for one changes it for
 the other and the comparison stays between engines, not between inputs. The rules were found by
-refusal on sakila (2026-09-10, DoltLite v0.50.9, sqlite3 3.46.1), not assumed.
+refusal on sakila (2026-09-10, DoltLite v0.50.9, sqlite3 3.46.1), not assumed. DoltLite v0.50.9 is
+pinned (scripts/pairs.py): the rules describe that version and no other.
 
 Rules (each returns a note when it fired):
 

@@ -1,7 +1,7 @@
 ---
 type: Tool
 title: DoltLite v0.50.9
-description: The SQLite fork with a versioned storage engine that the SQLite pair measures, built here into an image from its Debian packages, with what was verified by replaying sakila into it before the experiment ran.
+description: The SQLite fork with a versioned storage engine that the SQLite pair measures, pinned at v0.50.9 by the checksums of its Debian packages and built here into an image from them, with what was verified by replaying sakila into it before the experiment ran.
 resource: https://github.com/dolthub/doltlite
 tags:
 - engine
@@ -30,7 +30,7 @@ stale_after: "2027-03-01"
 
 # Facts
 
-Everything below was observed on 2026-09-10 with the image `docker/doltlite/Dockerfile` builds: `debian:13-slim` (digest `sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132`) plus `libdoltlite0_0.50.9_amd64.deb` and `doltlite_0.50.9_amd64.deb` (checksums in the release record), plus Debian's `sqlite3` package. Licence: Apache-2.0 for the DoltLite extensions over public-domain SQLite.
+DoltLite v0.50.9 is pinned: it stays until the maintainer explicitly asks for the pin to be removed ([the pin](/decisions/doltlite-version-pin.md)). Everything below was observed on 2026-09-10 with the image `docker/doltlite/Dockerfile` builds: `debian:13-slim` (digest `sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132`) plus `libdoltlite0_0.50.9_amd64.deb` and `doltlite_0.50.9_amd64.deb` (checksums in the release record), plus Debian's `sqlite3` package. Licence: Apache-2.0 for the DoltLite extensions over public-domain SQLite.
 
 * **Identity.** `doltlite -version` answers `DoltLite v0.50.9 (SQLite 3.54.0, 64-bit)`; `SELECT dolt_version()` answers `v0.50.9`. The shell is SQLite's shell (`-help` lists SQLite's options; `.read`, `.dump`, `.schema` work). It links glibc 2.38: on `debian:12-slim` (glibc 2.36) it refuses to start (`GLIBC_2.38' not found`), on Debian 13 (glibc 2.41) it runs.
 * **A stock SQLite file is not versioned.** Opening sql-megasamples' `sakila.sqlite` with `doltlite` answers plain queries (film 1,000) but `SELECT COUNT(*) FROM dolt_log` answers `dolt version-control features are not available on stock SQLite databases`. A DoltLite-format file is not a SQLite file: `sqlite3 sakila.doltlite` answers `file is not a database (26)`. Hence [the "same file" decision](/decisions/doltlite-same-file.md).

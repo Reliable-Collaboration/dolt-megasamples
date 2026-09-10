@@ -71,6 +71,7 @@ services:
 
   # ============================================================================================
   # PINNED: DoltgreSQL 1.3.1 by digest -- the build every DoltgreSQL number was measured against
+  # The pin stays until the maintainer explicitly asks for it to be removed.
   # (scripts/pairs.py carries the same digest; knowledge/decisions/doltgresql-version-pin.md says
   # how to undo the pin: change both, rerun the DoltgreSQL units). Serves the one-shot loads
   # (data/doltgres-oneshot, one repository per database) on 5433, one above sql-megasamples' 5432.
@@ -104,6 +105,8 @@ services:
       DEMO_PASSWORD: ${DEMO_PASSWORD:-demo}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
     restart: "no"
+  # PINNED: DoltLite v0.50.9 (the image tag below; scripts/pairs.py says how to change it, which only the
+  # maintainer's explicit request does).
   # DoltLite has no server: the files of the one-shot loads (data/doltlite-oneshot/<db>.doltlite)
   # and the doltlite shell, in the image `make lite-image` builds from the pinned v0.50.9 packages.
   # Use it with `docker exec -it doltsamples-doltlite doltlite /data/sakila.doltlite`, or copy a

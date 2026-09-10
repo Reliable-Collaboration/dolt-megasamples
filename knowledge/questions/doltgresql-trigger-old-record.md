@@ -22,7 +22,7 @@ sources:
 
 # Question
 
-On 1.3.1 with sakila loaded, `UPDATE actor SET first_name = first_name WHERE actor_id = 1` answers `ERROR:  record "old" has no field "*"`. The trigger body is `IF NEW."last_update" IS NOT DISTINCT FROM OLD."last_update" THEN NEW."last_update" := CURRENT_TIMESTAMP; END IF; RETURN NEW;`. Is it `IS NOT DISTINCT FROM` on record fields, the quoted field names, or `OLD` in a `BEFORE UPDATE` trigger that DoltgreSQL's PL/pgSQL does not handle?
+On 1.3.1, the pinned version, with sakila loaded, `UPDATE actor SET first_name = first_name WHERE actor_id = 1` answers `ERROR:  record "old" has no field "*"`. The trigger body is `IF NEW."last_update" IS NOT DISTINCT FROM OLD."last_update" THEN NEW."last_update" := CURRENT_TIMESTAMP; END IF; RETURN NEW;`. Is it `IS NOT DISTINCT FROM` on record fields, the quoted field names, or `OLD` in a `BEFORE UPDATE` trigger that DoltgreSQL's PL/pgSQL does not handle?
 
 # Cheapest experiment
 

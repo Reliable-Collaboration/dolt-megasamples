@@ -68,6 +68,8 @@ The refusals were found on sakila's rows (2026-09-10) and on the quick subset's 
 
 # Outcome
 
+**Both engines are pinned.** Every rule below was found on, and is written for, DoltgreSQL 1.3.1 and DoltLite v0.50.9 and no other version; both stay pinned unless the maintainer explicitly asks for a pin to be removed ([the DoltgreSQL pin](/decisions/doltgresql-version-pin.md), [the DoltLite pin](/decisions/doltlite-version-pin.md)).
+
 **DoltgreSQL** (`scripts/doltgres_dialect.py`, working on pg_dump's object blocks, never on the rows inside `TABLE DATA`; since method 2 the files are also read and written byte for byte, after a text-mode read was found to turn the carriage returns inside row values into line feeds -- the rules never touched a row, the read did):
 
 * **G1 gin-index**: `CREATE INDEX ... USING gin` dropped on both sides; DoltgreSQL 1.3.1 answers "index method gin is not yet supported" and has no `@@` to serve it. The index-parity check expects it absent.

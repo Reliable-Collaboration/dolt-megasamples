@@ -108,7 +108,7 @@ def main():
                 pg(user, pw, "postgres", "DROP DATABASE probe_stack_check")
             check(f"DoltgreSQL as {user}: may write", rc == 0, out[-100:])
         else:
-            # what DoltgreSQL 1.3.1 enforces is table privileges; it lets any role create and drop
+            # what DoltgreSQL 1.3.1 (the pinned version) enforces is table privileges; it lets any role create and drop
             # databases (knowledge/tools/doltgresql-1-3-1.md), so the refusal tested is a table's
             rc, out = pg(user, pw, pg_db, "CREATE TABLE probe_stack_check (id int)")
             if rc == 0:

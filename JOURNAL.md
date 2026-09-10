@@ -223,6 +223,10 @@ engines so far). What was learned before a row was loaded is in `knowledge/` -- 
 the two engines with the source it was read in or the command that produced it -- and the short
 version is this.
 
+**Both new engines are pinned**: DoltgreSQL 1.3.1 by image digest and DoltLite
+v0.50.9 by the checksums of its packages. Neither moves to a newer release unless the
+maintainer explicitly asks, so everything below describes exactly those versions.
+
 **What the engines refused decided the method.** DoltgreSQL 1.3.1 takes
 pg_dump's output as its README promises, with four exceptions found by refusal: no GIN index (the
 full-text index of the port), no `xpath`, no `JSON_TABLE`, and two shapes of stored expression it

@@ -1,5 +1,7 @@
 # DoltLite v0.50.9: VACUUM answers "out of memory" on a 3.6 GB file with 260k commits, at a 1.2 GiB peak
 
+*Found on DoltLite v0.50.9, the version dolt-megasamples pins by the SHA-256 of its two release packages. It was the newest release on 2026-09-10; no newer release has been tried.*
+
 Record: `knowledge/tools/doltlite-0-50-9.md`, `knowledge/questions/doltlite-vacuum-memory.md`.
 
 **Steps:** a DoltLite-format file produced by replaying a 260,041-row SQLite dump with `SELECT dolt_commit('-Am', ...)` after every `INSERT` (260,043 commits, 3,626,991,241 bytes); then `doltlite the.db "VACUUM;"` from the `doltlite_0.50.9_amd64.deb` shell on Debian 13.

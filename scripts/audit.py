@@ -206,12 +206,21 @@ def pairs_are_consistent(a, results):
 
 
 def pair_settles_reported(a, results):
-    """A pair unit whose settle step failed is reported unsettled, whichever runner recorded it."""
+    """A pair unit whose settle step failed is reported unsettled, whichever runner recorded it.
+
+    build/results.json is the snapshot the last `make collect` took; build/progress.json keeps moving
+    while a run goes on. A unit that finished after the newest unit the snapshot holds cannot be in it
+    yet, so it is skipped, by name, rather than failed; every unit that finished before that point
+    must be reported, so a collector that dropped or mis-folded one still fails here."""
     if not os.path.exists(PROGRESS):
         return
     from collect_pairs import settle_failed
     from pairs import METHOD
     p = json.load(open(PROGRESS, encoding="utf-8"))
+    folded_until = max((e.get("finished") or 0
+                        for v in results.values() for entries in (v.get("pairs") or {}).values()
+                        if isinstance(entries, dict) for e in entries.values() if isinstance(e, dict)),
+                       default=0)
     for key, u in sorted((p.get("units") or {}).items()):
         # only the units the collector reports: one taken with an older method is withdrawn, not shown
         if (not u.get("pair") or u.get("status") != "done" or u.get("method") != METHOD
@@ -219,6 +228,10 @@ def pair_settles_reported(a, results):
             continue
         parts = key.split("/")
         name = parts[0] + ("_inline" if parts[2:] == ["inline"] else "")
+        if (u.get("finished") or 0) > folded_until:
+            a.skip(f"{parts[1]} {name}: its failed settle step is reported as unsettled",
+                   "measured after the last `make collect`, which folds it")
+            continue
         got = ((((results.get(parts[1]) or {}).get("pairs") or {}).get(u["pair"]) or {}).get(name)) or {}
         a.check(got.get("settled") is False and not got.get("disk_bytes"),
                 f"{parts[1]} {name}: its failed settle step is reported as unsettled", f"settled={got.get('settled')}")

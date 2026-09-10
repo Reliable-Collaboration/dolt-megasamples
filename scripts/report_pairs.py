@@ -170,3 +170,47 @@ def memory_table(results, pair):
                  for ph in phases]
         L.append(f"| `{db}` | {m['__rows']:,} | " + " | ".join(cells) + " |")
     return "\n".join(L)
+
+
+def pinned_table():
+    """Every engine this repository measures or serves, the one version it is pinned to, how, and where
+    the pin is written -- read from the pins themselves and from build/environment.json, so the table
+    cannot drift from what is measured. The pins stay until the maintainer explicitly asks for one to
+    be removed (2026-09-10)."""
+    import json, os, re
+    from common import DOLT_IMAGE, ROOT
+    from pairs import DOLTGRES_IMAGE, DOLTGRES_VERSION, LITE_VERSION, POSTGRES_IMAGE
+    env = {}
+    path = os.path.join(ROOT, "build", "environment.json")
+    if os.path.exists(path):
+        env = (json.load(open(path, encoding="utf-8")).get("engines") or {})
+
+    def number(text, fallback="not recorded"):
+        m = re.search(r"\d+\.\d+(?:\.\d+)?", text or "")
+        return m.group(0) if m else fallback
+
+    def short(image):
+        name, _, digest = image.partition("@")
+        return f"{name}@{digest[:19]}…" if digest else image
+
+    dockerfile = open(os.path.join(ROOT, "docker", "doltlite", "Dockerfile"), encoding="utf-8").read()
+    base = re.search(r"^FROM (\S+)", dockerfile, re.M)
+    mysql_image = env.get("mysql_image") or "mysql:9.7.2"
+    rows = [
+        ("MySQL", number(env.get("mysql_version"), number(mysql_image)), f"image tag `{mysql_image}`",
+         "`scripts/run_all.py`"),
+        ("Dolt", number(env.get("dolt_version")), f"image digest `{short(DOLT_IMAGE)}`",
+         "`scripts/common.py`, `compose.yaml`"),
+        ("PostgreSQL", number(env.get("postgres_version")), f"image digest `{short(POSTGRES_IMAGE)}`",
+         "`scripts/pairs.py`"),
+        ("DoltgreSQL", DOLTGRES_VERSION, f"image digest `{short(DOLTGRES_IMAGE)}`",
+         "`scripts/pairs.py`, `compose.yaml`"),
+        ("SQLite shell", number(env.get("sqlite3_version")),
+         f"Debian 13's package, inside the base image `{short(base.group(1)) if base else 'debian:13-slim'}`",
+         "`docker/doltlite/Dockerfile`"),
+        ("DoltLite", f"v{LITE_VERSION}", "the release's two .deb packages, checked by SHA-256 before the image is built",
+         "`scripts/pairs.py`, `docker/doltlite/Dockerfile`, `compose.yaml`"),
+    ]
+    L = ["| engine | pinned version | pinned by | where the pin is written |", "|---|---|---|---|"]
+    L += [f"| {e} | **{v}**, pinned | {how} | {where} |" for e, v, how, where in rows]
+    return "\n".join(L)

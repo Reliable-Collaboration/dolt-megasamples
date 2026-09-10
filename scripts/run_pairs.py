@@ -46,6 +46,9 @@ def main():
                     help="skip databases with more than N rows (the report says which were not run)")
     ap.add_argument("--floor-gb", type=float, default=8.0, help="stop before a unit if less than this is free")
     ap.add_argument("--resume", action="store_true", help="add to a run recorded on another machine")
+    ap.add_argument("--skip-row-by-row", action="append", default=[], metavar="DB",
+                    help="leave this database's row-by-row loads out of this run; its one-commit loads still run "
+                         "(employees' row-by-row loads are run last, after every other result: 2026-09-10)")
     a = ap.parse_args()
 
     lock, holder = run_lock(f"run_pairs.py --pair {a.pair}")
@@ -90,13 +93,17 @@ def main():
         p["host"] = fingerprint()
     else:
         p = {"started": time.time(), "units": {}, "host": fingerprint()}
-    p.setdefault("pairs", {})[a.pair] = {"databases": dbs, "phases": phases, "indexes": a.indexes}
+    p.setdefault("pairs", {})[a.pair] = {"databases": dbs, "phases": phases, "indexes": a.indexes,
+                                         "row_by_row_skipped": sorted(a.skip_row_by_row)}
     save_progress(p)
 
     def key_of(phase, db):
         return f"{phase}/{db}" + ("" if a.indexes == "deferred" else "/inline")
 
-    units = [(ph, db) for ph in phases for db in order]
+    units = [(ph, db) for ph in phases for db in order if not (ph in PER_ROW and db in a.skip_row_by_row)]
+    if a.skip_row_by_row:
+        print(f"--skip-row-by-row: the row-by-row loads of {', '.join(sorted(a.skip_row_by_row))} are left out of "
+              f"this run\n", flush=True)
     todo = [(ph, db) for ph, db in units if a.redo or not current(p["units"].get(key_of(ph, db), {}))]
     print(f"{len(units)} units, {len(todo)} to do ({len(units) - len(todo)} already measured with method "
           f"{METHOD})\n", flush=True)

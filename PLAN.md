@@ -120,7 +120,8 @@ the dialects and the stack) is the recommended way to keep the evidence reviewab
 2. **The pins**: DoltgreSQL 1.3.1 by image digest, marked PINNED in `scripts/pairs.py` and
    `compose.yaml` with the undo path beside it ([decision](knowledge/decisions/doltgresql-version-pin.md));
    DoltLite v0.50.9 from its checksummed `.deb` packages, built into an image here
-   (`make lite-image`), never pushed.
+   (`make lite-image`), never pushed. Both stay pinned unless the maintainer explicitly asks for a pin to be
+   removed, and every document marks them as pinned (decided 2026-09-10).
 3. **A knowledge bundle here**, in the sql-megasamples form: `knowledge/` (tool, source, decision
    and question records; `make okf-check`).
 4. **What "the same file" means for DoltLite**: the dump replayed into a DoltLite-format database

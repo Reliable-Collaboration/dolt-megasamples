@@ -35,6 +35,22 @@ The two are separate on purpose. `sql-megasamples` builds the corpus — 21 data
 provenance and their licences — and is useful on its own to anyone who wants realistic sample data
 in MySQL. This repository only measures things, and reads that corpus as its input.
 
+## Pinned versions
+
+Every engine this experiment measures or serves is pinned to one exact version. A newer release is
+never picked up on its own: a pin stays until the maintainer explicitly asks for it to be removed, and
+every number in this document belongs to exactly the versions below. Changing one means changing the
+places named in the table and measuring again; `knowledge/decisions/` records each pin.
+
+| engine | pinned version | pinned by | where the pin is written |
+|---|---|---|---|
+| MySQL | **9.7.2**, pinned | image tag `mysql:9.7.2` | `scripts/run_all.py` |
+| Dolt | **2.3.2**, pinned | image digest `dolthub/dolt-sql-server@sha256:38d5e9005832…` | `scripts/common.py`, `compose.yaml` |
+| PostgreSQL | **18.6**, pinned | image digest `postgres@sha256:1c59e2c3c818…` | `scripts/pairs.py` |
+| DoltgreSQL | **1.3.1**, pinned | image digest `dolthub/doltgresql@sha256:6c85cb1f35be…` | `scripts/pairs.py`, `compose.yaml` |
+| SQLite shell | **3.46.1**, pinned | Debian 13's package, inside the base image `debian:13-slim@sha256:d7e12182ce18…` | `docker/doltlite/Dockerfile` |
+| DoltLite | **v0.50.9**, pinned | the release's two .deb packages, checked by SHA-256 before the image is built | `scripts/pairs.py`, `docker/doltlite/Dockerfile`, `compose.yaml` |
+
 ## The tests
 
 The same `mysqldump` files are loaded five ways. Nothing differs but how the rows are written.
@@ -246,15 +262,15 @@ Tests 2, 4 and 5 run twice: once with the secondary indexes and foreign keys dro
 ## The same question for PostgreSQL and SQLite
 
 sql-megasamples' corpus also runs on PostgreSQL and SQLite (ports verified against the MySQL hub),
-and DoltHub ships a versioned engine for each: **DoltgreSQL** 1.3.1 speaks the
-PostgreSQL wire protocol over Dolt's storage engine; **DoltLite** v0.50.9 is a
+and DoltHub ships a versioned engine for each: **DoltgreSQL 1.3.1, pinned,** speaks the
+PostgreSQL wire protocol over Dolt's storage engine; **DoltLite v0.50.9, pinned,** is a
 SQLite fork with a versioned storage engine in place of SQLite's B-tree, in beta. The five tests were
 run again for each pair, from that engine's own dump, with the same measurement rules: every load
 timed around one command in a container that is already up, the settle step timed separately
 (`CHECKPOINT`; `dolt_commit` and `dolt_gc()`; nothing; `dolt_commit` and `VACUUM`), memory sampled
 from the worker's cgroup, and the row counts and index set checked against the source before any
-size is kept. The engines are pinned -- DoltgreSQL by image digest, DoltLite by the checksums of its
-packages -- and `knowledge/decisions/` records why and how to undo either.
+size is kept. Both versions stay pinned unless the maintainer explicitly asks for a pin to be removed, so every
+number below belongs to exactly these versions; *Pinned versions* above says how each is pinned.
 
 | # | PostgreSQL / DoltgreSQL | SQLite / DoltLite | how the rows are written |
 |---|---|---|---|
@@ -459,11 +475,11 @@ a binary log.
 | Disk | 1,006.9 GiB ext4 |
 | Kernel | 6.18.33.2-microsoft-standard-WSL2 |
 | Docker | 29.7.2, storage driver `overlayfs` |
-| MySQL | `mysql:9.7.2` — /usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL) |
-| Dolt | `dolthub/dolt-sql-server` — dolt version 2.3.2 |
-| PostgreSQL | `postgres` — postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2) |
-| DoltgreSQL | `dolthub/doltgresql` — 1.3.1, pinned by digest |
-| DoltLite | `doltsamples-doltlite:0.50.9` — DoltLite v0.50.9 (SQLite 3.54.0, 64-bit), beside sqlite3 3.46.1 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1 (64-bit) |
+| MySQL | `mysql:9.7.2` — /usr/sbin/mysqld  Ver 9.7.2 for Linux on x86_64 (MySQL Community Server - GPL), pinned by image tag |
+| Dolt | `dolthub/dolt-sql-server` — dolt version 2.3.2, pinned by image digest |
+| PostgreSQL | `postgres` — postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2), pinned by image digest |
+| DoltgreSQL | `dolthub/doltgresql` — 1.3.1, pinned by image digest |
+| DoltLite | `doltsamples-doltlite:0.50.9` — DoltLite v0.50.9 (SQLite 3.54.0, 64-bit), pinned by package checksums, beside sqlite3 3.46.1 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1 (64-bit) |
 | Tuning | no performance tuning — stock images, stock storage settings; MySQL is started with the two flags below |
 | MySQL flags | `--local-infile=1`, `--skip-log-bin` |
 
