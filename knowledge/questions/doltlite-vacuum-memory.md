@@ -1,17 +1,20 @@
 ---
 type: Open Question
 title: What does DoltLite's VACUUM need in memory, and why did a 5 GB file exceed it?
-description: The per-row-commit load of dvdstore with the indexes inline left a 5.2 GB DoltLite file whose VACUUM answered "out of memory" under a 16 GiB cgroup; whether that is the file's size, its commit count, or a limit of the shell decides which loads can be settled at all.
+description: Answered on 2026-09-10 -- the failure is DoltLite's own, not the host's; VACUUM of the 3.6 GB per-row-commit file fails within seconds at a 1.2 GiB peak, with or without a memory cap, so those stores are reported as loaded and not collectable.
 resource: /questions/doltlite-vacuum-memory.md
 tags:
 - doltlite
 - question
 - method
-status: draft
-trust: open
+status: deprecated
+trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T06:50:00Z"
+  at: "2026-09-10T17:10:00Z"
+verified:
+- by: claude-code/claude-fable-5-1
+  at: "2026-09-10T17:10:00Z"
 sources:
 - resource: /tools/doltlite-0-50-9.md
   title: DoltLite v0.50.9 (the observation)
@@ -31,3 +34,7 @@ Run the same `VACUUM` on that file again with the host's cgroup memory files sam
 # Resolves
 
 Whether the inline-policy per-row-commit loads of the larger databases can be settled and measured on DoltLite, or must be reported as "loaded, not collectable" with the size before the settle step; and the wording of the tool record's limit.
+
+# Answer
+
+DoltLite's own limit, not the host's. On a copy of chicago_crimes' per-row-commit file (3,626,991,241 bytes, 260,043 commits), `VACUUM` in the DoltLite image under a 16 GiB cgroup answered `out of memory` after 3.5 s with the cgroup's anonymous memory peaking at 1,165 MiB (sampled from the host every half second), and without any cap it answered the same after 2 s; `PRAGMA soft_heap_limit` and `hard_heap_limit` are both 0 (unlimited) on the file, and the file was unchanged afterwards (2026-09-10). A store the engine cannot collect is therefore a limit of DoltLite v0.50.9 on large per-row-commit histories (between dvdstore's 1.8 GB, which collected, and chicago_crimes' 3.6 GB), and the report says so: such units are kept with `settled: false`, their size is the working footprint of the load, marked in the tables and left out of the totals. The per-row-commit loads of the three largest databases are run for their time and footprint with that understanding ([the dialect rules](/decisions/pair-dialect-rules.md), [DoltLite v0.50.9](/tools/doltlite-0-50-9.md)). `doc/doltlite/storage-format.md` and `concurrency.md` say only that `VACUUM` runs garbage collection and may be deferred while writers hold the graph lock; nothing about what it allocates.

@@ -7,7 +7,7 @@ PY ?= python3
 # and as a prerequisite of `report`, which is why the documents stayed stale while every
 # other step ran. Generated from the targets themselves so a new one cannot be forgotten.
 .PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch \
-        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack
+        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -43,6 +43,7 @@ help:
 	@echo "make down       all of it down again"
 	@echo "make status     what is running"
 	@echo "make clean-data delete the Dolt data directory (written as root inside the container)"
+	@echo "make clean-pairs delete the PostgreSQL, DoltgreSQL, SQLite and DoltLite stores of every shape (keeps the exports)"
 
 # The experiment needs sql-megasamples' MySQL running: it is the source of every dump.
 all: export load measure report
@@ -157,6 +158,15 @@ clean-data:
 	  -c 'rm -rf /data/dolt /data/dolt-* /data/mysql' 2>/dev/null || true
 	@rm -rf data build/dumps/dolt build/results.json build/progress.json
 	@echo "removed every data/dolt* directory, the transformed dumps, the measurements and the run state"
+
+# The two further pairs' stores and prepared dumps: written as root by the worker containers, so
+# removed through one. The exports (build/dumps/postgres, build/dumps/sqlite), the measurements and
+# the run state are kept; `make clean-data` is the one that removes everything.
+clean-pairs:
+	@docker run --rm -v "$(PWD)/data:/data" -v "$(PWD)/build/dumps:/dumps" --entrypoint sh \
+	  doltsamples-doltlite:0.50.9 \
+	  -c 'rm -rf /data/postgres-timing /data/doltgres-* /data/sqlite-* /data/doltlite-* /dumps/pairs' 2>/dev/null || true
+	@echo "removed the PostgreSQL, DoltgreSQL, SQLite and DoltLite stores of every shape and the prepared dumps"
 
 clean: clean-data
 

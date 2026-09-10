@@ -11,10 +11,10 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T15:00:00Z"
+  at: "2026-09-10T17:10:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
-  at: "2026-09-10T15:00:00Z"
+  at: "2026-09-10T17:10:00Z"
 sources:
 - resource: /sources/doltlite-readme.md
   title: DoltLite README
@@ -48,6 +48,6 @@ Found by refusal on sakila's dump and on the quick subset's schemas (2026-09-10)
 * **A table is committed only when every table its foreign keys name exists.** With `staff` (which references `store`) dumped before `store`, `dolt_commit` after a `staff` row answers `foreign key on table `staff` requires the referenced table `store`` until `store` is created -- the rows go in, the commits are lost. Rule L1 puts every `CREATE TABLE` ahead of the first `INSERT`: [dialect rules](/decisions/pair-dialect-rules.md).
 * **The dump's virtual-table registration only works inside the dump's own transaction.** `.dump` registers an FTS5 table by `INSERT INTO sqlite_schema(...)` under `PRAGMA writable_schema=ON`; run as its own statement, both engines answer `table sqlite_master may not be modified`, and once the virtual table exists first, both refuse the dump's shadow-table rows (`object name reserved for internal use`). Rule L2 creates the virtual table with `CREATE VIRTUAL TABLE`, drops the shadow-table statements and rebuilds the index after the rows (or, under the inline policy, keeps it in step with the port's sync triggers).
 * **Version gap to the baseline.** The fork's base is SQLite 3.54.0, ahead of the newest SQLite release (3.53.4 on 2026-09-10); the stock shell beside it is Debian 13's 3.46.1: [sqlite3 shell](/tools/sqlite3-shell-3-46-1.md).
-* **`VACUUM` runs out of memory on the larger per-row-commit files.** dvdstore with the indexes inline (174,718 commits, 5,170,967,610 bytes before the settle step) and chicago_crimes under the deferred policy (260,043 commits, 3,626,990,331 bytes) both answered `Error in 2nd command line argument: out of memory` to `SELECT dolt_commit(...); VACUUM;` within seconds (2.5 s for chicago_crimes), inside a worker cgroup capped at 16 GiB whose anonymous memory during the load peaked at 179 MB and 221 MB; dvdstore under the deferred policy (1,823,235,885 bytes) vacuumed in 5.4 s and enron (410,260,509 bytes) in 1.5 s (2026-09-10). Such a unit is kept with `settled: false`, its size marked as the working footprint in the tables and left out of the totals: [open question](/questions/doltlite-vacuum-memory.md).
-* **Durability per autocommitted statement** is not documented in the README and was not measured: [open question](/questions/doltlite-durability-per-statement.md).
+* **`VACUUM` fails on the larger per-row-commit files, and the failure is DoltLite's own.** dvdstore with the indexes inline (174,718 commits, 5,170,967,610 bytes before the settle step), chicago_crimes (260,043 commits, 3,626,990,331 bytes), lahman and contoso (about 15 GB each) all answered `Error in 2nd command line argument: out of memory` to `VACUUM` within seconds; on a copy of the chicago_crimes file the shell's anonymous memory peaked at 1,165 MiB under a 16 GiB cgroup and the answer was the same with no cap at all, with `soft_heap_limit` and `hard_heap_limit` at 0 (2026-09-10). dvdstore under the deferred policy (1,823,235,885 bytes) collected in 5.4 s and enron (410,260,509 bytes) in 1.5 s, so the limit sits between 1.8 GB and 3.6 GB for these files. Such a unit is kept with `settled: false`, its size marked as the working footprint in the tables and left out of the totals: [answered question](/questions/doltlite-vacuum-memory.md).
+* **Durability per autocommitted statement**: one `fdatasync` per statement (319 for 312 autocommitted `INSERT`s, against `sqlite3`'s four per statement), measured with `strace` on 2026-09-10: [answered question](/questions/doltlite-durability-per-statement.md).
 * No container image is published; the one here is built by `make lite-image` and never pushed.

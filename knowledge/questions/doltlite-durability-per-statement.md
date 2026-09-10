@@ -1,17 +1,20 @@
 ---
 type: Open Question
 title: What does DoltLite make durable per autocommitted statement?
-description: sqlite_rowwise fsyncs on every statement by SQLite's default; DoltLite's README says nothing about it, and its file grew to 319 MB for 48,317 autocommitted statements before VACUUM, so the two per-row baselines may not be paying the same durability.
+description: Answered on 2026-09-10 -- DoltLite calls fdatasync once per autocommitted statement, SQLite about four times; both per-row shapes are durable per statement and the comparison stands.
 resource: /questions/doltlite-durability-per-statement.md
 tags:
 - doltlite
 - question
 - method
-status: draft
-trust: open
+status: deprecated
+trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T03:45:00Z"
+  at: "2026-09-10T17:10:00Z"
+verified:
+- by: claude-code/claude-fable-5-1
+  at: "2026-09-10T17:10:00Z"
 sources:
 - resource: /tools/doltlite-0-50-9.md
   title: DoltLite v0.50.9 (the observation)
@@ -32,3 +35,7 @@ SQLite in rollback-journal mode with `synchronous=FULL` syncs the journal and th
 # Resolves
 
 The wording of the per-row comparison in the report: whether "one INSERT per row, each its own durable transaction" describes both engines, or the DoltLite number needs a qualifier.
+
+# Answer
+
+Yes, per statement. `strace -f -c -e trace=fsync,fdatasync,sync_file_range,msync` around the replay of jaffle_shop's per-row file (312 `INSERT`s, each its own transaction) in the DoltLite image, 2026-09-10: `sqlite3` 3.46.1 made 1,268 `fdatasync` calls (about four per statement -- the rollback journal written, synced, the database synced, the journal deleted, at `synchronous=2`, `journal_mode=delete`), `doltlite` v0.50.9 made 319 (one per statement, plus a handful; it reports `journal_mode=wal` and ignores changes, `synchronous=2`). The dump replayed inside its single transaction made 4 and 3 calls respectively. So every autocommitted statement reaches the disk on both engines, and "one INSERT per row, each its own durable transaction" describes `sqlite_rowwise` and `doltlite_rowinsert` alike; DoltLite pays fewer syncs per statement, not none. The 319 MB the file grew to before `VACUUM` is retained chunk-store history, not unsynced data.

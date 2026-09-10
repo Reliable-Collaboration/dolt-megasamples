@@ -2,6 +2,7 @@
 
 ## 2026-09-10
 
+* **Deprecation**: two questions answered by experiment with both stacks down -- DoltLite syncs once per autocommitted statement ([durability](/questions/doltlite-durability-per-statement.md)) and its `VACUUM` failure on large per-row-commit files is its own limit, at a 1.2 GiB peak with or without a memory cap ([VACUUM memory](/questions/doltlite-vacuum-memory.md)); [DoltLite v0.50.9](/tools/doltlite-0-50-9.md) carries both. Decision: the three largest databases' per-row-commit DoltLite loads run for their time and footprint, kept marked unsettled.
 * **Update**: the stack serves a chosen load shape (`make up SERVE=rowcommit` for the per-row-commit history), with the Dolt server held to its memory limit by the memory study; `scripts/stack_config.py` replaces the two generators: [stood-up instances](/decisions/stood-up-instances.md).
 * **Update**: every DoltLite file is a saved Dolt Workbench connection -- the Workbench's bundled DoltLite reads the v0.50.9 files -- checked by `make test-stack`: [stood-up instances](/decisions/stood-up-instances.md), [DoltLite v0.50.9](/tools/doltlite-0-50-9.md).
 * **Update**: the Dolt Workbench's four connections (both accounts, both engines) are saved before it starts and checked by `make test-stack`; how its API selects a connection is recorded in [stood-up instances](/decisions/stood-up-instances.md).
