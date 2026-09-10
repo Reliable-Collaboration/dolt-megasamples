@@ -7,7 +7,7 @@ PY ?= python3
 # and as a prerequisite of `report`, which is why the documents stayed stale while every
 # other step ran. Generated from the targets themselves so a new one cannot be forgotten.
 .PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch \
-        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check
+        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -29,6 +29,7 @@ help:
 	@echo "make preflight-pairs  every schema into PostgreSQL, DoltgreSQL, SQLite and DoltLite; what each refuses"
 	@echo "make run-pg | run-lite  the five timed loads of a pair (ARGS=\"--only sakila --indexes inline\")"
 	@echo "make okf-check      validate the knowledge bundle (knowledge/)"
+	@echo "make test-stack     after make up: both accounts on Dolt and DoltgreSQL, the DoltLite files, every console"
 	@echo "make audit      check the measurements against invariants that must hold"
 	@echo "make docs       regenerate README.md and JOURNAL.md from docs/templates and build/"
 	@echo "make trace      what the per-row-commit loads cost in memory as history accumulated"
@@ -180,5 +181,7 @@ run-pg:
 	@$(PY) scripts/run_pairs.py --pair pg $(ARGS)
 run-lite:
 	@$(PY) scripts/run_pairs.py --pair lite $(ARGS)
+test-stack:
+	@$(PY) scripts/stack_check.py
 okf-check:
 	@$(PY) scripts/okf_check.py --bundle knowledge && $(PY) scripts/okf_fix_quotes.py --bundle knowledge --check
