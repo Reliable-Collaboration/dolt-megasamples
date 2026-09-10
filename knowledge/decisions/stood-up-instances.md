@@ -10,10 +10,10 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T06:50:00Z"
+  at: "2026-09-10T15:00:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
-  at: "2026-09-10T06:50:00Z"
+  at: "2026-09-10T15:00:00Z"
 sources:
 - resource: /tools/doltgresql-1-3-1.md
   title: DoltgreSQL 1.3.1
@@ -49,7 +49,7 @@ The engine facts the stack rests on: [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.
 # Outcome
 
 * **DoltgreSQL** is served from the one-commit loads (`data/doltgres-oneshot`, every database a repository with one commit) on `127.0.0.1:5433`, pinned by the same digest as the loads. `doltgres-init` applies the two accounts with the image's own `psql` on every `up`: `demo` reads (USAGE on `public`, SELECT on every table, EXECUTE on the functions of `public` and `pg_catalog`), `admin` is a superuser.
-* **DoltLite** is served as files (`data/doltlite-oneshot/<db>.doltlite`) in a container of the image built here, with the `doltlite` shell as the client; no web console reads a DoltLite file.
+* **DoltLite** is served as files (`data/doltlite-oneshot/<db>.doltlite`) in a container of the image built here, with the `doltlite` shell as the client, and the same directory is mounted into Dolt Workbench, whose bundled `@dolthub/doltlite` (0.11.51, DoltLite amalgamation on SQLite 3.54.0) opens the v0.50.9 files: one saved connection per file (`file:///data/doltlite/<db>.doltlite`, type `Sqlite`), verified on jaffle_shop (tables, the `main` branch, both commits, the database and table pages) and by `make test-stack` on sakila. Adminer, DbGate and CloudBeaver cannot read the format.
 * **Consoles**: CloudBeaver and DbGate carry a PostgreSQL connection per account to DoltgreSQL beside the Dolt ones; Adminer takes either server from its login form (deep links name the server and the database); Dolt Workbench starts with all four connections saved (`scripts/workbench_store.py` writes its `store.json` before `make up`; its API holds one current connection at a time, so a saved connection is a click, not a login -- its routes name only the database, and the connection can be set through its API, which takes browser requests from any origin); phpMyAdmin stays Dolt-only. The landing page orders them by what they open and carries "connect with your own tool" for all three engines.
 * **Dolt** is served with a generated config naming every repository, which is what made the existing stack work again.
 * `make test-stack` is the proof, run after `make up`.

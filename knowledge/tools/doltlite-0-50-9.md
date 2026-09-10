@@ -11,10 +11,10 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T10:10:00Z"
+  at: "2026-09-10T15:00:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
-  at: "2026-09-10T10:10:00Z"
+  at: "2026-09-10T15:00:00Z"
 sources:
 - resource: /sources/doltlite-readme.md
   title: DoltLite README
@@ -37,6 +37,7 @@ Everything below was observed on 2026-09-10 with the image `docker/doltlite/Dock
 * **The dump replays.** `sqlite3 sakila.sqlite .dump` (5,228,218 bytes, 48,317 INSERTs) read by `doltlite sakila.dl ".read ..."` produced no error; afterwards film 1,000, payment 16,044, rental 16,044; `sqlite_schema` 21 tables, 27 indexes, 24 triggers, 6 views -- the same as the source. Triggers fire (an UPDATE that changes a name moves `last_update` on both engines to the same second); views answer (`film_list` 1,000; `sales_by_store` 2); FTS5 works (`MATCH 'drama'` answers 106 on both), including in a file created fresh (`CREATE VIRTUAL TABLE t USING fts5(a)`). `PRAGMA index_list` / `index_info` answer as SQLite's do.
 * **Commits and VACUUM.** `SELECT dolt_commit('-Am', 'msg')` returns a hash; `SELECT dolt_commit('-A', '--allow-empty', '-m', 'msg')` too; `dolt_log` counts them (a fresh file starts with one). `VACUUM` is garbage collection and the difference is large: sakila replayed inside the dump's single transaction was 8,756,887 bytes, 8,541,254 after `VACUUM` (the stock file is 5,251,072); replayed with every statement autocommitted it was 319,067,787 bytes before and 8,541,014 after; replayed with a `dolt_commit` after every INSERT (47,269 commits, 29.1 s, about 1,600 commits per second in-process) it was 411,235,360 bytes before `VACUUM`.
 * **Timing, one sample.** The single-transaction replay of sakila's dump: 150 ms in `doltlite`, 100 ms in `sqlite3`; autocommitted: 1,054 ms and 792 ms. One sample each on the shared machine; the timed runs are the measurement.
+* **Dolt Workbench opens the files.** The pinned Workbench image (built 2026-08-24) bundles `@dolthub/doltlite` 0.11.51, whose `dolt_version()` answers `doltlite-amalgamation` on SQLite 3.54.0; it opened a v0.50.9 file (`jaffle_shop.doltlite`, storage format 12) read-only and read-write, answering `dolt_log`, the tables, the `main` branch and both commits through the Workbench's API (2026-09-10). One file is one connection, named by a `file://` URL inside the Workbench's container.
 * **Foreign keys.** `PRAGMA foreign_keys` is honoured as in SQLite: off by default (an orphan row is accepted), enforced when on (`FOREIGN KEY constraint failed`). The dump's `PRAGMA foreign_keys=OFF` therefore applies to both engines.
 * **Errors do not stop a script.** Both `doltlite` and `sqlite3` report a failing statement of a `.read` script and continue (a 4-statement script with a bad third statement leaves 2 rows in both).
 

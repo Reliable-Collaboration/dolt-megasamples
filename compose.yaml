@@ -206,6 +206,9 @@ services:
       # the saved connections (both accounts on Dolt and on DoltgreSQL), written by
       # scripts/workbench_store.py on every `make up`; the Workbench adds to the same file
       - ./docker/workbench/store:/app/graphql-server/store
+      # the DoltLite files, one saved connection each: the Workbench's bundled DoltLite opens
+      # them in its own process (several processes may share a file; one writer at a time)
+      - ./data/doltlite-oneshot:/data/doltlite
     depends_on: { dolt: { condition: service_healthy }, doltgres: { condition: service_healthy } }
     restart: unless-stopped
 

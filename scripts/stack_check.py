@@ -111,9 +111,17 @@ def main():
     saved = gql("{ storedConnections { name type } }").get("data", {}).get("storedConnections") or []
     names = sorted(c["name"] for c in saved)
     want = ["DoltgreSQL (full access)", "DoltgreSQL (read-only)", "dolt-megasamples (full access)", "dolt-megasamples (read-only)"]
-    check("Workbench: the four saved connections", names == want, ", ".join(names) or "none")
-    for name, url, kind in (("DoltgreSQL (read-only)", "postgresql://demo:demo@doltgres:5432/sakila", "Postgres"),
-                            ("dolt-megasamples (read-only)", "mysql://demo:demo@dolt:3306/sakila", "Mysql")):
+    servers = [n for n in names if not n.startswith("DoltLite ")]
+    check("Workbench: the four server connections saved", servers == want, ", ".join(servers) or "none")
+    lite_saved = sorted(n[len("DoltLite "):] for n in names if n.startswith("DoltLite "))
+    lite_files = sorted(f[:-len(".doltlite")] for f in files)
+    check(f"Workbench: a saved connection for each of {len(lite_files)} DoltLite files", lite_saved == lite_files,
+          f"{len(lite_saved)} saved" + ("" if lite_saved == lite_files else f"; missing {sorted(set(lite_files) - set(lite_saved))[:5]}"))
+    probes = [("DoltgreSQL (read-only)", "postgresql://demo:demo@doltgres:5432/sakila", "Postgres"),
+              ("dolt-megasamples (read-only)", "mysql://demo:demo@dolt:3306/sakila", "Mysql")]
+    if "sakila" in lite_files:
+        probes.insert(0, ("DoltLite sakila", "file:///data/doltlite/sakila.doltlite", "Sqlite"))
+    for name, url, kind in probes:
         r = gql(f'mutation {{ addDatabaseConnection(name: "{name}", connectionUrl: "{url}", type: {kind}, '
                 f'hideDoltFeatures: false, useSSL: false) {{ currentDatabase }} }}')
         db = ((r.get("data") or {}).get("addDatabaseConnection") or {}).get("currentDatabase")

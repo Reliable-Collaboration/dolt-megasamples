@@ -659,14 +659,17 @@ both stacks together fit comfortably on a modest machine. DoltgreSQL serves the 
 (`data/doltgres-oneshot`) and the DoltLite container holds the one-commit files
 (`data/doltlite-oneshot`); `make lite-image` builds its image first. The landing page says how to
 connect a tool of your own to each engine, and which console can open which: CloudBeaver, DbGate,
-Adminer and Dolt Workbench open Dolt and DoltgreSQL, phpMyAdmin opens Dolt only, and no web console
-opens a DoltLite file -- it is not SQLite pages -- so the shell is the client.
+Adminer and Dolt Workbench open Dolt and DoltgreSQL, phpMyAdmin opens Dolt only, and of the web
+consoles only Dolt Workbench opens a DoltLite file -- it is not SQLite pages, and the Workbench
+carries its own DoltLite -- so for the others the shell is the client.
 
 **Dolt Workbench** at <http://127.0.0.1:8095/> is the only one that shows what makes Dolt Dolt —
 branches, commits, and diffs between them. Its saved connections are written before it starts
-(`scripts/workbench_store.py`, both accounts on Dolt and on DoltgreSQL), so pick one from its
-list; it keeps one current connection at a time, set by the last pick. The URLs name `dolt` and
-`doltgres`, not `127.0.0.1`: its API connects from inside the compose network.
+(`scripts/workbench_store.py`: both accounts on Dolt and on DoltgreSQL, and one connection per
+DoltLite file, which the Workbench opens through its own bundled DoltLite), so pick one from its
+list; it keeps one current connection at a time, set by the last pick. The server URLs name
+`dolt` and `doltgres`, not `127.0.0.1`, and the files sit at `/data/doltlite/`: its API connects
+from inside the compose network.
 
 ## Layout
 
