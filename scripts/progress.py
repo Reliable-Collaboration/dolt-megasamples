@@ -36,10 +36,19 @@ TITLE = {"pg": "PostgreSQL / DoltgreSQL", "lite": "SQLite / DoltLite"}
 
 
 def runner_alive(u):
-    """Whether a runner of the unit's kind is working, so a unit left `running` by an interrupted run
-    is not shown as if it were still going."""
+    """Whether the runner working now started this unit. A runner of the unit's kind must be alive, and
+    it must have taken build/run.lock before the unit started: a record left `running` by an interrupted
+    run is older than the lock the current runner holds, even when a runner of the same kind is alive."""
+    import calendar
     pattern = f"run_pair[s].py --pair {u['pair']}" if u.get("pair") else "run_al[l].py"
-    return subprocess.run(["pgrep", "-f", pattern], capture_output=True).returncode == 0
+    if subprocess.run(["pgrep", "-f", pattern], capture_output=True).returncode != 0:
+        return False
+    try:
+        holder = open(os.path.join(ROOT, "build", "run.lock"), encoding="utf-8").read()
+        taken = calendar.timegm(time.strptime(holder.rsplit("since ", 1)[1].strip(), "%Y-%m-%dT%H:%M:%SZ"))
+    except (OSError, IndexError, ValueError):
+        return True
+    return (u.get("started") or 0) >= taken
 
 
 def pairs_section(p):
