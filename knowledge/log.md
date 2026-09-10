@@ -2,6 +2,7 @@
 
 ## 2026-09-10
 
+* **Deprecation**: [the trigger OLD record question](/questions/doltgresql-trigger-old-record.md) is answered -- the whole-row `WHEN` clause, not the body; rule G6 expands it column by column and the ON UPDATE triggers run on both engines ([the dialect rules](/decisions/pair-dialect-rules.md), [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md), which also records the BEFORE INSERT limit that remains).
 * **Verification**: the stack with the two fixes in passed every check of `scripts/stack_check.py` (22 of 22): [stood-up instances](/decisions/stood-up-instances.md).
 * **Update**: the preflight of the six databases outside the quick subset found one more DoltgreSQL refusal, named NOT NULL column constraints (adventureworks, 3 tables); rule G5 added and proved on a throwaway server, [the dialect rules](/decisions/pair-dialect-rules.md) carry the six rows and [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) the limit, with `convert_from` beside it.
 * **Verification**: the stack with DoltgreSQL and DoltLite beside Dolt stood up and was checked (`scripts/stack_check.py`); two faults found and fixed -- Adminer's 403 on a login link naming a user, and the Dolt service seeing no database because of the repository layout -- recorded with the accounts' EXECUTE grant in [stood-up instances](/decisions/stood-up-instances.md), now accepted, and in [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md).

@@ -44,6 +44,14 @@ Rules (each returns a note when it fired):
      refuses the table ("non-foreign key column constraint names are not yet supported"). The
      constraint stays. adventureworks: six columns in three tables.
 
+  G6 row-comparison-in-when. A trigger's `WHEN ((old.* IS DISTINCT FROM new.*))` -- the port's
+     "only when the row changed" guard on every ON UPDATE trigger -- is expanded to the same test
+     column by column (`old.a IS DISTINCT FROM new.a OR old.b IS DISTINCT FROM new.b ...`), which
+     PostgreSQL evaluates identically. DoltgreSQL 1.3.1 creates the trigger with the whole-row
+     form and then refuses every UPDATE of the table at run time (`record "old" has no field
+     "*"`); with the expansion an unchanged row leaves `last_update` alone and a changed one
+     moves it, on both engines. The columns come from the table's own CREATE TABLE block.
+
 Shapes (applied per phase by pairs.py):
 
   inline_indexes     every INDEX block and every UNIQUE constraint moved ahead of the first
@@ -141,6 +149,19 @@ def transform(text, database):
     if unnamed:
         notes.append(f"G5 dropped the names of {unnamed} NOT NULL column constraint(s), which DoltgreSQL 1.3.1 "
                      f"refuses (\"non-foreign key column constraint names are not yet supported\")")
+    # G6
+    columns = {qualified_table(b): table_columns(b.text) for b in kept if b.type == "TABLE"}
+    expanded = 0
+    for b in kept:
+        if b.type == "TRIGGER" and ROW_WHEN.search(b.text):
+            m = TRIGGER_ON.search(b.text)
+            cols = columns.get(m.group("table")) if m else None
+            if cols:
+                b.text = ROW_WHEN.sub(lambda mm: row_when(mm, cols), b.text)
+                expanded += 1
+    if expanded:
+        notes.append(f"G6 expanded the whole-row WHEN comparison of {expanded} trigger(s) column by column; "
+                     f"DoltgreSQL 1.3.1 refuses every UPDATE of the table otherwise (record \"old\" has no field \"*\")")
     # G4
     generated = {qualified_table(b) for b in kept if b.type == "TABLE" and GENERATED.search(b.text)}
     if generated:
@@ -163,6 +184,33 @@ CREATE_TABLE = re.compile(r"^CREATE TABLE (?P<name>\S+) \($", re.M)
 ADD_PK = re.compile(r"^ALTER TABLE ONLY (?P<table>\S+)\n\s+ADD CONSTRAINT (?P<name>\S+) PRIMARY KEY \((?P<cols>[^)]*)\);", re.M)
 ALTER_TABLE = re.compile(r"^ALTER TABLE ONLY (?P<table>\S+)\n\s+ADD CONSTRAINT (?P<name>\S+) (?P<kind>UNIQUE|FOREIGN KEY|CHECK)\b", re.M)
 INDEX_ON = re.compile(r"^CREATE (?:UNIQUE )?INDEX (?P<name>\S+) ON (?P<table>\S+) ", re.M)
+
+
+ROW_WHEN = re.compile(r"\b(?P<a>old|new)\.\*\s+IS\s+(?P<not>NOT\s+)?DISTINCT\s+FROM\s+(?P<b>old|new)\.\*", re.I)
+TRIGGER_ON = re.compile(r"\bON\s+(?P<table>\S+)\s+(?:FOR\s+EACH|NOT\s+DEFERRABLE|DEFERRABLE|REFERENCING)", re.I)
+COLUMN_LINE = re.compile(r'^\s{4}(?P<name>"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)\s')
+NOT_A_COLUMN = ("CONSTRAINT", "PRIMARY", "UNIQUE", "CHECK", "FOREIGN", "EXCLUDE", "LIKE")
+
+
+def table_columns(text):
+    """The column names of a CREATE TABLE block, in order, from its indented lines."""
+    inside, cols = False, []
+    for line in text.split("\n"):
+        if CREATE_TABLE.match(line):
+            inside = True
+            continue
+        if inside and line.startswith(");"):
+            break
+        m = COLUMN_LINE.match(line) if inside else None
+        if m and m.group("name").upper() not in NOT_A_COLUMN:
+            cols.append(m.group("name"))
+    return cols
+
+
+def row_when(m, cols):
+    a, b, negated = m.group("a").lower(), m.group("b").lower(), bool(m.group("not"))
+    op, glue = ("IS NOT DISTINCT FROM", " AND ") if negated else ("IS DISTINCT FROM", " OR ")
+    return "(" + glue.join(f"{a}.{c} {op} {b}.{c}" for c in cols) + ")"
 
 
 def qualified_table(block):
