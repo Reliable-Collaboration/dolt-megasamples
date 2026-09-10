@@ -126,6 +126,77 @@ way you ask, and both policies produced byte-identical files.
 
 {{block:index_parity}}
 
+## The same question for PostgreSQL and SQLite
+
+sql-megasamples' corpus also runs on PostgreSQL and SQLite (ports verified against the MySQL hub),
+and DoltHub ships a versioned engine for each: **DoltgreSQL** {{pairs.doltgres_version}} speaks the
+PostgreSQL wire protocol over Dolt's storage engine; **DoltLite** v{{pairs.doltlite_version}} is a
+SQLite fork with a versioned storage engine in place of SQLite's B-tree, in beta. The five tests were
+run again for each pair, from that engine's own dump, with the same measurement rules: every load
+timed around one command in a container that is already up, the settle step timed separately
+(`CHECKPOINT`; `dolt_commit` and `dolt_gc()`; nothing; `dolt_commit` and `VACUUM`), memory sampled
+from the worker's cgroup, and the row counts and index set checked against the source before any
+size is kept. The engines are pinned -- DoltgreSQL by image digest, DoltLite by the checksums of its
+packages -- and `knowledge/decisions/` records why and how to undo either.
+
+| # | PostgreSQL / DoltgreSQL | SQLite / DoltLite | how the rows are written |
+|---|---|---|---|
+| 1 | `postgres` | `sqlite` | pg_dump's `COPY` form into a fresh server; sqlite3's `.dump` replayed inside its one transaction into a fresh file |
+| 2 | `postgres_rowwise` | `sqlite_rowwise` | one `INSERT` per row, each its own durable transaction |
+| 3 | `doltgres_oneshot` | `doltlite_oneshot` | the same file as test 1, one `dolt_commit` at the end |
+| 4 | `doltgres_rowinsert` | `doltlite_rowinsert` | the same file as test 2, one `dolt_commit` at the end |
+| 5 | `doltgres_rowcommit` | `doltlite_rowcommit` | test 2's file with `SELECT dolt_commit('-Am', ...)` after every `INSERT` |
+
+Where the pairs depart from the MySQL/Dolt tests, and why:
+
+* **"The same file" for DoltLite is the dump replayed into a DoltLite-format database.** A stock
+  SQLite file opened by DoltLite runs on SQLite's own B-tree engine without version control, which
+  would have measured SQLite twice. The `sqlite` baseline is the same replay by `sqlite3`.
+* **The dumps decide the index policy.** pg_dump and `.dump` both write indexes and constraints
+  after the rows, which is the deferred policy; inline moves every `CREATE INDEX` (and, for pg_dump,
+  every `UNIQUE` constraint) ahead of the first row. Primary keys are always ahead of the rows, as
+  they were for MySQL and Dolt. Foreign keys are never in force during a load on the PostgreSQL side
+  (the data is written in table-creation order) and are declared but unenforced on the SQLite side
+  (`PRAGMA foreign_keys=OFF`, the dump's first line) -- the counterpart of mysqldump's
+  `FOREIGN_KEY_CHECKS=0`.
+* **Both engines of a pair load the same transformed file.** `scripts/doltgres_dialect.py` and
+  `scripts/doltlite_dialect.py` hold the rules, each found by refusal and named in every unit's
+  notes: a GIN index DoltgreSQL cannot build, `regexp_like` checks and generated-column tables it
+  cannot take rows for, the order and the virtual-table registration DoltLite needs. What an engine
+  still refuses -- a view over `xpath`, a view over `JSON_TABLE` -- is recorded on the unit and
+  listed below, never hidden.
+* **A fresh PostgreSQL database is not empty**: it is a copy of the template catalog, about 7 MiB
+  before the first row, which MySQL's per-schema directory and Dolt's repository do not carry. The
+  PostgreSQL sizes below include it; the ratio for a small database is therefore mostly that floor.
+
+### PostgreSQL and DoltgreSQL
+
+{{block:pg_pair_table}}
+
+### SQLite and DoltLite
+
+{{block:lite_pair_table}}
+
+### What each engine refused
+
+{{block:pair_refusals}}
+
+### The index policies for the pairs
+
+{{block:pg_pair_inline}}
+
+{{block:lite_pair_inline}}
+
+### Memory
+
+Peak anonymous memory of the worker's cgroup during each load, sampled every two seconds. For the
+two servers it is the server process; for SQLite and DoltLite it is the shell, since both engines
+run in-process.
+
+{{block:pg_pair_memory}}
+
+{{block:lite_pair_memory}}
+
 ## What Dolt needs in memory
 
 Memory is the constraint people meet first, and there are three separate answers depending on what
@@ -270,7 +341,9 @@ against the same data in two engines.
 
 | | sql-megasamples | dolt-megasamples |
 |---|---|---|
-| database | `127.0.0.1:3306` | `127.0.0.1:3307` |
+| MySQL / Dolt | `127.0.0.1:3306` | `127.0.0.1:3307` |
+| PostgreSQL / DoltgreSQL | `127.0.0.1:5432` | `127.0.0.1:5433` |
+| SQLite / DoltLite | files in `megasamples-sqlite` | files in `doltsamples-doltlite` (`docker exec -it doltsamples-doltlite doltlite /data/sakila.doltlite`) |
 | landing page | <http://127.0.0.1:8080/> | <http://127.0.0.1:8090/> |
 | phpMyAdmin | 8081 | 8091 |
 | Adminer | 8082 | 8092 |
@@ -283,9 +356,14 @@ make up      # Dolt plus its consoles
 make down
 ```
 
-The accounts are the same on both sides: `demo` / `demo` reads, `admin` / `admin` writes. Each
-console opens on the read-only one. Every service carries a memory limit, so both stacks together
-fit comfortably on a modest machine.
+The accounts are the same on both sides and on both servers: `demo` / `demo` reads, `admin` /
+`admin` writes. Each console opens on the read-only one. Every service carries a memory limit, so
+both stacks together fit comfortably on a modest machine. DoltgreSQL serves the one-commit loads
+(`data/doltgres-oneshot`) and the DoltLite container holds the one-commit files
+(`data/doltlite-oneshot`); `make lite-image` builds its image first. The landing page says how to
+connect a tool of your own to each engine, and which console can open which: CloudBeaver, DbGate,
+Adminer and Dolt Workbench open Dolt and DoltgreSQL, phpMyAdmin opens Dolt only, and no web console
+opens a DoltLite file -- it is not SQLite pages -- so the shell is the client.
 
 **Dolt Workbench** at <http://127.0.0.1:8095/> is the only one that shows what makes Dolt Dolt —
 branches, commits, and diffs between them. It is also the only console that cannot be

@@ -133,6 +133,7 @@ def build():                                                    # noqa: C901 - a
         f.put("corpus.tables", None, "results.json:*.tables")
 
     _size_facts(f, results)
+    _pair_facts(f, results)
     _memory_facts(f, memory)
     _method_facts(f, method)
     _run_facts(f, progress)
@@ -348,3 +349,31 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def _pair_facts(f, results):
+    """The PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs, folded in by scripts/collect_pairs.py."""
+    from pairs import DOLTGRES_VERSION, LITE_VERSION, PHASES
+    f.put("pairs.doltgres_version", DOLTGRES_VERSION, "scripts/pairs.py:DOLTGRES_VERSION (pinned by digest)")
+    f.put("pairs.doltlite_version", LITE_VERSION, "scripts/pairs.py:LITE_VERSION (pinned by package checksum)")
+    for pair, phases in PHASES.items():
+        base, one, rc = phases[0], phases[2], phases[4]
+        data = {db: (r.get("pairs") or {}).get(pair) or {} for db, r in (results or {}).items()}
+        with_one = [db for db, m in data.items() if (m.get(base) or {}).get("disk_bytes") and (m.get(one) or {}).get("disk_bytes")]
+        with_rc = [db for db in with_one if (data[db].get(rc) or {}).get("disk_bytes")]
+        every = [db for db in with_one if all((data[db].get(ph) or {}).get("disk_bytes") for ph in phases)]
+        f.put(f"pairs.{pair}.databases", len(with_one) or None, f"results.json:*.pairs.{pair}.{one}", commas)
+        f.put(f"pairs.{pair}.databases_every_test", len(every) or None, f"results.json:*.pairs.{pair}", commas)
+        f.put(f"pairs.{pair}.oneshot_ratio",
+              (sum(data[d][one]["disk_bytes"] for d in with_one) / sum(data[d][base]["disk_bytes"] for d in with_one))
+              if with_one else None, f"results.json:*.pairs.{pair}.{one}.disk_bytes over {base}", ratio)
+        f.put(f"pairs.{pair}.rowcommit_ratio",
+              (sum(data[d][rc]["disk_bytes"] for d in with_rc) / sum(data[d][base]["disk_bytes"] for d in with_rc))
+              if with_rc else None, f"results.json:*.pairs.{pair}.{rc}.disk_bytes over {base}", ratio)
+        t_base = sum((data[d][base].get("load_seconds") or 0) for d in with_one)
+        t_one = sum((data[d][one].get("total_seconds") or 0) for d in with_one)
+        f.put(f"pairs.{pair}.oneshot_time_ratio", (t_one / t_base) if with_one and t_base else None,
+              f"results.json:*.pairs.{pair}.{one}.total_seconds over {base}.load_seconds", lambda x: f"{x:.1f}×")
+        refused = [db for db, m in data.items()
+                   if any(isinstance(u, dict) and (u.get("refused_objects") or u.get("indexes_refused")) for u in m.values())]
+        f.put(f"pairs.{pair}.databases_with_refusals", len(refused), f"results.json:*.pairs.{pair}.*.refused_objects", commas)

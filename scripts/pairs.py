@@ -213,31 +213,66 @@ def du_or_zero(container, path):
         return 0
 
 
-# memory, sampled from inside the worker: one background loop writing a line every two seconds,
-# the way run_all.py samples Dolt. `anon` is what the cgroup cannot reclaim and what decides a kill.
-SAMPLER = "/tmp/doltsamples-memsampler"
+# memory, sampled from the host: the container's cgroup is readable at
+# /sys/fs/cgroup/docker/<id>/ (cgroup v2, cgroupfs driver), so no process runs inside the worker
+# to do it. The first version ran a shell loop inside the container the way run_all.py does for
+# Dolt; inside a PostgreSQL container that loop is reparented to the postmaster, which took the
+# loop's death for a crashed backend and put the server into recovery. `anon` is what the cgroup
+# cannot reclaim and what decides a kill; one reading every two seconds.
 SAMPLER_SECONDS = 2
 
 
+class Sampler:
+    def __init__(self, container):
+        import threading
+        cid = run("docker", "inspect", "-f", "{{.Id}}", container).stdout.strip()
+        self.dir = f"/sys/fs/cgroup/docker/{cid}"
+        self.container = container
+        self.anon = self.total = 0
+        self.readable = os.path.exists(os.path.join(self.dir, "memory.stat"))
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+
+    def _read(self):
+        if self.readable:
+            try:
+                stat = open(os.path.join(self.dir, "memory.stat")).read()
+                cur = open(os.path.join(self.dir, "memory.current")).read().strip()
+            except OSError:
+                return None, None
+        else:
+            p = run("docker", "exec", self.container, "sh", "-c",
+                    "cat /sys/fs/cgroup/memory.stat; echo current $(cat /sys/fs/cgroup/memory.current)")
+            stat, cur = p.stdout, ""
+            for line in p.stdout.splitlines():
+                if line.startswith("current "):
+                    cur = line.split()[1]
+        anon = next((int(l.split()[1]) for l in stat.splitlines() if l.startswith("anon ")), None)
+        return anon, (int(cur) if cur.isdigit() else None)
+
+    def _loop(self):
+        while not self._stop.is_set():
+            anon, cur = self._read()
+            self.anon = max(self.anon, anon or 0)
+            self.total = max(self.total, cur or 0)
+            self._stop.wait(SAMPLER_SECONDS)
+
+    def start(self):
+        self._thread.start()
+        return self
+
+    def stop(self):
+        """(peak anonymous bytes, peak total bytes) seen since start."""
+        self._stop.set()
+        self._thread.join(timeout=SAMPLER_SECONDS + 5)
+        anon, cur = self._read()
+        self.anon = max(self.anon, anon or 0)
+        self.total = max(self.total, cur or 0)
+        return (self.anon or None), (self.total or None)
+
+
 def sampler_start(container):
-    run("docker", "exec", container, "sh", "-c",
-        f"kill $(cat {SAMPLER}.pid 2>/dev/null) 2>/dev/null; rm -f {SAMPLER}.log; "
-        f"( while :; do a=$(awk '/^anon /{{print $2}}' /sys/fs/cgroup/memory.stat); "
-        f"c=$(cat /sys/fs/cgroup/memory.current); echo \"$a $c\" >> {SAMPLER}.log; "
-        f"sleep {SAMPLER_SECONDS}; done ) >/dev/null 2>&1 & echo $! > {SAMPLER}.pid")
-
-
-def sampler_stop(container):
-    """(peak anonymous bytes, peak total bytes) seen since the sampler started, then stop it."""
-    p = run("docker", "exec", container, "sh", "-c",
-            f"cat {SAMPLER}.log 2>/dev/null; kill $(cat {SAMPLER}.pid 2>/dev/null) 2>/dev/null; "
-            f"rm -f {SAMPLER}.log {SAMPLER}.pid")
-    anon = cur = 0
-    for line in p.stdout.splitlines():
-        bits = line.split()
-        if len(bits) == 2 and bits[0].isdigit() and bits[1].isdigit():
-            anon, cur = max(anon, int(bits[0])), max(cur, int(bits[1]))
-    return (anon or None), (cur or None)
+    return Sampler(container).start()
 
 
 # ---------------------------------------------------------------------------------- psql ---
@@ -465,17 +500,22 @@ def load_postgres(db, phase, indexes="deferred"):
     postgres_fresh()
     baseline = pg_bytes()
     psql_value(PG_TIMING, "postgres", f'CREATE DATABASE {q(db)}')
-    sampler_start(PG_TIMING)
+    # A new PostgreSQL database is a copy of template1's catalog before it holds a row -- about
+    # 7.4 MiB -- which is a floor MySQL's per-schema directory and Dolt's repository do not have.
+    # Recorded so the report can show the size with and without it.
+    psql(PG_TIMING, db, "CHECKPOINT")
+    empty = pg_bytes() - baseline
+    sampler = sampler_start(PG_TIMING)
     started = time.time()
     p = psql_file(PG_TIMING, db, inside)
     load_s = time.time() - started
-    anon, total = sampler_stop(PG_TIMING)
+    anon, total = sampler.stop()
     errors = psql_errors(p, text)
     started = time.time()
     psql(PG_TIMING, db, "CHECKPOINT")
     settle_s = time.time() - started
     outcome = {"exit_code": p.returncode, "seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
-               "bytes": pg_bytes() - baseline, "baseline_bytes": baseline,
+               "bytes": pg_bytes() - baseline, "baseline_bytes": baseline, "empty_database_bytes": empty,
                "database_bytes": int(psql_value(PG_TIMING, db, "SELECT pg_database_size(current_database())")),
                "memory_anon_peak_bytes": anon, "memory_total_peak_bytes": total, "notes": notes}
     return finish(outcome, errors, reference("pg", db), pg_catalog(PG_TIMING, db), dropped)
@@ -546,11 +586,11 @@ def load_doltgres(db, phase, indexes="deferred"):
     if run("docker", "exec", DOLTGRES_RUNNER, "test", "-d", f"{DOLTGRES_DATA}/{db}").returncode == 0:
         run("docker", "exec", DOLTGRES_RUNNER, "rm", "-rf", f"{DOLTGRES_DATA}/{db}")
     psql_value(DOLTGRES_RUNNER, "postgres", f'CREATE DATABASE {q(db)}')
-    sampler_start(DOLTGRES_RUNNER)
+    sampler = sampler_start(DOLTGRES_RUNNER)
     started = time.time()
     p = psql_file(DOLTGRES_RUNNER, db, inside)
     load_s = time.time() - started
-    anon, total = sampler_stop(DOLTGRES_RUNNER)
+    anon, total = sampler.stop()
     errors = psql_errors(p, text)
     before, _ = doltgres_bytes(db)
     started = time.time()
@@ -591,11 +631,11 @@ def load_lite(db, phase, indexes="deferred"):
     path = lite_path(engine, mode, db)
     binary = "sqlite3" if engine == "sqlite" else "doltlite"
     lite_sh(f"rm -f {path} {path}-journal {path}-wal {path}-shm")
-    sampler_start(LITE_RUNNER)
+    sampler = sampler_start(LITE_RUNNER)
     started = time.time()
     p = lite_sh(f'{binary} {path} ".read {inside}" >/dev/null')
     load_s = time.time() - started
-    anon, total = sampler_stop(LITE_RUNNER)
+    anon, total = sampler.stop()
     errors = [{"line": _line_of(l), "message": l.strip()[:200]} for l in (p.stderr or "").splitlines() if l.strip()]
     before = lite_bytes(path)
     started = time.time()

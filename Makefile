@@ -66,6 +66,7 @@ measure-all:
 # after a `make clean-data` is nothing at all.
 collect:
 	@$(PY) scripts/collect.py
+	@$(PY) scripts/collect_pairs.py
 
 report: environment method-checks collect docs
 	@$(PY) scripts/report.py
