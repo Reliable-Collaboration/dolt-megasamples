@@ -34,6 +34,9 @@ services:
     environment:
       DOLT_ROOT_PASSWORD: ${DOLT_ROOT_PASSWORD:-root}
       DOLT_ROOT_HOST: "%"
+    # compose.override.yaml, written by scripts/dolt_server_config.py on every `make up`, mounts
+    # each repository the loads wrote at /var/lib/dolt/<db>: the timed runner keeps them one level
+    # deeper (data/dolt/<db>/<db>) than the server looks, and Dolt 2.3's config cannot name paths.
     volumes:
       - ./data/dolt:/var/lib/dolt
     # No `command:`. The image's entrypoint already starts `dolt sql-server` with its own --host,

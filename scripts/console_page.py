@@ -26,8 +26,11 @@ CONSOLES = [("CloudBeaver", 8094, "Dolt and DoltgreSQL",
              "Its login form remains: system MySQL, server dolt — or system PostgreSQL, server doltgres — "
              "with either account."),
             ("phpMyAdmin", 8091, "Dolt only", "Signed in already; the server menu switches account.")]
-DEEP = (("Adminer", "A", "http://127.0.0.1:8092/?server=dolt&username=demo&db={db}"),
-        ("Adminer on DoltgreSQL", "Aᴘ", "http://127.0.0.1:8092/?pgsql=doltgres&username=demo&db={db}"),
+# Adminer answers 403 to a login URL that names a username (its permanent-login guard, measured
+# on the pinned image on 2026-09-10), so the links name the server only and the page above says
+# which account to type.
+DEEP = (("Adminer", "A", "http://127.0.0.1:8092/?server=dolt&db={db}"),
+        ("Adminer on DoltgreSQL", "Aᴘ", "http://127.0.0.1:8092/?pgsql=doltgres&db={db}"),
         ("phpMyAdmin", "P", "http://127.0.0.1:8091/index.php?route=/database/structure&db={db}&server=1"))
 
 CONNECT = [

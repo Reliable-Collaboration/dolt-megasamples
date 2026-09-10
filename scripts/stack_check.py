@@ -94,8 +94,10 @@ def main():
     for name, port in CONSOLES:
         status, err = http(f"http://127.0.0.1:{port}/")
         check(f"{name} on {port}", status is not None and status < 400, err or f"HTTP {status}")
-    status, err = http("http://127.0.0.1:8092/?pgsql=doltgres&username=demo")
-    check("Adminer offers the PostgreSQL login for DoltgreSQL", status == 200, err or f"HTTP {status}")
+    for label, url in (("MySQL login for Dolt", "http://127.0.0.1:8092/?server=dolt&db=sakila"),
+                       ("PostgreSQL login for DoltgreSQL", "http://127.0.0.1:8092/?pgsql=doltgres&db=sakila")):
+        status, err = http(url)
+        check(f"Adminer offers the {label}", status == 200, err or f"HTTP {status}")
     failed = [n for n, ok, _ in results if not ok]
     print(f"\n{len(results) - len(failed)} of {len(results)} checks passed" + (": " + ", ".join(failed) if failed else ""))
     return 1 if failed else 0

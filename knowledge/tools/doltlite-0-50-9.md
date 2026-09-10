@@ -11,10 +11,10 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T03:45:00Z"
+  at: "2026-09-10T06:50:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
-  at: "2026-09-10T03:45:00Z"
+  at: "2026-09-10T06:50:00Z"
 sources:
 - resource: /sources/doltlite-readme.md
   title: DoltLite README
@@ -47,5 +47,6 @@ Found by refusal on sakila's dump and on the quick subset's schemas (2026-09-10)
 * **A table is committed only when every table its foreign keys name exists.** With `staff` (which references `store`) dumped before `store`, `dolt_commit` after a `staff` row answers `foreign key on table `staff` requires the referenced table `store`` until `store` is created -- the rows go in, the commits are lost. Rule L1 puts every `CREATE TABLE` ahead of the first `INSERT`: [dialect rules](/decisions/pair-dialect-rules.md).
 * **The dump's virtual-table registration only works inside the dump's own transaction.** `.dump` registers an FTS5 table by `INSERT INTO sqlite_schema(...)` under `PRAGMA writable_schema=ON`; run as its own statement, both engines answer `table sqlite_master may not be modified`, and once the virtual table exists first, both refuse the dump's shadow-table rows (`object name reserved for internal use`). Rule L2 creates the virtual table with `CREATE VIRTUAL TABLE`, drops the shadow-table statements and rebuilds the index after the rows (or, under the inline policy, keeps it in step with the port's sync triggers).
 * **Version gap to the baseline.** The fork's base is SQLite 3.54.0, ahead of the newest SQLite release (3.53.4 on 2026-09-10); the stock shell beside it is Debian 13's 3.46.1: [sqlite3 shell](/tools/sqlite3-shell-3-46-1.md).
+* **`VACUUM` can run out of memory.** After dvdstore's per-row-commit load with the indexes inline (174,718 commits, 5,170,967,610 bytes before the settle step), `SELECT dolt_commit(...); VACUUM;` answered `Error in 2nd command line argument: out of memory` (2026-09-10, worker cgroup capped at 16 GiB, the shell's anonymous memory during the load peaked at 179 MB). The same database's deferred-policy load (1,823,235,885 bytes before, 1,070,268,089 after) vacuumed in 5.4 s. The unit is recorded as failed, since its size is not a settled one: [open question](/questions/doltlite-vacuum-memory.md).
 * **Durability per autocommitted statement** is not documented in the README and was not measured: [open question](/questions/doltlite-durability-per-statement.md).
 * No container image is published; the one here is built by `make lite-image` and never pushed.

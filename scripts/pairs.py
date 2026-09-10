@@ -541,8 +541,14 @@ def finish(outcome, errors, ref, got, dropped):
     report["refused"] = {i: refused[i.split("|")[1]][:160] for i in explained}
     outcome["index_parity"] = report
     outcome["objects"] = got.get("objects")
+    settle = [e["message"] for e in errors if e.get("object") == "settle" or e.get("message", "").startswith("settle:")]
     if short:
         outcome["error"] = "the load did not finish: " + short
+    elif settle:
+        # the size of a store whose garbage collection failed is the working footprint, not the
+        # settled size the tables compare, so the unit is not done (DoltLite's VACUUM of a 5 GB
+        # per-row-commit file with the indexes inline answered "out of memory" on 2026-09-10)
+        outcome["error"] = "the settle step failed, so the size is not the settled one: " + settle[0][:160]
     elif report["missing"]:
         outcome["error"] = (f"index parity: {len(report['missing'])} of {report['checked']} indexes missing, "
                             f"first {report['missing'][0][:120]}")

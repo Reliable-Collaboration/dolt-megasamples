@@ -129,6 +129,7 @@ check:
 
 up:
 	@docker image inspect doltsamples-doltlite:0.50.9 >/dev/null 2>&1 || $(MAKE) --no-print-directory lite-image
+	@$(PY) scripts/dolt_server_config.py
 	@docker compose up -d
 	@$(PY) scripts/console_page.py
 	@docker compose restart console >/dev/null 2>&1 || true
