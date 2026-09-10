@@ -68,7 +68,7 @@ The refusals were found on sakila's rows (2026-09-10) and on the quick subset's 
 
 # Outcome
 
-**DoltgreSQL** (`scripts/doltgres_dialect.py`, working on pg_dump's object blocks, never on the rows inside `TABLE DATA`):
+**DoltgreSQL** (`scripts/doltgres_dialect.py`, working on pg_dump's object blocks, never on the rows inside `TABLE DATA`; since method 2 the files are also read and written byte for byte, after a text-mode read was found to turn the carriage returns inside row values into line feeds -- the rules never touched a row, the read did):
 
 * **G1 gin-index**: `CREATE INDEX ... USING gin` dropped on both sides; DoltgreSQL 1.3.1 answers "index method gin is not yet supported" and has no `@@` to serve it. The index-parity check expects it absent.
 * **G2 primary-keys-first**: pg_dump's `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY` blocks moved ahead of the first `TABLE DATA` block in every shape, where the MySQL/Dolt pair had them.

@@ -19,6 +19,9 @@ OUT = os.path.join(ROOT, "docker", "console", "index.html")
 # ports, passwords and container names as the last `make up` resolved them (scripts/stack_settings.py)
 S = stack_settings.load()
 P, PW, C = S["ports"], S["passwords"], S["containers"]
+# a password set in .env is named, not printed: this page is committed to the repository
+SHOWN = {k: (v if v == stack_settings.DEFAULTS["passwords"][k] else f"${stack_settings.PASSWORD_VARS[k]}")
+         for k, v in PW.items()}
 # consoles in order of what they can open, most first
 CONSOLES = [("CloudBeaver", P["cloudbeaver"], "Dolt and DoltgreSQL",
              "Open as a guest; both accounts of both engines are in the sidebar."),
@@ -40,16 +43,16 @@ DEEP = (("Adminer", "A", f"http://127.0.0.1:{P['adminer']}/?server=dolt&db={{db}
 CONNECT = [
     ("Dolt (MySQL protocol)", [
         ("address", f"127.0.0.1 port {P['dolt']}"),
-        ("accounts", f"demo / {PW['demo']} (read only) · admin / {PW['admin']} (all privileges) · root / {PW['dolt_root']}"),
-        ("client", f"mysql -h 127.0.0.1 -P {P['dolt']} -u demo -p{PW['demo']} sakila"),
-        ("URL", f"mysql://demo:{PW['demo']}@127.0.0.1:{P['dolt']}/sakila"),
+        ("accounts", f"demo / {SHOWN['demo']} (read only) · admin / {SHOWN['admin']} (all privileges) · root / {SHOWN['dolt_root']}"),
+        ("client", f"mysql -h 127.0.0.1 -P {P['dolt']} -u demo -p{SHOWN['demo']} sakila"),
+        ("URL", f"mysql://demo:{SHOWN['demo']}@127.0.0.1:{P['dolt']}/sakila"),
         ("JDBC", f"jdbc:mysql://127.0.0.1:{P['dolt']}/sakila"),
         ("version control", "dolt_log, dolt_diff and the rest are tables and procedures: SELECT * FROM dolt_log; CALL dolt_commit('-Am', '...')")]),
     (f"DoltgreSQL {DOLTGRES_VERSION} (PostgreSQL protocol)", [
         ("address", f"127.0.0.1 port {P['doltgres']}"),
-        ("accounts", f"demo / {PW['demo']} (read only) · admin / {PW['admin']} (superuser) · postgres / {PW['doltgres']}"),
-        ("client", f"PGPASSWORD={PW['demo']} psql -h 127.0.0.1 -p {P['doltgres']} -U demo -d sakila"),
-        ("URL", f"postgresql://demo:{PW['demo']}@127.0.0.1:{P['doltgres']}/sakila"),
+        ("accounts", f"demo / {SHOWN['demo']} (read only) · admin / {SHOWN['admin']} (superuser) · postgres / {SHOWN['doltgres']}"),
+        ("client", f"PGPASSWORD={SHOWN['demo']} psql -h 127.0.0.1 -p {P['doltgres']} -U demo -d sakila"),
+        ("URL", f"postgresql://demo:{SHOWN['demo']}@127.0.0.1:{P['doltgres']}/sakila"),
         ("JDBC", f"jdbc:postgresql://127.0.0.1:{P['doltgres']}/sakila"),
         ("version control", "SELECT * FROM dolt_log; SELECT dolt_commit('-Am', '...') — SQL only, there is no CLI"),
         ("note", "one database per dataset, each its own repository; some objects were not carried — the report says which")]),
@@ -114,8 +117,10 @@ def main():
         granularity = (f' Committing one row at a time instead costs <b>{mults[0]:.0f}× to {mults[-1]:.0f}×</b> '
                        f'as much, measured on {len(rc)} of them — history is the expensive part, not the rows. '
                        f'See <code>REPORT.md</code>.')
-    have_pg = any(s["doltgres"] for _, _, s in items)
-    have_lite = any(s["doltlite"] for _, _, s in items)
+    have_pg = any(s["postgres"] or s["doltgres"] for _, _, s in items)
+    have_lite = any(s["sqlite"] or s["doltlite"] for _, _, s in items)
+    served_pg = set(((serve.get("engines") or {}).get("doltgres") or {}).get("databases") or [])
+    dolt_ratio = (f"{do / my:.2f}× MySQL across {len(base)} databases" if my else "not measured yet")
 
     links = "\n".join(
         f'      <a class="console" href="http://127.0.0.1:{port}/"><b>{name}</b><em>{html.escape(cover)}</em>'
@@ -140,7 +145,7 @@ def main():
     for db, r, s in sorted(items, key=lambda x: -(x[2]["mysql"] or x[2]["postgres"] or x[2]["sqlite"] or 0)):
         opens = "".join(
             f'<a class="go" title="Open {db} in {n}" href="{html.escape(u.format(db=db))}">{c}</a>'
-            for n, c, u in DEEP if (s["doltgres"] or "DoltgreSQL" not in n))
+            for n, c, u in DEEP if ("DoltgreSQL" not in n or db in served_pg))
         ratio = (s["dolt"] / s["mysql"]) if s["mysql"] and s["dolt"] else None
         bar = min(100, ratio * 100) if ratio else 0
         row = (f'      <tr><td><code>{html.escape(db)}</code><span class="opens">{opens}</span></td>'
@@ -172,9 +177,10 @@ def main():
                        + (f'; {left} left out for memory or because the shape was not loaded for them, see <code>build/serve.json</code>' if left else '')
                        + '. The commits column says how much history each served database carries; the sizes are still the one-commit loads.')
     more = ""
-    if have_pg or have_lite:
-        more = (" The same rows were also loaded into PostgreSQL and DoltgreSQL, and into SQLite and DoltLite, "
-                "each pair from its own dump, one commit per database; those sizes are in the last columns.")
+    shown_pairs = [name for flag, name in ((have_pg, "PostgreSQL and DoltgreSQL"), (have_lite, "SQLite and DoltLite")) if flag]
+    if shown_pairs:
+        more = (f" The same rows were also loaded into {' and into '.join(shown_pairs)}, each pair from its own "
+                f"dump; their one-commit sizes are in the last columns, with a dash where one is not measured yet.")
     page = f"""<!doctype html>
 <meta charset="utf-8"><title>dolt-megasamples</title>
 <style>
@@ -202,8 +208,7 @@ def main():
 </style>
 <h1>dolt-megasamples</h1>
 <p class="lead">The sql-megasamples databases loaded into Dolt — and into DoltgreSQL and DoltLite — with what each costs
-on disk beside the engine it mirrors. The Dolt column is the one-commit load, {do / my:.2f}× MySQL across
-{len(base)} databases.{granularity}{more}{served_line}</p>
+on disk beside the engine it mirrors. The Dolt column is the one-commit load, {dolt_ratio}.{granularity}{more}{served_line}</p>
 
 <h2>Consoles, by what they can open</h2>
 <div class="consoles">

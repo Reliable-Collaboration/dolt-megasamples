@@ -18,7 +18,7 @@ the Dolt study holds the Dolt server.
 import argparse, json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, run  # noqa: E402
+from common import ROOT, run, run_lock  # noqa: E402
 from pairs import DOLTGRES_IMAGE, LITE_IMAGE, PW, reference  # noqa: E402
 from memory_profile import LADDER  # noqa: E402
 
@@ -117,6 +117,15 @@ def main():
     ap.add_argument("--only", action="append")
     ap.add_argument("--timeout", type=float, default=900)
     a = ap.parse_args()
+    # a measurement in its own right: never beside a runner, which may be writing the very store, and
+    # never while the stack serves the stores, which would put two servers over one repository
+    lock, holder = run_lock("memory_profile_pairs.py")
+    if lock is None:
+        sys.exit(f"build/run.lock is held by {holder}: the study would start servers over stores being written")
+    up = set(run("docker", "ps", "--format", "{{.Names}}").stdout.split())
+    serving = sorted(up & {"doltsamples-doltgres", "doltsamples-doltlite", "doltsamples-workbench"})
+    if serving:
+        sys.exit("the stack is serving the stores the study would open (" + ", ".join(serving) + "); `make down` first")
     facts = json.load(open(OUT, encoding="utf-8")) if os.path.exists(OUT) else {}
     for engine in a.engine or ["doltgres", "doltlite"]:
         for mode in a.mode or MODES:

@@ -71,8 +71,8 @@ LITE_PACKAGES = [
 # ----------------------------------------------------------------------------- containers ---
 PW = "doltsamples"
 PG_TIMING = "doltsamples-postgres-timing"        # a fresh PostgreSQL per load
-DOLTGRES_RUNNER = "doltsamples-doltgres-runner"  # one DoltgreSQL server per mode, one database per load
-LITE_RUNNER = "doltsamples-lite-runner"          # the sqlite3 and doltlite shells, files under /data
+DOLTGRES_RUNNER = "doltsamples-doltgres-runner"  # a DoltgreSQL server started for each load
+LITE_RUNNER = "doltsamples-lite-runner"          # a container per load for the sqlite3 or doltlite shell
 WORKERS = {PG_TIMING, DOLTGRES_RUNNER, LITE_RUNNER, "doltsamples-dolt-runner", "doltsamples-mysql-timing"}
 PGDATA = "/var/lib/postgresql/18/docker"
 DOLTGRES_DATA = "/var/lib/doltgres"
@@ -105,6 +105,14 @@ LABEL = {"postgres": "PostgreSQL, COPY", "postgres_rowwise": "PostgreSQL, one IN
          "doltlite_rowinsert": "DoltLite, one INSERT per row", "doltlite_rowcommit": "DoltLite, one commit per row"}
 
 
+# The measurement method, recorded on every unit. The runner measures again any unit recorded with an
+# older method, and the collector reports only units of this one. Method 2 (the 2026-09-10 review):
+# a server or shell container of its own for every unit; dumps read and written byte for byte (a
+# text-mode read had turned the carriage returns inside row values into line feeds); memory sampled
+# four times a second as anonymous plus shared memory, through the load and its settle step.
+METHOD = 2
+
+
 def mode_key(phase, indexes):
     return MODE_OF[phase] + ("_inline" if indexes == "inline" and phase in PER_ROW else "")
 
@@ -118,6 +126,14 @@ def reference(pair, db):
     if not os.path.exists(path):
         raise RuntimeError(f"no reference for {db}: run scripts/export_{'postgres' if pair == 'pg' else 'sqlite'}.py first")
     return json.load(open(path, encoding="utf-8"))
+
+
+def committed_rows(pair, db):
+    """The rows a load writes: every table's rows except a virtual table's, which are its content
+    table's counted a second time (SQLite's FTS5) and which no INSERT names."""
+    ref = reference(pair, db)
+    virtual = set(ref.get("virtual_tables") or [])
+    return sum(v or 0 for t, v in ref["rows"].items() if t not in virtual)
 
 
 def exported(pair):
@@ -138,7 +154,7 @@ def prepare(pair, db, phase, indexes="deferred"):
     per_row = MODE_OF[phase] != "oneshot"
     if pair == "pg":
         src = os.path.join(PG_DUMPS, f"{db}.{'inserts' if per_row else 'copy'}.sql")
-        sql, notes, dropped = doltgres_dialect.transform(open(src, encoding="utf-8").read(), db)
+        sql, notes, dropped = doltgres_dialect.transform(open(src, encoding="utf-8", newline="").read(), db)
         if indexes == "inline" and per_row:
             sql, n = doltgres_dialect.inline_indexes(sql)
             notes.append(f"inline policy: {n} index/unique-constraint block(s) moved ahead of the rows")
@@ -147,7 +163,7 @@ def prepare(pair, db, phase, indexes="deferred"):
             notes.append(f"a dolt_commit after each of {n:,} INSERT statements")
     else:
         src = os.path.join(LITE_DUMPS, f"{db}.dump.sql")
-        sql, notes = doltlite_dialect.transform(open(src, encoding="utf-8").read(), db)
+        sql, notes = doltlite_dialect.transform(open(src, encoding="utf-8", newline="").read(), db)
         dropped = []
         if per_row:
             sql = doltlite_dialect.strip_transaction(sql)
@@ -158,7 +174,10 @@ def prepare(pair, db, phase, indexes="deferred"):
         if MODE_OF[phase] == "rowcommit":
             sql, n = doltlite_dialect.per_row_commits(sql)
             notes.append(f"a dolt_commit after each of {n:,} INSERT statements")
-    with open(out, "w", encoding="utf-8") as fh:
+    # newline="" on both sides: a carriage return inside a row value is part of the row, and a
+    # text-mode read turned every one of them into a line feed (enron, stackexchange_beer and
+    # adventureworks, in the --inserts form only; the COPY form escapes them)
+    with open(out, "w", encoding="utf-8", newline="") as fh:
         fh.write(sql)
     return f"/dumps/pairs/{pair}/{mode}/{db}.sql", notes, dropped, mode
 
@@ -214,12 +233,16 @@ def du_or_zero(container, path):
 
 
 # memory, sampled from the host: the container's cgroup is readable at
-# /sys/fs/cgroup/docker/<id>/ (cgroup v2, cgroupfs driver), so no process runs inside the worker
-# to do it. The first version ran a shell loop inside the container the way run_all.py does for
-# Dolt; inside a PostgreSQL container that loop is reparented to the postmaster, which took the
-# loop's death for a crashed backend and put the server into recovery. `anon` is what the cgroup
-# cannot reclaim and what decides a kill; one reading every two seconds.
-SAMPLER_SECONDS = 2
+# /sys/fs/cgroup/docker/<id>/ (cgroup v2, cgroupfs driver), so no process runs inside the worker to do
+# it -- inside a PostgreSQL container a sampling loop is reparented to the postmaster, which took the
+# loop's death for a crashed backend and put the server into recovery. What is sampled is anonymous
+# plus shared memory: with swap off neither can be reclaimed, and PostgreSQL's shared buffers are the
+# shared part, which `anon` alone left out. Four readings a second, from before the timed command
+# until after its settle step, so a load longer than a quarter second is not recorded as the idle
+# container and garbage collection -- where DoltLite ran out of memory -- is inside the window (both
+# from the 2026-09-10 review). Every unit runs in a container of its own, so the cgroup's own
+# memory.peak -- total memory, page cache included, whole unit -- is recorded beside it.
+SAMPLER_SECONDS = 0.25
 
 
 class Sampler:
@@ -228,8 +251,9 @@ class Sampler:
         cid = run("docker", "inspect", "-f", "{{.Id}}", container).stdout.strip()
         self.dir = f"/sys/fs/cgroup/docker/{cid}"
         self.container = container
-        self.anon = self.total = 0
         self.readable = os.path.exists(os.path.join(self.dir, "memory.stat"))
+        self.peak = self.anon = self.total = self.window = 0
+        self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
 
@@ -239,7 +263,7 @@ class Sampler:
                 stat = open(os.path.join(self.dir, "memory.stat")).read()
                 cur = open(os.path.join(self.dir, "memory.current")).read().strip()
             except OSError:
-                return None, None
+                return None, None, None
         else:
             p = run("docker", "exec", self.container, "sh", "-c",
                     "cat /sys/fs/cgroup/memory.stat; echo current $(cat /sys/fs/cgroup/memory.current)")
@@ -247,32 +271,62 @@ class Sampler:
             for line in p.stdout.splitlines():
                 if line.startswith("current "):
                     cur = line.split()[1]
-        anon = next((int(l.split()[1]) for l in stat.splitlines() if l.startswith("anon ")), None)
-        return anon, (int(cur) if cur.isdigit() else None)
+        fields = dict(l.split() for l in stat.splitlines() if len(l.split()) == 2)
+        anon = int(fields["anon"]) if fields.get("anon", "").isdigit() else None
+        shmem = int(fields["shmem"]) if fields.get("shmem", "").isdigit() else 0
+        return anon, (anon + shmem if anon is not None else None), (int(cur) if cur.isdigit() else None)
+
+    def _take(self):
+        anon, held, cur = self._read()
+        with self._lock:
+            self.anon = max(self.anon, anon or 0)
+            self.peak = max(self.peak, held or 0)
+            self.window = max(self.window, held or 0)
+            self.total = max(self.total, cur or 0)
 
     def _loop(self):
         while not self._stop.is_set():
-            anon, cur = self._read()
-            self.anon = max(self.anon, anon or 0)
-            self.total = max(self.total, cur or 0)
+            self._take()
             self._stop.wait(SAMPLER_SECONDS)
 
     def start(self):
+        self._take()
         self._thread.start()
         return self
 
+    def split(self):
+        """Peak anonymous-plus-shared bytes since the last split (or the start); opens a new window."""
+        self._take()
+        with self._lock:
+            w, self.window = self.window, 0
+        return w or None
+
     def stop(self):
-        """(peak anonymous bytes, peak total bytes) seen since start."""
+        """Everything seen since start, and the cgroup's own peak."""
         self._stop.set()
         self._thread.join(timeout=SAMPLER_SECONDS + 5)
-        anon, cur = self._read()
-        self.anon = max(self.anon, anon or 0)
-        self.total = max(self.total, cur or 0)
-        return (self.anon or None), (self.total or None)
+        self._take()
+        cgroup_peak = None
+        try:
+            v = open(os.path.join(self.dir, "memory.peak")).read().strip()
+            cgroup_peak = int(v) if v.isdigit() else None
+        except OSError:
+            pass
+        return {"peak": self.peak or None, "anon": self.anon or None, "total": self.total or None,
+                "cgroup_peak": cgroup_peak}
 
 
 def sampler_start(container):
     return Sampler(container).start()
+
+
+def memory_fields(sampler, load_peak, settle_peak):
+    """The memory a unit records: the peak of the load and its settle step together (the tables'
+    number), each window's own peak, anonymous memory alone, and the cgroup's totals."""
+    got = sampler.stop()
+    return {"memory_peak_bytes": got["peak"], "memory_load_peak_bytes": load_peak,
+            "memory_settle_peak_bytes": settle_peak, "memory_anon_peak_bytes": got["anon"],
+            "memory_total_peak_bytes": got["total"], "memory_cgroup_peak_bytes": got["cgroup_peak"]}
 
 
 # ---------------------------------------------------------------------------------- psql ---
@@ -302,14 +356,18 @@ PSQL_ERROR = re.compile(r"^psql:(?P<file>\S+?):(?P<line>\d+): (?P<level>ERROR|FA
 
 def psql_errors(p, prepared_text=None):
     """[{line, message, object}] for every ERROR psql reported while loading a file."""
-    out = []
+    out, index = [], None
     for line in (p.stderr or "").splitlines():
         m = PSQL_ERROR.match(line.strip())
         if not m:
             continue
         entry = {"line": int(m.group("line")), "message": m.group("msg")[:200]}
         if prepared_text is not None:
-            t, name = doltgres_dialect.block_at_line(prepared_text, entry["line"])
+            if index is None:
+                # one pass over the file for every error of the load: a refused large table reports
+                # an error per row, and splitting the file again for each stalled a unit for hours
+                index = doltgres_dialect.block_index(prepared_text)
+            t, name = doltgres_dialect.block_at(index, entry["line"])
             entry["object"] = f"{t}: {name}" if t else None
         out.append(entry)
     return out
@@ -363,8 +421,9 @@ def pg_catalog(container, db):
 
 # ------------------------------------------------------------------- sqlite3 and doltlite ---
 def lite_up():
-    if state(LITE_RUNNER) == "running":
-        return
+    """A fresh worker for one unit: the image and memory limit as they are now, and a cgroup whose
+    memory.peak is that unit's alone. The first version kept one worker for a whole run, so a changed
+    image or limit went unused until someone removed it by hand."""
     run("docker", "rm", "-f", LITE_RUNNER)
     ensure_dir(DATA)
     p = run("docker", "run", "-d", "--name", LITE_RUNNER, *mem(MEM_WORKER),
@@ -540,44 +599,57 @@ def postgres_fresh():
 
 def load_postgres(db, phase, indexes="deferred"):
     inside, notes, dropped, mode = prepare("pg", db, phase, indexes)
-    text = open(os.path.join(PREPARED, "pg", mode, f"{db}.sql"), encoding="utf-8").read()
+    text = open(os.path.join(PREPARED, "pg", mode, f"{db}.sql"), encoding="utf-8", newline="").read()
     stop_others(PG_TIMING)
     postgres_fresh()
-    baseline = pg_bytes()
-    psql_value(PG_TIMING, "postgres", f'CREATE DATABASE {q(db)}')
-    # A new PostgreSQL database is a copy of template1's catalog before it holds a row -- about
-    # 7.4 MiB -- which is a floor MySQL's per-schema directory and Dolt's repository do not have.
-    # Recorded so the report can show the size with and without it.
-    psql(PG_TIMING, db, "CHECKPOINT")
-    empty = pg_bytes() - baseline
-    sampler = sampler_start(PG_TIMING)
-    started = time.time()
-    p = psql_file(PG_TIMING, db, inside)
-    load_s = time.time() - started
-    anon, total = sampler.stop()
-    errors = psql_errors(p, text)
-    started = time.time()
-    psql(PG_TIMING, db, "CHECKPOINT")
-    settle_s = time.time() - started
-    outcome = {"exit_code": p.returncode, "seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
-               "bytes": pg_bytes() - baseline, "baseline_bytes": baseline, "empty_database_bytes": empty,
-               "database_bytes": int(psql_value(PG_TIMING, db, "SELECT pg_database_size(current_database())")),
-               "memory_anon_peak_bytes": anon, "memory_total_peak_bytes": total, "notes": notes}
-    return finish(outcome, errors, reference("pg", db), pg_catalog(PG_TIMING, db), dropped)
+    try:
+        baseline = pg_bytes()
+        psql_value(PG_TIMING, "postgres", f'CREATE DATABASE {q(db)}')
+        # A new PostgreSQL database is a copy of template1's catalog before it holds a row -- about
+        # 7.4 MiB -- which is a floor MySQL's per-schema directory and Dolt's repository do not have.
+        # Recorded so the report can show the size with and without it.
+        psql(PG_TIMING, db, "CHECKPOINT")
+        empty = pg_bytes() - baseline
+        sampler = sampler_start(PG_TIMING)
+        started = time.time()
+        p = psql_file(PG_TIMING, db, inside)
+        load_s = time.time() - started
+        load_peak = sampler.split()
+        errors = psql_errors(p, text)
+        started = time.time()
+        psql(PG_TIMING, db, "CHECKPOINT")
+        settle_s = time.time() - started
+        memory = memory_fields(sampler, load_peak, sampler.split())
+        outcome = {"exit_code": p.returncode, "seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
+                   "bytes": pg_bytes() - baseline, "baseline_bytes": baseline, "empty_database_bytes": empty,
+                   "database_bytes": int(psql_value(PG_TIMING, db, "SELECT pg_database_size(current_database())")),
+                   **memory, "notes": notes}
+        catalog = pg_catalog(PG_TIMING, db)
+    finally:
+        run("docker", "rm", "-f", PG_TIMING)
+    return finish(outcome, errors, reference("pg", db), catalog, dropped)
+
+
+def settle_error(e):
+    """An error of the settle step (commit, garbage collection) rather than of the load itself."""
+    return e.get("object") == "settle" or str(e.get("message", "")).startswith("settle:")
 
 
 def finish(outcome, errors, ref, got, dropped):
-    """The common ending: every refusal kept, the row check the arbiter, the index set compared."""
+    """The common ending: every refusal kept, the row check the arbiter, the index set compared.
+    A failed settle step is recorded on the unit but is not a refusal of any schema object."""
+    outcome["method"] = METHOD
+    load_errors = [e for e in errors if not settle_error(e)]
     outcome["errors"] = errors[:40]
-    outcome["error_count"] = len(errors)
-    outcome["output_tail"] = " / ".join(e.get("message", str(e)) for e in errors[-3:])[:600]
+    outcome["error_count"] = len(load_errors)
+    outcome["output_tail"] = " / ".join(e.get("message", str(e)) for e in load_errors[-3:])[:600]
     short, report = compare(ref, got, dropped)
     # An index the engine refused out loud is a schema object it would not take, recorded with its
     # reason and counted by the report; an index missing with no refusal to explain it is a failed
     # load. DoltgreSQL 1.3.1 refuses every second alteration of a table with a STORED generated
     # column ("Invalid default value ... syntax error at 'as'"), which is what this distinguishes.
     refused = {}
-    for e in errors:
+    for e in load_errors:
         obj = e.get("object") or ""
         if obj.startswith(("INDEX: ", "CONSTRAINT: ")):
             refused[obj.split(": ", 1)[1].split()[-1]] = e["message"]
@@ -586,7 +658,7 @@ def finish(outcome, errors, ref, got, dropped):
     report["refused"] = {i: refused[i.split("|")[1]][:160] for i in explained}
     outcome["index_parity"] = report
     outcome["objects"] = got.get("objects")
-    settle = [e["message"] for e in errors if e.get("object") == "settle" or e.get("message", "").startswith("settle:")]
+    settle = [e["message"] for e in errors if settle_error(e)]
     # A store whose garbage collection failed holds every row (the checks below still apply) but
     # its size is the working footprint, not the settled size the tables compare. DoltLite's VACUUM
     # answers "out of memory" within seconds on per-row-commit files above about 2 GB (2026-09-10);
@@ -604,9 +676,9 @@ def finish(outcome, errors, ref, got, dropped):
     elif explained:
         outcome["notes"].append(f"{len(explained)} index(es) not carried: the engine refused them, and the "
                                 f"size below is without them: {', '.join(i.split('|')[1] for i in explained)}")
-    elif errors:
+    elif load_errors:
         outcome["schema_object_error"] = outcome["output_tail"][:300]
-        outcome["notes"].append(f"the engine refused {len(errors)} statement(s) after or beside the rows; every "
+        outcome["notes"].append(f"the engine refused {len(load_errors)} statement(s) after or beside the rows; every "
                                 f"table and index matches the reference, so the shortfall is in the schema objects "
                                 f"the report counts separately: {outcome['output_tail'][:200]}")
     return outcome
@@ -646,7 +718,7 @@ def doltgres_bytes(db):
 
 def load_doltgres(db, phase, indexes="deferred"):
     inside, notes, dropped, mode = prepare("pg", db, phase, indexes)
-    text = open(os.path.join(PREPARED, "pg", mode, f"{db}.sql"), encoding="utf-8").read()
+    text = open(os.path.join(PREPARED, "pg", mode, f"{db}.sql"), encoding="utf-8", newline="").read()
     stop_others(DOLTGRES_RUNNER)
     doltgres_up(mode, db)
     try:
@@ -655,13 +727,14 @@ def load_doltgres(db, phase, indexes="deferred"):
         started = time.time()
         p = psql_file(DOLTGRES_RUNNER, db, inside)
         load_s = time.time() - started
-        anon, total = sampler.stop()
+        load_peak = sampler.split()
         errors = psql_errors(p, text)
         before, _ = doltgres_bytes(db)
         started = time.time()
         c1 = psql(DOLTGRES_RUNNER, db, "SELECT dolt_commit('-A', '--allow-empty', '-m', 'import from sql-megasamples')")
         c2 = psql(DOLTGRES_RUNNER, db, "SELECT dolt_gc()")
         settle_s = time.time() - started
+        memory = memory_fields(sampler, load_peak, sampler.split())
         for c, what in ((c1, "dolt_commit"), (c2, "dolt_gc")):
             if c.returncode != 0:
                 errors.append({"line": 0, "message": f"{what}: {(c.stderr or '').strip()[:200]}", "object": "settle"})
@@ -674,8 +747,7 @@ def load_doltgres(db, phase, indexes="deferred"):
     outcome = {"exit_code": p.returncode, "seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
                "bytes": size, "bytes_before_settle": before, "stats_bytes": stats,
                "commits": int(commits) if commits.isdigit() else None,
-               "memory_anon_peak_bytes": anon, "memory_total_peak_bytes": total, "notes": notes,
-               "isolation": "one server per unit"}
+               **memory, "notes": notes, "isolation": "one server per unit"}
     return finish(outcome, errors, reference("pg", db), catalog, dropped)
 
 
@@ -698,31 +770,34 @@ def load_lite(db, phase, indexes="deferred"):
     stop_others(LITE_RUNNER)
     ensure_dir(data_dir(engine, mode))
     lite_up()
-    path = lite_path(engine, mode, db)
-    binary = "sqlite3" if engine == "sqlite" else "doltlite"
-    lite_sh(f"rm -f {path} {path}-journal {path}-wal {path}-shm")
-    sampler = sampler_start(LITE_RUNNER)
-    started = time.time()
-    p = lite_sh(f'{binary} {path} ".read {inside}" >/dev/null')
-    load_s = time.time() - started
-    anon, total = sampler.stop()
-    errors = [{"line": _line_of(l), "message": l.strip()[:200]} for l in (p.stderr or "").splitlines() if l.strip()]
-    before = lite_bytes(path)
-    started = time.time()
-    if engine == "doltlite":
-        c = lite_sh(f"{binary} {path} \"SELECT dolt_commit('-A', '--allow-empty', '-m', 'import from sql-megasamples'); "
-                    f"VACUUM;\" >/dev/null")
-        if c.returncode != 0:
-            errors.append({"line": 0, "message": "settle: " + (c.stderr or "").strip()[:200]})
-    settle_s = time.time() - started
-    outcome = {"exit_code": p.returncode, "seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
-               "bytes": lite_bytes(path), "bytes_before_settle": before,
-               "memory_anon_peak_bytes": anon, "memory_total_peak_bytes": total, "notes": notes}
-    if engine == "doltlite":
-        commits = lite_sh(f"{binary} {path} 'SELECT COUNT(*) FROM dolt_log'").stdout.strip()
-        outcome["commits"] = int(commits) if commits.isdigit() else None
-    ref = reference("lite", db)
-    got = lite_catalog(binary, path, tables=list(ref["rows"]))
+    try:
+        path = lite_path(engine, mode, db)
+        binary = "sqlite3" if engine == "sqlite" else "doltlite"
+        lite_sh(f"rm -f {path} {path}-journal {path}-wal {path}-shm")
+        sampler = sampler_start(LITE_RUNNER)
+        started = time.time()
+        p = lite_sh(f'{binary} {path} ".read {inside}" >/dev/null')
+        load_s = time.time() - started
+        load_peak = sampler.split()
+        errors = [{"line": _line_of(l), "message": l.strip()[:200]} for l in (p.stderr or "").splitlines() if l.strip()]
+        before = lite_bytes(path)
+        started = time.time()
+        if engine == "doltlite":
+            c = lite_sh(f"{binary} {path} \"SELECT dolt_commit('-A', '--allow-empty', '-m', 'import from sql-megasamples'); "
+                        f"VACUUM;\" >/dev/null")
+            if c.returncode != 0:
+                errors.append({"line": 0, "message": "settle: " + (c.stderr or "").strip()[:200], "object": "settle"})
+        settle_s = time.time() - started
+        memory = memory_fields(sampler, load_peak, sampler.split())
+        outcome = {"exit_code": p.returncode, "seconds": round(load_s, 1), "settle_seconds": round(settle_s, 1),
+                   "bytes": lite_bytes(path), "bytes_before_settle": before, **memory, "notes": notes}
+        if engine == "doltlite":
+            commits = lite_sh(f"{binary} {path} 'SELECT COUNT(*) FROM dolt_log'").stdout.strip()
+            outcome["commits"] = int(commits) if commits.isdigit() else None
+        ref = reference("lite", db)
+        got = lite_catalog(binary, path, tables=list(ref["rows"]))
+    finally:
+        run("docker", "rm", "-f", LITE_RUNNER)
     return finish(outcome, errors, ref, got, dropped)
 
 

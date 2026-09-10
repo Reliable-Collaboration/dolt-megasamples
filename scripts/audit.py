@@ -186,16 +186,19 @@ def pairs_are_consistent(a, results):
             rows = ((pairs.get("source_rows_committed") or {}).get(pair)
                     or (pairs.get("source_rows") or {}).get(pair))
             for key, u in sorted(m.items()):
-                if not isinstance(u, dict) or not u.get("disk_bytes"):
+                # an uncollected store keeps every check except the one about its settled size
+                if not isinstance(u, dict) or not (u.get("disk_bytes") or u.get("footprint_bytes")):
                     continue
                 phase = key.replace("_inline", "")
                 versioned = ENGINE[phase] in ("doltgres", "doltlite")
-                if versioned and u.get("bytes_before_settle") is not None and u.get("settled", True):
+                if versioned and u.get("bytes_before_settle") is not None and u.get("disk_bytes"):
                     a.check(u["bytes_before_settle"] >= u["disk_bytes"] * 0.9,
                             f"{db} {key}: the settle step did not grow the store",
                             f"{human(u['bytes_before_settle'])} before, {human(u['disk_bytes'])} after")
                 if phase.endswith("_rowcommit") and u.get("commits") is not None and rows:
-                    a.check(abs(u["commits"] - rows) <= 3, f"{db} {key}: one commit per row",
+                    # every row's commit, plus the repository's first commit and the final one (and, on
+                    # DoltgreSQL, the database's creation): two or three more than the rows
+                    a.check(2 <= u["commits"] - rows <= 3, f"{db} {key}: one commit per row",
                             f"{u['commits']:,} commits for {rows:,} rows")
                 a.check(u.get("indexes_checked") is not None, f"{db} {key}: index parity was checked")
                 a.check(not u.get("indexes_extra"), f"{db} {key}: no index the reference lacks",
@@ -207,9 +210,12 @@ def pair_settles_reported(a, results):
     if not os.path.exists(PROGRESS):
         return
     from collect_pairs import settle_failed
+    from pairs import METHOD
     p = json.load(open(PROGRESS, encoding="utf-8"))
     for key, u in sorted((p.get("units") or {}).items()):
-        if not u.get("pair") or u.get("status") != "done" or not settle_failed(u):
+        # only the units the collector reports: one taken with an older method is withdrawn, not shown
+        if (not u.get("pair") or u.get("status") != "done" or u.get("method") != METHOD
+                or not settle_failed(u)):
             continue
         parts = key.split("/")
         name = parts[0] + ("_inline" if parts[2:] == ["inline"] else "")

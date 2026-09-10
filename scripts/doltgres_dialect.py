@@ -342,7 +342,9 @@ def per_row_commits(text):
         if b.type != "TABLE DATA":
             continue
         out, open_quotes, inside = [], 0, False
-        for line in b.text.splitlines(keepends=True):
+        # pieces ending at a line feed only: str.splitlines also breaks at a carriage return and at
+        # other Unicode separators, which occur inside row values
+        for line in re.split(r"(?<=\n)", b.text):
             out.append(line)
             if not inside and not line.startswith("INSERT INTO "):
                 continue
@@ -378,3 +380,24 @@ def block_at_line(text, line_no):
             return b.type, b.name
         line += n
     return None, None
+
+
+def block_index(text):
+    """(first lines, [(type, name)]) of every block, so that many psql line numbers map to blocks
+    with one pass over the file instead of one per error."""
+    preamble, blocks, _ = split(text)
+    line = preamble.count("\n") + 1
+    starts, names = [], []
+    for b in blocks:
+        starts.append(line)
+        names.append((b.type, b.name))
+        line += b.text.count("\n")
+    return starts, names
+
+
+def block_at(index, line_no):
+    """The (type, name) of the block a 1-based line number of the file falls in."""
+    import bisect
+    starts, names = index
+    i = bisect.bisect_right(starts, line_no) - 1
+    return names[i] if i >= 0 else (None, None)

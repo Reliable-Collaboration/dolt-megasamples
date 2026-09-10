@@ -85,13 +85,16 @@ environment:
 method-checks:
 	@$(PY) scripts/method_checks.py
 
-charts: .venv/bin/python
+charts: .venv/.deps-matplotlib-pyyaml
 	@.venv/bin/python scripts/charts.py
 
-.venv/bin/python:
-	@uv venv .venv >/dev/null 2>&1 || python3 -m venv .venv
-	@(uv pip install -q matplotlib >/dev/null 2>&1 || .venv/bin/pip install -q matplotlib)
-	@echo "  . created .venv with matplotlib"
+# matplotlib for the figures, PyYAML for the knowledge bundle's checker. The stamp names the
+# dependencies, so adding one reaches a .venv that already exists.
+.venv/.deps-matplotlib-pyyaml:
+	@test -x .venv/bin/python || uv venv .venv >/dev/null 2>&1 || python3 -m venv .venv
+	@(uv pip install -q --python .venv/bin/python matplotlib pyyaml >/dev/null 2>&1 || .venv/bin/pip install -q matplotlib pyyaml)
+	@touch $@
+	@echo "  . .venv has matplotlib and PyYAML"
 
 # The whole experiment, timed: five loads of every database across both engines, resumable and
 # observable. Expect many hours -- the per-row-commit phase alone is most of it.
@@ -152,11 +155,7 @@ status:
 # two _inline variants -- so the wildcard matters: deleting data/dolt alone left the row-by-row
 # results in place and the next run measured them again.
 clean-data:
-	@docker run --rm -v "$(PWD)/data:/data" --entrypoint sh \
-	  dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6 \
-	  -c 'rm -rf /data/dolt /data/dolt-* /data/mysql' 2>/dev/null || true
-	@rm -rf data build/dumps/dolt build/results.json build/progress.json
-	@echo "removed every data/dolt* directory, the transformed dumps, the measurements and the run state"
+	@$(PY) scripts/clean_pairs.py --everything
 
 # The two further pairs' stores, prepared dumps and recorded units (scripts/clean_pairs.py says why
 # the records go too); the exports and the MySQL/Dolt measurements are kept.
@@ -195,5 +194,5 @@ test-stack:
 	@$(PY) scripts/stack_check.py
 memory-pairs:
 	@$(PY) scripts/memory_profile_pairs.py $(ARGS)
-okf-check:
-	@$(PY) scripts/okf_check.py --bundle knowledge && $(PY) scripts/okf_fix_quotes.py --bundle knowledge --check
+okf-check: .venv/.deps-matplotlib-pyyaml
+	@.venv/bin/python scripts/okf_check.py --bundle knowledge && .venv/bin/python scripts/okf_fix_quotes.py --bundle knowledge --check

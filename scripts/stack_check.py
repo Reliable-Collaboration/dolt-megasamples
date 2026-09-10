@@ -79,12 +79,13 @@ def main():
         p = run("docker", "run", "--rm", "--network", NETWORK, "--label", "doltsamples.transient=true", MYSQL_IMAGE,
                 "mysql", "-hdolt", f"-u{user}", f"-p{pw}", "-N", "-e", f"SELECT COUNT(*) FROM {dolt_db}.{table}")
         check(f"Dolt as {user}: {dolt_db}.{table}", p.stdout.strip() == str(want), p.stdout.strip() or p.stderr.strip()[-100:])
-        # a table created and dropped again (DDL is not transactional on either engine, so a
-        # rollback would not undo it); any leftover from an interrupted run is dropped first
+        # a scratch database created and dropped: the probe writes nothing into a served store, which
+        # is a measured one (the first version created a table inside the store and left a change in
+        # its working set)
         p = run("docker", "run", "--rm", "--network", NETWORK, "--label", "doltsamples.transient=true", MYSQL_IMAGE,
                 "mysql", "-hdolt", f"-u{user}", f"-p{pw}", "-N", "-e",
-                f"USE {dolt_db}; DROP TABLE IF EXISTS probe_stack_check; CREATE TABLE probe_stack_check (id int); "
-                f"DROP TABLE probe_stack_check")
+                "DROP DATABASE IF EXISTS probe_stack_check; CREATE DATABASE probe_stack_check; "
+                "DROP DATABASE probe_stack_check")
         check(f"Dolt as {user}: {'may' if want_write else 'may not'} write", (p.returncode == 0) == want_write,
               (p.stderr.strip().splitlines() or ["ok"])[-1][-100:])
     # DoltgreSQL
@@ -99,8 +100,11 @@ def main():
         check(f"DoltgreSQL as {user}: {pg_db}.{pg_table}", out == str(pg_want), out)
         rc, out = pg(user, pw, pg_db, "SELECT COUNT(*) FROM dolt_log")
         check(f"DoltgreSQL as {user}: dolt_log", rc == 0 and out.isdigit(), out)
-        rc, out = pg(user, pw, pg_db, "DROP TABLE IF EXISTS probe_stack_check; CREATE TABLE probe_stack_check (id int); "
-                                      "DROP TABLE probe_stack_check")
+        # a scratch database, as for Dolt: nothing is written into a served store
+        pg(user, pw, "postgres", "DROP DATABASE IF EXISTS probe_stack_check")
+        rc, out = pg(user, pw, "postgres", "CREATE DATABASE probe_stack_check")
+        if rc == 0:
+            pg(user, pw, "postgres", "DROP DATABASE probe_stack_check")
         check(f"DoltgreSQL as {user}: {'may' if want_write else 'may not'} write", (rc == 0) == want_write, out[-100:])
     short = []
     for db in dbs:

@@ -8,8 +8,16 @@ set -u
 export PGPASSWORD="${DOLTGRES_PASSWORD:-doltsamples}"
 P="psql -X -h doltgres -U postgres -v ON_ERROR_STOP=0 -q"
 for i in $(seq 30); do $P -d postgres -c 'SELECT 1' >/dev/null 2>&1 && break; sleep 2; done
-$P -d postgres -c "CREATE ROLE demo LOGIN PASSWORD '${DEMO_PASSWORD:-demo}'" 2>&1 | grep -v 'already exists'
-$P -d postgres -c "CREATE ROLE admin LOGIN PASSWORD '${ADMIN_PASSWORD:-admin}' SUPERUSER" 2>&1 | grep -v 'already exists'
+# a password inside a PostgreSQL string literal (standard_conforming_strings): single quotes doubled.
+# ALTER ROLE applies a changed password to a role that already exists; CREATE ROLE alone kept the
+# first one for good (2026-09-10 review).
+esc() { printf "%s" "$1" | sed "s/'/''/g"; }
+DEMO=$(esc "${DEMO_PASSWORD:-demo}")
+ADMIN=$(esc "${ADMIN_PASSWORD:-admin}")
+$P -d postgres -c "CREATE ROLE demo LOGIN PASSWORD '$DEMO'" 2>&1 | grep -v 'already exists'
+$P -d postgres -c "ALTER ROLE demo WITH LOGIN PASSWORD '$DEMO'" 2>&1 | grep -v '^ALTER ROLE$'
+$P -d postgres -c "CREATE ROLE admin LOGIN PASSWORD '$ADMIN' SUPERUSER" 2>&1 | grep -v 'already exists'
+$P -d postgres -c "ALTER ROLE admin WITH LOGIN SUPERUSER PASSWORD '$ADMIN'" 2>&1 | grep -v '^ALTER ROLE$'
 for db in $($P -d postgres -tAc "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres'"); do
   $P -d "$db" -f /init.sql 2>&1 | grep -v '^$' | sed "s/^/$db: /"
 done

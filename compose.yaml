@@ -61,12 +61,12 @@ services:
     container_name: doltsamples-init
     depends_on: { dolt: { condition: service_healthy } }
     volumes:
-      - ./docker/dolt/init.sql:/init.sql:ro
-    entrypoint: ["sh", "-c"]
-    command:
-      - 'for i in $$(seq 30); do mysql -hdolt -P3306 -uroot -p"$$DOLT_ROOT_PASSWORD" < /init.sql && exit 0; sleep 2; done; echo "could not apply the accounts"; exit 1'
+      - ./docker/dolt/init.sh:/init.sh:ro
+    entrypoint: ["sh", "/init.sh"]
     environment:
       DOLT_ROOT_PASSWORD: ${DOLT_ROOT_PASSWORD:-root}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
     restart: "no"
 
   # ============================================================================================

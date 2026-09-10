@@ -57,7 +57,10 @@ def ident(m):
 def statements(text):
     """The dump split into complete statements, the way the sqlite3 shell splits its input."""
     out, buf = [], []
-    for line in text.splitlines(keepends=True):
+    # pieces ending at a line feed only; str.splitlines also breaks inside row values
+    for line in re.split(r"(?<=\n)", text):
+        if not line:
+            continue
         buf.append(line)
         if sqlite3.complete_statement("".join(buf)):
             out.append("".join(buf).strip("\n"))

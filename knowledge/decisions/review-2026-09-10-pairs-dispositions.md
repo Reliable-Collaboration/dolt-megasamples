@@ -1,7 +1,7 @@
 ---
 type: Decision
-title: "Code review of the pairs, 2026-09-10: eight findings and what was done"
-description: The review of the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs found eight defects, all confirmed against the code and the recorded data; the DoltgreSQL units are measured again with one server per unit, and the rest are fixed without changing a measurement.
+title: "Code review of the pairs, 2026-09-10: two passes, their findings and what was done"
+description: Two review passes of the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs found twenty-three verified defects and a dozen smaller ones; all are fixed, every unit now records its measurement method, and every unit taken with the first method is measured again.
 resource: /decisions/review-2026-09-10-pairs-dispositions.md
 tags:
 - review
@@ -11,10 +11,10 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-opus-5
-  at: "2026-09-10T18:20:00Z"
+  at: "2026-09-10T19:55:00Z"
 verified:
 - by: claude-code/claude-opus-5
-  at: "2026-09-10T18:20:00Z"
+  at: "2026-09-10T19:55:00Z"
 sources:
 - resource: /decisions/pair-load-shapes-and-measurement.md
   title: The load shapes, index policies and measurement rules of the two further pairs
@@ -27,6 +27,8 @@ sources:
 # Question
 
 The code review of `release-2` at commit 6700c3a -- the two further pairs, the stack that serves them and the documents -- returned eight findings. Which of them hold, what does each change in what was measured, and what was done about it?
+
+A second pass ran on the fixed code (commit 6df60b8) from 18:12 to 19:27 UTC, each of its findings checked by a separate verifier, and returned fifteen more, below the first eight in Evidence and Outcome.
 
 # Options considered
 
@@ -49,6 +51,28 @@ The review ran as `/code-review` on 2026-09-10 at 17:15 UTC. Its root-cause angl
 | 7 | the stack check and the landing page typed the default ports and passwords | `scripts/stack_check.py`, `scripts/console_page.py`: a password set in `.env` reached compose and the consoles only |
 | 8 | `make clean-pairs` removed the stores and kept the records | `scripts/run_pairs.py` treats a recorded `done` as done, so a clean was followed by a run that measured nothing |
 
+**Second pass**, each confirmed by a verifier and, where it concerned the data, against the files:
+
+| # | finding | checked by |
+|---|---|---|
+| 9 | the dumps were read in text mode, turning every carriage return inside a row value into a line feed | `build/dumps/postgres/enron.inserts.sql` holds 32,795 carriage returns and its prepared per-row file held none; stackexchange_beer 47,696 and adventureworks 8 likewise; the COPY dumps escape them and the SQLite dumps write them through `replace()`, so neither was affected |
+| 10 | nothing kept two runners apart: each stopped the other's worker and wrote its own copy of `build/progress.json` over the other's | code reading; the guards were process-name matches, which also matched any command line naming a runner's file |
+| 11 | the chain's supersede step deleted every DoltgreSQL store on each start, including stores already measured again | `build/supersede_doltgres.py` removed all five shape directories unconditionally |
+| 12 | a fresh clone's `make report` deleted every committed pair result, and a changed host fingerprint made the runner save an empty record over `build/progress.json` | `collect_pairs.py` dropped all pair entries before folding; `run_pairs.py` saved the fresh record `load_progress()` returns |
+| 13 | the memory sampler missed loads shorter than its two-second interval and stopped before the settle step | every DoltLite one-commit load of 1.6 s or less recorded 4.0 to 4.3 MiB whatever its size; VACUUM's 1.2 GiB peak was outside every window |
+| 14 | `anon` alone left out PostgreSQL's shared buffers | every PostgreSQL unit recorded about 10 MiB, from 216 rows to 3.9 million |
+| 15 | the runner's done test ignored whether a unit was measured the way the documents report | `make run-pg` found nothing to do while the collector withheld 78 units |
+| 16 | the audit skipped uncollected stores entirely, and centred its commit tolerance on zero | a planted short commit count on an uncollected unit passed |
+| 17 | the SQLite pair's row counts included each FTS5 table's rows a second time | sakila 48,268 rows against 47,268 in the PostgreSQL table |
+| 18 | a failed settle step was published as a schema object the engine refused | README listed DoltLite's VACUUM running out of memory under "What each engine refused" |
+| 19 | the facts about the MySQL/Dolt run's repeats counted the pair units | "321 of 439 measured once" where the first run's own figure was 50 of 168 |
+| 20 | a password set in `.env` was published and tested but not applied: Dolt's accounts came from a static file and DoltgreSQL's roles were only ever created | `docker/dolt/init.sql`, `docker/doltgres/init.sh` |
+| 21 | the landing page hid the PostgreSQL columns whenever no DoltgreSQL size existed | the committed page had no PostgreSQL column with 21 PostgreSQL sizes measured |
+| 22 | the memory study and `make up` could open a store a runner was loading | code reading |
+| 23 | `make clean-data` stopped on the root-owned pair stores after deleting the records | its container step removed only the Dolt directories |
+
+Also confirmed, though cut from the fifteen for space: the index-policy tables had a one-commit column that could never fill; stale worker containers blocked the next run; the landing page divided by zero without MySQL results; a long-lived SQLite worker kept an old image or memory limit; psql errors were mapped to their objects by splitting the whole file once per error, which could stall a unit for hours, and an error in a file's last object mapped to nothing; non-default passwords would have been written into the committed landing page; the bundle checker needed PyYAML that nothing installed; `make test-stack` wrote DDL into the served stores; stale mount placeholders accumulated in the served directories; and the journal said the DoltgreSQL units "were" measured again before they had been. One verifier ran a disk-wide search during the timed `sqlite_rowwise/employees` unit, which was interrupted soon after and is measured again under method 2.
+
 # Outcome
 
 1. **Each DoltgreSQL load runs in a server started for it alone**, over its own root `data/doltgres-<shape>/<db>/` (the server's `postgres` catalog and that one database), removed once the size, the counts and the index set are read (`pairs.doltgres_up`). Proved on scratch copies before the chain used it, 2026-09-10 18:07 UTC: jaffle_shop, oracle_hr and pubs peaked at 48, 86 and 78 MiB, parity clean, no container left behind. Every DoltgreSQL unit recorded before the fix is moved to `superseded` in `build/progress.json` and measured again, a step the chain takes once no runner is active; until then the collector leaves those units out, so no shared-server number reaches the documents. PostgreSQL already ran in a fresh server per load, and SQLite and DoltLite in a shell per load whose memory ends with it, so neither is measured again.
@@ -61,6 +85,22 @@ The review ran as `/code-review` on 2026-09-10 at 17:15 UTC. Its root-cause angl
 
 Two short tests ran beside `sqlite_rowwise/wikipedia_simple` between 18:07:16 and 18:07:36 UTC: the scratch DoltgreSQL loads and the catalog creation. That is twenty seconds of extra disk and CPU against a unit timed in tens of minutes, named here rather than hidden.
 
+**Second pass:**
+
+9. **Dumps are read and written byte for byte** (`newline=""` on every read and write of a dump), and both dialects split statements at line feeds only, since Python's `splitlines` also breaks at carriage returns and other separators inside values. Proved on 2026-09-10: the 32,795 carriage returns of enron's per-row dump survive into its prepared files, every SQLite dump splits into statements that rejoin byte for byte, and enron's message bodies loaded into PostgreSQL from the COPY form and from the per-row form agree in count (9,941), carriage returns (32,409) and digest.
+10. and 22. **One lock for every writer**: `build/run.lock`, a kernel file lock held for the life of `run_all.py`, `run_pairs.py`, `clean_pairs.py` and the memory study; `make up` refuses while it is held. Proved by holding it and starting each of them, with the destructive calls made to fail if reached.
+11., 12. and 15. **A method version on every unit instead of a clean-up script.** Every unit records `method` (currently 2); the runner measures again any unit recorded with an older method and keeps its first record under `superseded`; the collector reports only current units and withdraws a committed result only when this machine's `build/progress.json` records that unit with an older method, so a fresh clone keeps every committed result. The runner refuses a `build/progress.json` recorded on another host, and `run_all.py` moves such a file aside instead of writing over it. The supersede script is gone.
+13. and 14. **Memory** is read four times a second as anonymous plus shared memory, from before the timed command to after its settle step, each window's peak kept, and every unit runs in a container of its own whose `memory.peak` is recorded beside it. Every unit measured with the first sampler is measured again.
+16. The audit checks uncollected stores too (all but the settled-size invariant) and expects two or three more commits than rows.
+17. Row counts exclude virtual tables everywhere (`pairs.committed_rows`).
+18. A settle error stays on the unit but is excluded from refusals, `schema_object_error` and the refusal count.
+19. The run facts count only the MySQL/Dolt units.
+20. Dolt's accounts come from `docker/dolt/init.sh`, which applies `DEMO_PASSWORD` and `ADMIN_PASSWORD` with `ALTER USER`; DoltgreSQL's roles are altered after creation; both escape quotes; the Workbench URLs percent-encode the passwords; `.env` is parsed the way compose parses it.
+21. The landing page shows a pair's columns whenever either engine has a size, links into DoltgreSQL for the databases actually served, says only what its columns hold, and names a non-default password instead of printing it.
+23. `make clean-data` is `clean_pairs.py --everything`: the stores go first, through a container, and the records only after.
+
+The smaller items are fixed the same way: per-row phases only in the index-policy tables, workers removed with their unit and at the start of a run, no division by zero, a fresh worker per unit, one pass to map error lines (and the last object mapped), PyYAML installed with matplotlib, `make test-stack` writing only a scratch database, placeholders removed while the stack is down, the journal's tense corrected.
+
 # Status
 
-accepted (2026-09-10); the review's remaining angles are run again on the fixed code, and anything they find is added here.
+accepted (2026-09-10); both passes' findings are fixed, and every unit taken with the first method is measured again.

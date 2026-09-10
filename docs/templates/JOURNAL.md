@@ -228,8 +228,19 @@ one server per shape, database after database, the way one PostgreSQL server hol
 server keeps every database under its data directory open, so each load's memory peak carried every
 store loaded before it: a 255-row database peaked at 976 MiB after eleven others. The code review
 found it in the recorded peaks, which rose with run order rather than with size. Every DoltgreSQL
-load now runs in a server started for it alone, and every DoltgreSQL unit was measured again; the
+load now runs in a server started for it alone, and every DoltgreSQL unit is measured again; the
 first measurements are kept in `build/progress.json` under `superseded`.
+
+**Two more faults, found by the second review pass, changed the method again.** The dumps were read
+in text mode, which turns a carriage return into a line feed; pg_dump's `--inserts` form keeps the
+carriage returns inside message bodies as they are, so the row-by-row PostgreSQL and DoltgreSQL loads
+of enron, stackexchange_beer and adventureworks wrote slightly different text than the source -- and
+the row-count and index checks could not see it. And the memory sampler read every two seconds and
+stopped before the settle step, so a load shorter than that was recorded as the idle container, a
+failed garbage collection was never in the window, and PostgreSQL's shared buffers were not counted
+at all. Every unit now records the method it was measured with; the reads are byte for byte, memory
+is anonymous plus shared, read four times a second through the settle step, and every unit measured
+the old way is measured again.
 
 **Another thing that went wrong.** The first memory sampler for the new pairs ran a shell loop inside
 the worker container, as the Dolt loads do. Inside a PostgreSQL container that loop is reparented

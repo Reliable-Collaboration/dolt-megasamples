@@ -193,9 +193,12 @@ Where the pairs depart from the MySQL/Dolt tests, and why:
 
 ### Memory
 
-Peak anonymous memory of the worker's cgroup during each load, sampled every two seconds. For
-PostgreSQL and DoltgreSQL it is a server started for that one load and holding only that database;
-for SQLite and DoltLite it is the shell, since both engines run in-process.
+Peak memory the kernel cannot reclaim -- anonymous plus shared, since swap is off -- of the container
+each load runs in, read four times a second from before the load until after its settle step, so a
+garbage collection that runs out of memory shows in it. For PostgreSQL and DoltgreSQL that container
+is a server started for the one load; for SQLite and DoltLite it runs the shell, since both engines
+are in-process. A load shorter than a quarter second can peak between two readings; every unit also
+records its container's own peak, page cache included, in `build/results.json`.
 
 {{block:pg_pair_memory}}
 

@@ -34,7 +34,9 @@ shell's own processes, not a server, and serves everything present.
 import argparse, json, os, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, run  # noqa: E402
+from urllib.parse import quote  # noqa: E402
+
+from common import ROOT, lock_held, run  # noqa: E402
 import stack_settings  # noqa: E402
 
 MODES = ["oneshot", "rowinsert", "rowcommit", "rowinsert_inline", "rowcommit_inline"]
@@ -51,16 +53,8 @@ LABEL = {"oneshot": "one commit per database", "rowinsert": "one INSERT per row,
 
 
 def dotenv():
-    """KEY=VALUE lines of .env, the file compose reads too."""
-    out = {}
-    path = os.path.join(ROOT, ".env")
-    if os.path.exists(path):
-        for line in open(path, encoding="utf-8"):
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                out[k.strip()] = v.strip().strip('"').strip("'")
-    return out
+    """KEY=VALUE lines of .env, parsed the way compose parses them (stack_settings.dotenv)."""
+    return stack_settings.dotenv()
 
 
 def setting(name, cli, env, default):
@@ -179,6 +173,24 @@ def ensure_doltgres_catalog(password):
     return "created" if os.path.isdir(os.path.join(base, "postgres", ".dolt")) else "missing (initialisation did not create it)"
 
 
+def clean_placeholders():
+    """The empty mount points Docker leaves in the served bases, for databases no longer served.
+
+    Docker creates an empty directory (or, for a file, an empty file) where each store is mounted;
+    they outlive the mount and pile up as the served shape changes. Removed only while the stack is
+    down, when nothing is mounted over them."""
+    up = set(run("docker", "ps", "--format", "{{.Names}}").stdout.split())
+    if up & {"doltsamples-dolt", "doltsamples-doltgres", "doltsamples-doltlite", "doltsamples-workbench"}:
+        return
+    from pairs import LITE_IMAGE
+    run("docker", "run", "--rm", "--label", "doltsamples.transient=true", "-v", f"{DATA}:/data", "--entrypoint", "sh",
+        LITE_IMAGE, "-c",
+        "for d in /data/dolt-serve /data/doltgres-serve /data/doltlite-serve; do "
+        "[ -d $d ] && find $d -mindepth 1 -maxdepth 1 -type d -empty -delete; done; "
+        "[ -d /data/doltlite-serve ] && find /data/doltlite-serve -mindepth 1 -maxdepth 1 -type f -size 0 "
+        "-name '*.doltlite' -delete; true")
+
+
 def print_urls():
     s = stack_settings.load()
     P, C = s["ports"], s["containers"]
@@ -202,6 +214,10 @@ def main():
     if a.urls:
         print_urls()
         return 0
+    holder = lock_held()
+    if holder:
+        sys.exit(f"a measurement holds build/run.lock ({holder}); the stack would mount stores it is writing "
+                 f"and compete with its timings. `make up` once it has finished.")
     env = dotenv()
     mode = setting("DOLTSAMPLES_SERVE", a.serve, env, "oneshot")
     if mode not in MODES:
@@ -222,6 +238,7 @@ def main():
     # neutral bases, created as this user before Docker can create them as root
     for base in ("dolt-serve", "doltgres-serve", "doltlite-serve"):
         os.makedirs(os.path.join(DATA, base), exist_ok=True)
+    clean_placeholders()
     settings = stack_settings.resolve()
     serve["stack"] = settings
     catalog = ensure_doltgres_catalog(settings["passwords"]["doltgres"])
@@ -241,7 +258,8 @@ def main():
     with open(OVERRIDE, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
 
-    demo, admin = settings["passwords"]["demo"], settings["passwords"]["admin"]
+    # percent-encoded: a password is part of a URL here, and ':', '@' or '/' in it would break the URL
+    demo, admin = quote(settings["passwords"]["demo"], safe=""), quote(settings["passwords"]["admin"], safe="")
     first = (e["dolt"]["databases"] or ["sakila"])[0]
     first_pg = (e["doltgres"]["databases"] or ["sakila"])[0]
     store = [

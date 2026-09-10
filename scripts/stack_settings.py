@@ -32,7 +32,12 @@ def dotenv():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
-                out[k.strip()] = v.strip().strip('"').strip("'")
+                v = v.strip()
+                if len(v) >= 2 and v[0] in "'\"" and v[-1] == v[0]:
+                    v = v[1:-1]
+                elif " #" in v:
+                    v = v.split(" #", 1)[0].rstrip()      # compose drops a comment after a space
+                out[k.strip()] = v
     return out
 
 

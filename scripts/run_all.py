@@ -98,6 +98,9 @@ GC_EVERY = 0
 MODE = {"dolt_oneshot": "oneshot", "dolt_rowinsert": "rowinsert", "dolt_rowcommit": "rowcommit"}
 
 
+from common import run_lock  # noqa: E402
+
+
 # ---------------------------------------------------------------- progress ---
 def fingerprint():
     """Enough of the machine to tell one host's run from another's."""
@@ -119,9 +122,13 @@ def load_progress():
     with open(PROGRESS, encoding="utf-8") as fh:
         p = json.load(fh)
     if p.get("host") and p["host"] != fingerprint():
+        # moved aside, never overwritten: the file is the only record of every unit's errors, parity
+        # and timings, and a changed CPU count or hostname is enough to change the fingerprint
+        aside = PROGRESS + time.strftime(".%Y%m%dT%H%M%S.other-host")
+        os.replace(PROGRESS, aside)
         print(f"build/progress.json was recorded on another machine ({p['host']});\n"
-              f"starting a fresh run on this one ({fingerprint()}).\n"
-              f"Pass --resume to continue the recorded run anyway.\n", flush=True)
+              f"starting a fresh run on this one ({fingerprint()}); the recorded run is kept as\n"
+              f"{os.path.relpath(aside, ROOT)}. Pass --resume to continue the recorded run instead.\n", flush=True)
         return {"started": time.time(), "units": {}, "host": fingerprint()}
     p["host"] = fingerprint()
     return p
@@ -709,6 +716,9 @@ def main():
     ap.add_argument("--resume", action="store_true",
                     help="continue a run recorded on another machine (normally refused)")
     a = ap.parse_args()
+    lock, holder = run_lock("run_all.py")
+    if lock is None:
+        sys.exit(f"build/run.lock is held by {holder}: one runner at a time")
     globals()["CHUNK_STATEMENTS"] = a.chunk_statements
     globals()["GC_EVERY"] = a.gc_every
 

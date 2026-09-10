@@ -5,7 +5,7 @@ The experiment has one question: for the same data, how much disk does Dolt use 
 MySQL? Everything here exists to make that comparison honest -- the same rows, loaded the same way,
 measured the same way, with the engines' own storage left to do whatever it does.
 """
-import json, os, subprocess, sys
+import json, os, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DUMPS = os.path.join(ROOT, "build", "dumps")
@@ -165,3 +165,40 @@ def human(n):
         if abs(n) < 1024 or unit == "GiB":
             return f"{n:,.0f} {unit}" if unit == "B" else f"{n:,.1f} {unit}"
         n /= 1024
+
+
+LOCK_PATH = os.path.join(ROOT, "build", "run.lock")
+
+
+def run_lock(what):
+    """Hold build/run.lock for the life of the process: (file, None), or (None, who holds it).
+
+    Every writer of build/progress.json and of the stores takes it -- run_all.py, run_pairs.py,
+    clean_pairs.py and the memory study -- and `make up` refuses while it is held. The first versions
+    guarded with process-name matching, which let two runners stop each other's workers and write
+    over each other's records, and which matched any command line that merely named a runner's file
+    (2026-09-10 review). The kernel drops the lock when the process ends, however it ends."""
+    import fcntl
+    os.makedirs(os.path.dirname(LOCK_PATH), exist_ok=True)
+    fh = open(LOCK_PATH, "a+")
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fh.seek(0)
+        holder = fh.read().strip() or "another process"
+        fh.close()
+        return None, holder
+    fh.seek(0)
+    fh.truncate()
+    fh.write(f"{what}, pid {os.getpid()}, since {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n")
+    fh.flush()
+    return fh, None
+
+
+def lock_held():
+    """Who holds build/run.lock, or None; takes it only for the length of the test."""
+    fh, holder = run_lock("a check")
+    if fh is None:
+        return holder
+    fh.close()
+    return None

@@ -323,7 +323,9 @@ def _method_facts(f, method):
 
 
 def _run_facts(f, progress):
-    units = (progress or {}).get("units") or {}
+    # the MySQL/Dolt run's units: the pairs share build/progress.json, are measured once each, and are
+    # described by their own section, so counting them here changed a sentence about the first run
+    units = {k: u for k, u in ((progress or {}).get("units") or {}).items() if not u.get("pair")}
     done = [u for u in units.values() if u.get("status") == "done"]
     f.put("run.units_done", len(done) or None, "progress.json: units with status done", commas)
     f.put("run.units_total", len(units) or None, "progress.json: units recorded", commas)

@@ -9,8 +9,14 @@ import os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import human  # noqa: E402
-from pairs import LABEL, PHASES  # noqa: E402
+from pairs import LABEL, PER_ROW, PHASES  # noqa: E402
 from report import cell, secs  # noqa: E402
+
+
+def seconds(v):
+    """A pair unit's time. report.secs prints a dash for zero, which in these tables would read as not
+    measured; every pair unit records its time, and one that rounds to zero took less than 0.05 s."""
+    return "0s" if v == 0 else secs(v)
 
 TITLES = {"pg": ("PostgreSQL", "DoltgreSQL"), "lite": ("SQLite", "DoltLite")}
 SHORT = {"postgres": "1. PostgreSQL<br>COPY", "postgres_rowwise": "2. PostgreSQL<br>1 INSERT/row",
@@ -47,14 +53,14 @@ def shown(u):
 
 def size_time(u, base):
     if u and u.get("settled") is False and u.get("footprint_bytes"):
-        return f"{shown(u)}<br>{secs(u.get('total_seconds'))}"
+        return f"{shown(u)}<br>{seconds(u.get('total_seconds'))}"
     if not u or not u.get("disk_bytes"):
         return "—"
     b = u["disk_bytes"]
     mark = UNSETTLED if u.get("settled") is False else ""
     if base and base.get("disk_bytes") and u is not base:
-        return f"{cell(b, base['disk_bytes'])}{mark}<br>{secs(u.get('total_seconds'))}"
-    return f"{human(b)}{mark}<br>{secs(u.get('total_seconds') if u is not base else u.get('load_seconds'))}"
+        return f"{cell(b, base['disk_bytes'])}{mark}<br>{seconds(u.get('total_seconds'))}"
+    return f"{human(b)}{mark}<br>{seconds(u.get('total_seconds') if u is not base else u.get('load_seconds'))}"
 
 
 def pair_table(results, pair, suffix=""):
@@ -76,7 +82,7 @@ def pair_table(results, pair, suffix=""):
         t = {k: sum((data[db][k].get("total_seconds" if k != phases[0] else "load_seconds") or 0) for db in full)
              for k in keys}
         b0, t0 = b[keys[0]], max(t[keys[0]], 0.1)
-        cells = [f"**{human(b0)}<br>{secs(t0)}**"] + [
+        cells = [f"**{human(b0)}<br>{seconds(t0)}**"] + [
             f"**{b[k] / b0:.2f}×<br>{t[k] / t0:.0f}× time**" for k in keys[1:]]
         L.append(f"| **all {len(full)} with every test** | **{sum(data[db]['__rows'] for db in full):,}** | "
                  + " | ".join(cells) + " |")
@@ -88,19 +94,20 @@ def pair_table(results, pair, suffix=""):
     unsettled = sorted(f"`{db}` ({SHORT[k.replace('_inline', '')].replace('<br>', ', ')})"
                        for db in data for k in keys if (data[db].get(k) or {}).get("settled") is False)
     if unsettled:
-        L.append(f"\n*† The store could not be garbage-collected -- DoltLite's `VACUUM` answered \"out of memory\" -- "
-                 f"so this is the working footprint after the load, not a collected size, and it is left out of "
-                 f"the totals row: " + ", ".join(unsettled) + ".*")
+        L.append(f"\n*† The store could not be garbage-collected, so this is the working footprint after the load, "
+                 f"not a collected size, and it is left out of the totals row: " + ", ".join(unsettled) + ".*")
     return "\n".join(L)
 
 
 def inline_table(results, pair):
     phases = PHASES[pair]
     data = units(results, pair)
-    rows = [db for db in data if any(data[db].get(ph + "_inline") for ph in phases[1:])]
+    # the row-by-row shapes only: a one-commit load has no inline counterpart, and its column
+    # could never fill
+    per_row = [ph for ph in phases if ph in PER_ROW]
+    rows = [db for db in data if any(data[db].get(ph + "_inline") for ph in per_row)]
     if not rows:
         return f"*The inline policy has not been measured for the {' / '.join(TITLES[pair])} pair yet.*"
-    per_row = phases[1:]
     L = ["| database | " + " | ".join(f"{SHORT[ph]}<br>deferred → inline" for ph in per_row) + " |",
          "|---|" + "---:|" * len(per_row)]
     for db in sorted(rows, key=lambda d: -data[d]["__rows"]):
@@ -112,7 +119,7 @@ def inline_table(results, pair):
                 cells.append("—")
                 continue
             cells.append(f"{shown(d)} → {shown(i)}<br>"
-                         f"{secs(d.get('total_seconds')) if d else '—'} → {secs(i.get('total_seconds')) if i else '—'}")
+                         f"{seconds(d.get('total_seconds')) if d else '—'} → {seconds(i.get('total_seconds')) if i else '—'}")
         L.append(f"| `{db}` | " + " | ".join(cells) + " |")
     if any(UNSETTLED in c for c in L):
         L.append("\n*† The store could not be garbage-collected, so the size is the working footprint after the load.*")
@@ -148,16 +155,18 @@ def refusals(results):
 
 
 def memory_table(results, pair):
+    """Peak anonymous plus shared memory of each load's own container, through the load and its
+    settle step."""
     phases = PHASES[pair]
     data = units(results, pair)
-    rows = [db for db in data if any((data[db].get(ph) or {}).get("memory_anon_peak_bytes") for ph in phases)]
+    rows = [db for db in data if any((data[db].get(ph) or {}).get("memory_peak_bytes") for ph in phases)]
     if not rows:
         return f"*No memory peak recorded for the {' / '.join(TITLES[pair])} pair yet.*"
     L = ["| database | rows | " + " | ".join(SHORT[ph] for ph in phases) + " |",
          "|---|---:|" + "---:|" * len(phases)]
     for db in sorted(rows, key=lambda d: -data[d]["__rows"]):
         m = data[db]
-        cells = [human(m[ph]["memory_anon_peak_bytes"]) if (m.get(ph) or {}).get("memory_anon_peak_bytes") else "—"
+        cells = [human(m[ph]["memory_peak_bytes"]) if (m.get(ph) or {}).get("memory_peak_bytes") else "—"
                  for ph in phases]
         L.append(f"| `{db}` | {m['__rows']:,} | " + " | ".join(cells) + " |")
     return "\n".join(L)
