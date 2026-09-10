@@ -170,6 +170,37 @@ def progress_is_consistent(a):
         a.check(u.get("bytes"), f"completed unit {key} has a size", str(u.get("bytes")))
 
 
+def pairs_are_consistent(a, results):
+    """The PostgreSQL/DoltgreSQL and SQLite/DoltLite units obey what the method promises.
+
+    A per-row-commit load ends with as many commits as it wrote rows (plus the initial commit and
+    the final one); a Dolt engine's working footprint before the settle step is never smaller than
+    the settled size; every completed unit was checked against the reference (a positive number
+    of indexes compared, or the database has none); and the same reference row count is behind
+    every shape of a database within a pair."""
+    from pairs import ENGINE, PHASES
+    for db in sorted(results):
+        pairs = results[db].get("pairs") or {}
+        for pair, phases in PHASES.items():
+            m = pairs.get(pair) or {}
+            rows = (pairs.get("source_rows") or {}).get(pair)
+            for key, u in sorted(m.items()):
+                if not isinstance(u, dict) or not u.get("disk_bytes"):
+                    continue
+                phase = key.replace("_inline", "")
+                versioned = ENGINE[phase] in ("doltgres", "doltlite")
+                if versioned and u.get("bytes_before_settle") is not None:
+                    a.check(u["bytes_before_settle"] >= u["disk_bytes"] * 0.9,
+                            f"{db} {key}: the settle step did not grow the store",
+                            f"{human(u['bytes_before_settle'])} before, {human(u['disk_bytes'])} after")
+                if phase.endswith("_rowcommit") and u.get("commits") is not None and rows:
+                    a.check(abs(u["commits"] - rows) <= 3, f"{db} {key}: one commit per row",
+                            f"{u['commits']:,} commits for {rows:,} rows")
+                a.check(u.get("indexes_checked") is not None, f"{db} {key}: index parity was checked")
+                a.check(not u.get("indexes_extra"), f"{db} {key}: no index the reference lacks",
+                        ", ".join(u.get("indexes_extra") or [])[:80])
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--strict", action="store_true",
@@ -189,6 +220,7 @@ def main():
     if results:
         sizes_are_positive(a, results)
         dolt_matches_mysql(a, results)
+        pairs_are_consistent(a, results)
     else:
         a.skip("size and parity invariants", "no build/results.json")
     transform_preserved_the_rows(a)

@@ -385,6 +385,13 @@ the compose network.
 | `scripts/measure.py` | rows, indexes and sizes; the fairness checks |
 | `scripts/memory_profile.py` | what each database needs to open |
 | `scripts/report.py`, `scripts/charts.py` | the report's tables and the figures |
+| `scripts/pairs.py`, `scripts/run_pairs.py` | the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs: how each engine is loaded, settled, sized and checked; the timed runner |
+| `scripts/doltgres_dialect.py`, `scripts/doltlite_dialect.py` | the transformations those engines need, each rule named and found by refusal |
+| `scripts/export_postgres.py`, `scripts/export_sqlite.py`, `scripts/preflight_pairs.py` | the pairs' sources and their schema-only preflight |
+| `scripts/lite_image.py`, `docker/doltlite/` | the DoltLite image, built from the release's checksummed packages |
+| `scripts/collect_pairs.py`, `scripts/report_pairs.py` | the pairs' units into `results.json`, and their tables |
+| `scripts/stack_check.py` | `make test-stack`: both accounts on both servers, every DoltLite file, every console |
+| `knowledge/` | the research trail: what DoltgreSQL and DoltLite are, where each fact came from, the decisions (`make okf-check`) |
 | `build/*.json` | every measurement — the evidence behind every number above |
 
 `build/dumps/`, `data/` and `build/progress.json` are gitignored: the first two are large and

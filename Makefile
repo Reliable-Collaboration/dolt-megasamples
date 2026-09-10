@@ -125,6 +125,7 @@ check:
 	@$(PY) scripts/audit.py
 	@$(PY) scripts/render.py --check
 	@$(PY) scripts/report.py --check
+	@$(MAKE) --no-print-directory okf-check
 
 up:
 	@docker compose up -d

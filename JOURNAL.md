@@ -213,3 +213,45 @@ See [`README.md`](README.md) for the full sequence, the budget, and the memory l
 
 Every number in every document is generated from `build/`. Nothing is typed by hand, so a claim that
 disagrees with the measurements cannot survive a regeneration.
+
+## The same question, twice more: DoltgreSQL and DoltLite
+
+The corpus runs on PostgreSQL and SQLite as well, and DoltHub ships a versioned engine for each,
+so the five tests were run again for the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs
+(11 and [not measured] databases with the one-commit load on both
+engines so far). What was learned before a row was loaded is in `knowledge/` -- every fact about
+the two engines with the source it was read in or the command that produced it -- and the short
+version is this.
+
+**What the engines refused decided the method.** DoltgreSQL 1.3.1 takes
+pg_dump's output as its README promises, with four exceptions found by refusal: no GIN index (the
+full-text index of the port), no `xpath`, no `JSON_TABLE`, and two shapes of stored expression it
+re-serialises into text it cannot parse back -- a `CHECK` calling `regexp_like` refuses every row
+from the start, and a table with a `STORED` generated column refuses every row after its first
+alteration. The first two are recorded as objects not taken; the last two became dialect rules,
+because the alternative was two databases with no DoltgreSQL number at all. DoltLite
+v0.50.9 refused nothing of the dump but needed two things reordered: every table
+before the first row, because it will not commit a table whose foreign key names a table that does
+not exist yet; and the virtual-table registration `.dump` writes into `sqlite_schema`, which both
+engines accept only inside the dump's own transaction. Both rules apply to both engines of the pair.
+
+**What "the same file" means for DoltLite** had to be decided rather than assumed: a stock SQLite
+file opened by DoltLite is not versioned, so the dump is replayed into a DoltLite-format database
+and the baseline is the same replay by `sqlite3`.
+
+**The settle step is most of the story for both Dolt engines.** Before `dolt_gc()` or `VACUUM`, the
+working footprint of a load is many times the settled size -- the same statement-by-statement
+history that the MySQL/Dolt pair paid for, kept until it is collected. Both numbers are recorded on
+every unit (`bytes_before_settle` and `disk_bytes`), and the tables show the settled one.
+
+**A fresh PostgreSQL database is not empty.** It carries a copy of the template catalog, about
+7 MiB, before the first row. The PostgreSQL sizes include it, as the MySQL sizes included whatever
+an empty schema costs InnoDB; the difference is that here the floor is large next to a small
+database, so the ratio of a small database is mostly the floor. Each PostgreSQL unit records the
+floor it measured (`empty_database_bytes`).
+
+**One thing that went wrong.** The first memory sampler for the new pairs ran a shell loop inside
+the worker container, as the Dolt loads do. Inside a PostgreSQL container that loop is reparented
+to the postmaster when the `docker exec` that started it returns, and killing it put the server
+into recovery: twelve units recorded an error in a row. Memory is now read from the host's cgroup
+files, with no process inside any worker.
