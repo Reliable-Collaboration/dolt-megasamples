@@ -10,7 +10,7 @@ The estimate is deliberately crude — measured seconds per row in each phase, a
 still to do. It is honest about being an estimate, because the per-row commit phase costs an order
 of magnitude more per row than the others and an average across phases would be meaningless.
 """
-import argparse, json, os, sys, time
+import argparse, json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import ROOT, human, load_results  # noqa: E402
@@ -32,6 +32,66 @@ def clock(seconds):
     return f"{seconds / 3600:.1f}h"
 
 
+TITLE = {"pg": "PostgreSQL / DoltgreSQL", "lite": "SQLite / DoltLite"}
+ISOLATED = "one server per unit"
+
+
+def runner_alive(u):
+    """Whether a runner of the unit's kind is working, so a unit left `running` by an interrupted run
+    is not shown as if it were still going."""
+    pattern = f"run_pair[s].py --pair {u['pair']}" if u.get("pair") else "run_al[l].py"
+    return subprocess.run(["pgrep", "-f", pattern], capture_output=True).returncode == 0
+
+
+def pairs_section(p):
+    """The two further pairs, by index policy: what is measured, what is left, and a rough estimate
+    from the seconds per row of the units measured so far (or of the superseded ones, before any)."""
+    try:
+        from pairs import LABEL as PAIR_LABEL, PER_ROW, PHASES, exported, reference
+    except Exception as exc:                                        # noqa: BLE001
+        print(f"\n  (the pairs cannot be shown: {exc})")
+        return
+    units, sup = p["units"], p.get("superseded") or {}
+    for pair in ("pg", "lite"):
+        dbs = exported(pair)
+        if not dbs:
+            continue
+        rows = {}
+        for db in dbs:
+            try:
+                rows[db] = sum(v or 0 for v in reference(pair, db)["rows"].values())
+            except Exception:                                       # noqa: BLE001
+                rows[db] = 0
+        for policy, suffix in (("deferred", ""), ("inline", "/inline")):
+            phases = PHASES[pair] if not suffix else [ph for ph in PHASES[pair] if ph in PER_ROW]
+            print(f"\n  {TITLE[pair]}, indexes {policy}")
+            print(f"  {'phase':<40}{'done':>7}{'left':>7}{'time so far':>13}{'est. left':>12}")
+            total = 0.0
+            for ph in phases:
+                recs = {db: units.get(f"{ph}/{db}{suffix}", {}) for db in dbs}
+                fin = [db for db, u in recs.items() if u.get("status") == "done"
+                       and (not ph.startswith("doltgres") or u.get("isolation") == ISOLATED)]
+                left = [db for db in dbs if db not in fin]
+                spent = sum(recs[db].get("wall_seconds") or 0 for db in fin)
+                basis = []
+                for db in dbs:
+                    for u in (recs[db], sup.get(f"{ph}/{db}{suffix}") or {}):
+                        if u.get("status") == "done" and u.get("wall_seconds"):
+                            basis.append((u["wall_seconds"], rows[db]))
+                            break
+                secs, done_rows = sum(b[0] for b in basis), sum(b[1] for b in basis)
+                est = secs / done_rows * sum(rows[db] for db in left) if done_rows else 0.0
+                total += est
+                print(f"  {PAIR_LABEL.get(ph, ph):<40}{len(fin):>7}{len(left):>7}{clock(spent):>13}"
+                      f"{(clock(est) if left else '—'):>12}")
+            print(f"  {'':<40}{'':>7}{'':>7}{'':>13}{clock(total):>12}  (rough)")
+    stale = [k for k, u in units.items() if k.startswith("doltgres_") and u.get("status") == "done"
+             and u.get("isolation") != ISOLATED]
+    if stale or sup:
+        print(f"\n  DoltgreSQL units measured on a shared server: {len(stale)} still recorded, {len(sup)} superseded; "
+              f"each is measured again with one server per unit")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--watch", action="store_true", help="redraw every 60 seconds")
@@ -47,12 +107,14 @@ def main():
 
         units, dbs = p["units"], p.get("databases", [])
         elapsed = time.time() - p.get("started", time.time())
-        done = [u for u in units.values() if u.get("status") == "done"]
+        mine = {k: u for k, u in units.items() if not u.get("pair")}      # the MySQL/Dolt run
+        done = [u for u in mine.values() if u.get("status") == "done"]
         err = [u for u in units.values() if u.get("status") == "error"]
         running = [u for u in units.values() if u.get("status") == "running"]
 
-        print(f"\n  elapsed {clock(elapsed)}   {len(done)} done, {len(err)} failed, "
-              f"{len(running)} running, of {len(dbs) * len(p.get('phases', []))} units\n")
+        print(f"\n  MySQL and Dolt: elapsed {clock(elapsed)}   {len(done)} done, "
+              f"{sum(1 for u in mine.values() if u.get('status') == 'error')} failed, "
+              f"of {len(dbs) * len(p.get('phases', []))} units\n")
         print(f"  {'phase':<32}{'done':>7}{'left':>7}{'time so far':>13}{'est. left':>12}")
         total_left = 0
         for phase in p.get("phases", []):
@@ -68,11 +130,14 @@ def main():
                   f"{clock(spent):>13}{(clock(est) if left_dbs else '—'):>12}")
         print(f"  {'':<32}{'':>7}{'':>7}{clock(elapsed):>13}{clock(total_left):>12}  (rough)")
 
+        pairs_section(p)
         if running:
             for u in running:
-                print(f"\n  running: {u.get('phase')} / {u.get('database')} — "
-                      f"{clock(time.time() - u.get('started', time.time()))} so far")
-        recent = sorted((u for u in done if u.get("finished")),
+                state = "running" if runner_alive(u) else "interrupted, no runner is working on it"
+                print(f"\n  {state}: {u.get('phase')} / {u.get('database')}"
+                      f"{' (indexes inline)' if u.get('indexes') == 'inline' else ''} — "
+                      f"started {clock(time.time() - u.get('started', time.time()))} ago")
+        recent = sorted((u for u in units.values() if u.get("status") == "done" and u.get("finished")),
                         key=lambda u: u["finished"], reverse=True)[:5]
         if recent:
             print("\n  last finished:")

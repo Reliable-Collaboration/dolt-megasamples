@@ -632,6 +632,33 @@ make watch         # the same, redrawn every minute
 The run is resumable, and units go cheapest-first and smallest-first, so results accrue from the top
 rather than arriving all at once at the end.
 
+### Reproducing the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs
+
+These need `sql-megasamples`' PostgreSQL port running -- the source of the PostgreSQL dumps -- and
+its SQLite build tree beside this checkout, the source of the files; the rest of that stack can be
+down, and must be while the loads are timed.
+
+```sh
+(cd ../sql-megasamples && make compose && docker compose up -d postgres)   # the PostgreSQL source only
+cd ../dolt-megasamples
+make lite-image                          # DoltLite from the pinned release's checksummed packages
+make export-pairs                        # pg_dump three ways, the SQLite files and their dumps, references
+make preflight-pairs                     # every schema into all four engines, no rows
+(cd ../sql-megasamples && make down)     # nothing else may run while the loads are timed
+make run-pg && make run-lite             # the five loads of each pair, indexes deferred
+make run-pg ARGS="--indexes inline" && make run-lite ARGS="--indexes inline"
+make memory-pairs                        # what DoltgreSQL and DoltLite need to open each store
+make report && make docs && make check
+```
+
+Every DoltgreSQL load runs in a server started for it alone, and every unit is checked against the
+reference recorded at export -- the row count of every table and the index set -- before its size
+counts. The pairs take longer than the MySQL/Dolt run: the per-row-commit loads of the largest
+databases dominate, and DoltLite cannot garbage-collect a per-row-commit file above a few
+gigabytes, so those stores are reported as the working footprint of the load. `make progress` shows
+both runs; `make clean-pairs` removes the pairs' stores together with their recorded units, so the
+next run measures them again.
+
 ## Running the databases
 
 Both stacks can run at once — the ports are one range apart — so the same query can go side by side
