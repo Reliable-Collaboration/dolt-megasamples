@@ -6,7 +6,8 @@ PY ?= python3
 # exists, so Make considered the target satisfied and silently skipped it -- both directly
 # and as a prerequisite of `report`, which is why the documents stayed stale while every
 # other step ran. Generated from the targets themselves so a new one cannot be forgotten.
-.PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch
+.PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch \
+        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -21,6 +22,13 @@ help:
 	@echo "make collect    fold the timed run into build/results.json (make report does this)"
 	@echo "make measure-all  row counts and index parity for every mode that was loaded"
 	@echo "make preflight  load every schema into both engines before running the loads"
+	@echo ""
+	@echo "The PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs (scripts/pairs.py):"
+	@echo "make lite-image     build the DoltLite image from the pinned .deb packages (checksummed)"
+	@echo "make export-pairs   pg_dump every database out of sql-megasamples PostgreSQL; copy and dump its SQLite files"
+	@echo "make preflight-pairs  every schema into PostgreSQL, DoltgreSQL, SQLite and DoltLite; what each refuses"
+	@echo "make run-pg | run-lite  the five timed loads of a pair (ARGS=\"--only sakila --indexes inline\")"
+	@echo "make okf-check      validate the knowledge bundle (knowledge/)"
 	@echo "make audit      check the measurements against invariants that must hold"
 	@echo "make docs       regenerate README.md and JOURNAL.md from docs/templates and build/"
 	@echo "make trace      what the per-row-commit loads cost in memory as history accumulated"
@@ -156,3 +164,20 @@ estimate:
 
 summary:
 	@$(PY) scripts/summary.py
+
+# ---------------------------------------------------------------- the two further pairs ---
+lite-image:
+	@$(PY) scripts/lite_image.py
+export-postgres:
+	@$(PY) scripts/export_postgres.py $(ARGS)
+export-sqlite:
+	@$(PY) scripts/export_sqlite.py $(ARGS)
+export-pairs: export-postgres export-sqlite
+preflight-pairs:
+	@$(PY) scripts/preflight_pairs.py $(ARGS)
+run-pg:
+	@$(PY) scripts/run_pairs.py --pair pg $(ARGS)
+run-lite:
+	@$(PY) scripts/run_pairs.py --pair lite $(ARGS)
+okf-check:
+	@$(PY) scripts/okf_check.py --bundle knowledge && $(PY) scripts/okf_fix_quotes.py --bundle knowledge --check
