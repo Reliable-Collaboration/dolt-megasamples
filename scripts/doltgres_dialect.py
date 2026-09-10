@@ -39,6 +39,11 @@ Rules (each returns a note when it fired):
      foreign keys are dropped and recorded: the rows and the key are carried, the rest is refused
      out loud rather than lost by accident (adventureworks_lt: salesorderdetail, salesorderheader).
 
+  G5 named-not-null. `col type CONSTRAINT name NOT NULL` -- the name pg_dump 18 writes for a NOT
+     NULL constraint whose name is not the generated one -- loses its name: DoltgreSQL 1.3.1
+     refuses the table ("non-foreign key column constraint names are not yet supported"). The
+     constraint stays. adventureworks: six columns in three tables.
+
 Shapes (applied per phase by pairs.py):
 
   inline_indexes     every INDEX block and every UNIQUE constraint moved ahead of the first
@@ -127,6 +132,15 @@ def transform(text, database):
     if removed:
         notes.append(f"G3 dropped {len(removed)} CHECK constraint(s) calling regexp_like, which DoltgreSQL "
                      f"1.3.1 cannot evaluate on INSERT or COPY: {', '.join(removed)}")
+    # G5
+    unnamed = 0
+    for b in kept:
+        if b.type == "TABLE" and NAMED_NOT_NULL.search(b.text):
+            b.text, n = NAMED_NOT_NULL.subn("NOT NULL", b.text)
+            unnamed += n
+    if unnamed:
+        notes.append(f"G5 dropped the names of {unnamed} NOT NULL column constraint(s), which DoltgreSQL 1.3.1 "
+                     f"refuses (\"non-foreign key column constraint names are not yet supported\")")
     # G4
     generated = {qualified_table(b) for b in kept if b.type == "TABLE" and GENERATED.search(b.text)}
     if generated:
@@ -142,6 +156,7 @@ def transform(text, database):
     return join(preamble, blocks, trailer), notes, dropped
 
 
+NAMED_NOT_NULL = re.compile(r"\bCONSTRAINT\s+\S+\s+NOT\s+NULL\b")
 REGEXP_CHECK = re.compile(r"^\s*CONSTRAINT\s+(?P<name>\S+)\s+CHECK\s+\(.*\bregexp_like\s*\(", re.I)
 GENERATED = re.compile(r"\bGENERATED\s+ALWAYS\s+AS\b", re.I)
 CREATE_TABLE = re.compile(r"^CREATE TABLE (?P<name>\S+) \($", re.M)

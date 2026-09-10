@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: What the dialects change before a load, and what is recorded as refused instead
-description: The six named rules of scripts/doltgres_dialect.py and scripts/doltlite_dialect.py, each found by refusal; the objects each engine still refuses, which the report counts; and the preflight table of the quick subset.
+description: The seven named rules of scripts/doltgres_dialect.py and scripts/doltlite_dialect.py, each found by refusal; the objects each engine still refuses, which the report counts; and the preflight table of the quick subset.
 resource: /decisions/pair-dialect-rules.md
 tags:
 - method
@@ -12,10 +12,10 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T04:30:00Z"
+  at: "2026-09-10T06:50:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
-  at: "2026-09-10T04:30:00Z"
+  at: "2026-09-10T06:50:00Z"
 sources:
 - resource: /tools/doltgresql-1-3-1.md
   title: DoltgreSQL 1.3.1
@@ -57,7 +57,14 @@ The refusals were found on sakila's rows (2026-09-10) and on the quick subset's 
 | smallsets | 12 | 0 | G2 | 4 | 0 | |
 | stackexchange_beer | 35 | 0 | G1 (1), G2 | 31 | 0 | L2 (1) |
 
-(L1 fires on every dump with rows and is not shown; the preflight loads schemas, so a refusal that only shows at row time -- G3's, and G4's second-alteration failure -- was found by the first loads and the rules added before the units were rerun.)
+| adventureworks | 426 | 25 before G5: 3 tables with named NOT NULL constraints and the 20 views and constraints that depend on them; 2 `xpath` views after it | G3 (1), G4 (5 tables), G5 (6) | 212 | 0 | |
+| chicago_crimes | 11 | 0 | G2 | 8 | 0 | |
+| enron | 18 | 0 | G1 (1), G2 | 20 | 0 | L2 (1) |
+| lahman | 55 | 0 | G2 | 37 | 0 | |
+| oracle_sh | 46 | 0 | G1 (1), G2 | 36 | 0 | L2 (1) |
+| wikipedia_simple | 42 | 4 views over `convert_from` | G1 (1), G2 | 36 | 0 | L2 (1) |
+
+(The six rows below the quick subset were preflighted the same night, once the quick subset's loads were sound. L1 fires on every dump with rows and is not shown; the preflight loads schemas, so a refusal that only shows at row time -- G3's, and G4's second-alteration failure -- was found by the first loads and the rules added before the units were rerun.)
 
 # Outcome
 
@@ -67,8 +74,9 @@ The refusals were found on sakila's rows (2026-09-10) and on the quick subset's 
 * **G2 primary-keys-first**: pg_dump's `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY` blocks moved ahead of the first `TABLE DATA` block in every shape, where the MySQL/Dolt pair had them.
 * **G3 regexp-check**: a `CHECK` constraint calling `regexp_like` is removed from `CREATE TABLE` on both sides; DoltgreSQL 1.3.1 accepts it and then refuses every `INSERT` and `COPY` into the table ("at or near "as": syntax error"). pubs: `authors_chk_1`, `authors_chk_2`, `employee_chk_1`, `publishers_chk_1`. Found by the first loads, not by the preflight, which loads no rows.
 * **G4 generated-column-table**: for a table with a `STORED` generated column, the primary key is written inside `CREATE TABLE` and the table's other indexes, unique constraints and foreign keys are dropped and named; DoltgreSQL 1.3.1 accepts one alteration of such a table and then refuses every row. adventureworks_lt: `salesorderdetail` and `salesorderheader`, 8 indexes and 5 foreign keys. The rows and the generated values are carried (the sum of `linetotal` matches the source).
+* **G5 named-not-null**: `col type CONSTRAINT name NOT NULL` loses its name on both sides (the constraint stays); DoltgreSQL 1.3.1 refuses the whole table otherwise ("non-foreign key column constraint names are not yet supported"). pg_dump 18 writes the name for a NOT NULL constraint whose name is not the generated one. adventureworks: six columns in three tables. Found by the preflight of the six databases outside the quick subset (2026-09-10).
 * Shapes, not rules: `inline_indexes` (INDEX blocks and UNIQUE constraints ahead of the rows), `per_row_commits` (a `SELECT dolt_commit('-Am', 'row N')` after every complete `INSERT`, quotes balanced across lines).
-* **Recorded, not transformed**: the `xpath` view and the `JSON_TABLE` view. psql runs with `ON_ERROR_STOP=0`; every `ERROR` line is read back into the block (type and name) it fell in and kept on the unit; a refused index is a schema object not taken, a missing index nobody refused is a failed load. The trigger bodies that fail at run time are created without complaint and do not affect the loads.
+* **Recorded, not transformed**: the `xpath` views (adventureworks_lt: 1, adventureworks: 2), the `JSON_TABLE` view (oracle_co), the `convert_from` views (wikipedia_simple: 4). psql runs with `ON_ERROR_STOP=0`; every `ERROR` line is read back into the block (type and name) it fell in and kept on the unit; a refused index is a schema object not taken, a missing index nobody refused is a failed load. The trigger bodies that fail at run time are created without complaint and do not affect the loads.
 
 **DoltLite** (`scripts/doltlite_dialect.py`, working on statements split the way the sqlite3 shell splits them):
 
