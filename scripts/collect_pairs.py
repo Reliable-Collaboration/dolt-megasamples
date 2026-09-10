@@ -12,7 +12,7 @@ import json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import ROOT, human, load_results, save_results  # noqa: E402
-from pairs import ENGINE, PHASES  # noqa: E402
+from pairs import ENGINE, PHASES, reference  # noqa: E402
 
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
 
@@ -44,6 +44,16 @@ def main():
         suffix = "_inline" if parts[2:] == ["inline"] else ""
         entry = r.setdefault(db, {}).setdefault("pairs", {})
         entry.setdefault("source_rows", {})[pair] = u.get("source_rows")
+        # the rows a per-row load writes: a virtual table's rows are its content table's, counted
+        # again, and no INSERT ever names it, so they are left out of what a commit-per-row load
+        # is expected to commit
+        try:
+            ref = reference(pair, db)
+            virtual = set(ref.get("virtual_tables") or [])
+            entry.setdefault("source_rows_committed", {})[pair] = sum(
+                v or 0 for t, v in ref["rows"].items() if t not in virtual)
+        except RuntimeError:
+            pass
         m = entry.setdefault(pair, {})
         m[phase + suffix] = {
             "engine": ENGINE[phase],

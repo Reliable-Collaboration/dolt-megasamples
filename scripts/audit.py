@@ -183,13 +183,14 @@ def pairs_are_consistent(a, results):
         pairs = results[db].get("pairs") or {}
         for pair, phases in PHASES.items():
             m = pairs.get(pair) or {}
-            rows = (pairs.get("source_rows") or {}).get(pair)
+            rows = ((pairs.get("source_rows_committed") or {}).get(pair)
+                    or (pairs.get("source_rows") or {}).get(pair))
             for key, u in sorted(m.items()):
                 if not isinstance(u, dict) or not u.get("disk_bytes"):
                     continue
                 phase = key.replace("_inline", "")
                 versioned = ENGINE[phase] in ("doltgres", "doltlite")
-                if versioned and u.get("bytes_before_settle") is not None:
+                if versioned and u.get("bytes_before_settle") is not None and u.get("settled", True):
                     a.check(u["bytes_before_settle"] >= u["disk_bytes"] * 0.9,
                             f"{db} {key}: the settle step did not grow the store",
                             f"{human(u['bytes_before_settle'])} before, {human(u['disk_bytes'])} after")
