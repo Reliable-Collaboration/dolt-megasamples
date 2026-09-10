@@ -26,6 +26,19 @@ Rules (each returns a note when it fired):
      CREATE TABLE and `defer_indexes` left it there). Without it every Dolt table is keyless while
      the rows arrive and rewritten when the key is added, which is not the load the other pair got.
 
+  G3 regexp-check. A CHECK constraint that calls `regexp_like` is dropped from CREATE TABLE.
+     DoltgreSQL 1.3.1 stores the expression in a form it cannot parse back, and every INSERT and
+     COPY into the table then fails with "at or near "as": syntax error" (pubs: authors, employee,
+     publishers). Checks of other forms -- `= ANY (ARRAY[...])`, comparisons with casts, `upper()`
+     -- work and stay. The check is lost on both engines and the report says so.
+  G4 generated-column-table. A table with a STORED generated column takes exactly one alteration
+     on DoltgreSQL 1.3.1: after it, the server re-serialises the generated expression into text
+     it cannot parse, and every later alteration, INSERT and COPY fails ("Invalid default value
+     ... syntax error at 'as'"). So for such a table the PRIMARY KEY goes inside CREATE TABLE
+     instead of the ALTER pg_dump writes, and the table's other indexes, unique constraints and
+     foreign keys are dropped and recorded: the rows and the key are carried, the rest is refused
+     out loud rather than lost by accident (adventureworks_lt: salesorderdetail, salesorderheader).
+
 Shapes (applied per phase by pairs.py):
 
   inline_indexes     every INDEX block and every UNIQUE constraint moved ahead of the first
@@ -105,10 +118,91 @@ def transform(text, database):
     if dropped:
         notes.append(f"G1 dropped {len(dropped)} GIN index(es) DoltgreSQL 1.3.1 refuses "
                      f"(\"index method gin is not yet supported\"): {', '.join(dropped)}")
+    # G3
+    removed = []
+    for b in kept:
+        if b.type == "TABLE":
+            b.text, names = drop_check_lines(b.text, REGEXP_CHECK)
+            removed += names
+    if removed:
+        notes.append(f"G3 dropped {len(removed)} CHECK constraint(s) calling regexp_like, which DoltgreSQL "
+                     f"1.3.1 cannot evaluate on INSERT or COPY: {', '.join(removed)}")
+    # G4
+    generated = {qualified_table(b) for b in kept if b.type == "TABLE" and GENERATED.search(b.text)}
+    if generated:
+        kept, moved, lost = inline_primary_keys(kept, generated)
+        dropped += [n for n, kind in lost if kind in ("INDEX", "UNIQUE")]
+        notes.append(f"G4 {len(generated)} table(s) with a STORED generated column ({', '.join(sorted(generated))}): "
+                     f"{moved} PRIMARY KEY(s) written inside CREATE TABLE; {len(lost)} other index/constraint "
+                     f"block(s) dropped because DoltgreSQL 1.3.1 accepts one alteration of such a table and then "
+                     f"refuses every INSERT: {', '.join(n for n, _ in lost)}")
     blocks, n = hoist(kept, lambda b: b.type == "CONSTRAINT" and PK.search(b.text))
     if n:
         notes.append(f"G2 moved {n} PRIMARY KEY constraint(s) ahead of the rows")
     return join(preamble, blocks, trailer), notes, dropped
+
+
+REGEXP_CHECK = re.compile(r"^\s*CONSTRAINT\s+(?P<name>\S+)\s+CHECK\s+\(.*\bregexp_like\s*\(", re.I)
+GENERATED = re.compile(r"\bGENERATED\s+ALWAYS\s+AS\b", re.I)
+CREATE_TABLE = re.compile(r"^CREATE TABLE (?P<name>\S+) \($", re.M)
+ADD_PK = re.compile(r"^ALTER TABLE ONLY (?P<table>\S+)\n\s+ADD CONSTRAINT (?P<name>\S+) PRIMARY KEY \((?P<cols>[^)]*)\);", re.M)
+ALTER_TABLE = re.compile(r"^ALTER TABLE ONLY (?P<table>\S+)\n\s+ADD CONSTRAINT (?P<name>\S+) (?P<kind>UNIQUE|FOREIGN KEY|CHECK)\b", re.M)
+INDEX_ON = re.compile(r"^CREATE (?:UNIQUE )?INDEX (?P<name>\S+) ON (?P<table>\S+) ", re.M)
+
+
+def qualified_table(block):
+    m = CREATE_TABLE.search(block.text)
+    return m.group("name") if m else None
+
+
+def drop_check_lines(text, pattern):
+    """Remove the constraint lines `pattern` matches from a CREATE TABLE block, keeping the
+    column list well-formed (the last line of the list carries no comma)."""
+    lines = text.split("\n")
+    names, out = [], []
+    for line in lines:
+        m = pattern.match(line)
+        if m:
+            names.append(m.group("name"))
+            continue
+        out.append(line)
+    if names:
+        # the line before ");" must not end with a comma
+        for i, line in enumerate(out):
+            if line.strip() == ");" and i > 0 and out[i - 1].rstrip().endswith(","):
+                out[i - 1] = out[i - 1].rstrip()[:-1]
+    return "\n".join(out), names
+
+
+def inline_primary_keys(blocks, tables):
+    """For the named tables: the PRIMARY KEY constraint written inside CREATE TABLE, every other
+    index, unique constraint and foreign key of the table dropped. Returns (blocks, moved, lost)."""
+    by_name = {qualified_table(b): b for b in blocks if b.type == "TABLE"}
+    keep, moved, lost = [], 0, []
+    for b in blocks:
+        if b.type == "CONSTRAINT":
+            m = ADD_PK.search(b.text)
+            if m and m.group("table") in tables:
+                t = by_name[m.group("table")]
+                t.text = t.text.replace("\n);", f",\n    CONSTRAINT {m.group('name')} PRIMARY KEY ({m.group('cols')})\n);", 1)
+                moved += 1
+                continue
+            m = ALTER_TABLE.search(b.text)
+            if m and m.group("table") in tables:
+                lost.append((m.group("name"), m.group("kind")))
+                continue
+        if b.type == "FK CONSTRAINT":
+            m = ALTER_TABLE.search(b.text)
+            if m and m.group("table") in tables:
+                lost.append((m.group("name"), "FOREIGN KEY"))
+                continue
+        if b.type == "INDEX":
+            m = INDEX_ON.search(b.text)
+            if m and m.group("table") in tables:
+                lost.append((m.group("name"), "INDEX"))
+                continue
+        keep.append(b)
+    return keep, moved, lost
 
 
 def inline_indexes(text):
