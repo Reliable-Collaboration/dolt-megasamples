@@ -633,7 +633,7 @@ from inside the compose network.
 | `scripts/stack_check.py` | `make test-stack`: both accounts on both servers, every DoltLite file, every console |
 | `scripts/stack_config.py`, `scripts/stack_settings.py` | `make up`: which load shape is served, the mounts, the Workbench's connections, DoltgreSQL's served catalog, and the resolved ports and passwords in `build/serve.json` |
 | `scripts/memory_profile_pairs.py`, `scripts/clean_pairs.py` | `make memory-pairs`: what DoltgreSQL and DoltLite need to open each store; `make clean-pairs`: the pairs' stores with their records |
-| `docs/upstream/` | issue drafts for DoltgreSQL and DoltLite, not filed |
+| `docs/upstream/` | the bug reports for DoltgreSQL and DoltLite, and where each was filed (2026-09-11) |
 | `knowledge/` | the research trail: what DoltgreSQL and DoltLite are, where each fact came from, the decisions (`make okf-check`) |
 | `build/*.json` | every measurement — the evidence behind every number above |
 

@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: Patch the pinned engines' defects, or keep working around them
-description: Seven defects found in DoltgreSQL 1.3.1 and DoltLite v0.50.9 -- where each lives in the source, how large a fix would be, that none is fixed after the pinned releases, and what building a patched engine would take; the choice is the maintainer's and is still open.
+description: Seven defects found in DoltgreSQL 1.3.1 and DoltLite v0.50.9 -- where each lives in the source, how large a fix would be, and what building a patched engine would take. The maintainer chose to report them upstream with reproduction repositories (2026-09-11); by 2026-09-12 DoltHub had a fix pull request open for five and had released the DoltLite fix in v0.50.10. Still open, whether the DoltLite pin moves to it.
 resource: /decisions/engine-bugs-patch-or-work-around.md
 tags:
 - doltgresql
@@ -12,7 +12,7 @@ status: draft
 trust: open
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T23:21:13Z"
+  at: "2026-09-12T21:20:00Z"
 sources:
 - resource: https://github.com/dolthub/doltgresql/tree/v1.3.1
   title: DoltgreSQL source at the pinned tag v1.3.1
@@ -41,11 +41,15 @@ sources:
   title: The DoltgreSQL pin
 - resource: /decisions/doltlite-version-pin.md
   title: The DoltLite pin
+- resource: /sources/doltgresql-issues-filed-2026-09-11.md
+  title: The DoltgreSQL issues filed on 2026-09-11 and DoltHub's response, read 2026-09-12
+- resource: /sources/doltlite-release-v0-50-10.md
+  title: DoltLite release v0.50.10, which carries the fix for issue 2820, read 2026-09-12
 ---
 
 # Question
 
-Loading the sample databases found seven defects in the pinned engines; `docs/upstream/` holds an unfiled report for each. Can they be fixed here -- by patching the engines' source and building them -- rather than worked around as now, and should they be? The maintainer asked on 2026-09-10: "Are we able to just fix them?"
+Loading the sample databases found seven defects in the pinned engines; `docs/upstream/` held an unfiled report for each until 2026-09-11. Can they be fixed here -- by patching the engines' source and building them -- rather than worked around as now, and should they be? The maintainer asked on 2026-09-10: "Are we able to just fix them?"
 
 # Options considered
 
@@ -58,15 +62,15 @@ Loading the sample databases found seven defects in the pinned engines; `docs/up
 
 Read on 2026-09-10 in the source at the pinned tags and on both default branches, by a research pass whose excerpts were then checked here. **Read** means the code or the issue was read; **inferred** means reasoned from it. Nothing was patched, built or run.
 
-| # | Defect | Where it lives at the pinned tag | Fix size | Fixed after the pin? |
+| # | Defect | Where it lives at the pinned tag | Fix size | Fixed after the pin? (read 2026-09-10; upstream state as of 2026-09-12 in brackets) |
 |---|---|---|---|---|
-| 1 | a table with a STORED generated column refuses rows after its second alteration | doltgresql `server/expression/coalesce.go:162-168`, fed by `server/ast/select.go:190-194` | a few lines narrowly, tens generally | no; issue 810, open since 2024-10-03, is the same family |
-| 2 | `character(n)` keeps its padding through a cast to text | doltgresql `server/cast/char.go:98-104` | a few lines | no |
-| 3 | a trigger's `WHEN (old.* IS DISTINCT FROM new.*)` refuses every UPDATE | doltgresql `server/plpgsql/statements.go:547`, `server/plpgsql/interpreter_stack.go:212-233` | tens to about a hundred lines (inferred) | no |
-| 4 | a named `NOT NULL` column constraint refuses the table | doltgresql `server/ast/column_table_def.go:35-39` | one to three lines | no |
-| 5 | a `CHECK` calling `regexp_like` refuses every row | go-mysql-server `sql/expression/function/regexp_like.go:132-138`, `sql/plan/alter_check.go:172` | a few to tens of lines | no |
-| 6 | any role can create and drop any database | doltgresql `server/ast/create_database.go:103`, `server/ast/drop_database.go:33`, `server/auth/auth_handler.go:86` | tens of lines for the `CREATEDB` check; owner-only `DROP DATABASE` is a design change | no |
-| 7 | DoltLite's `VACUUM` answers "out of memory" on a large history | doltlite `src/doltlite_gc.c:92-140` and `:274-280` | tens of lines in one file | no; an earlier 2 GB limit, in the rewrite step, was lifted by pull request 1633, which v0.50.9 includes |
+| 1 | a table with a STORED generated column refuses rows after its second alteration | doltgresql `server/expression/coalesce.go:162-168`, fed by `server/ast/select.go:190-194` | a few lines narrowly, tens generally | no; issue 810, open since 2024-10-03, is the same family [reported as issue 3323; fix pull request 3347 open, unmerged] |
+| 2 | `character(n)` keeps its padding through a cast to text | doltgresql `server/cast/char.go:98-104` | a few lines | no [issue 3325; pull request 3349 open] |
+| 3 | a trigger's `WHEN (old.* IS DISTINCT FROM new.*)` refuses every UPDATE | doltgresql `server/plpgsql/statements.go:547`, `server/plpgsql/interpreter_stack.go:212-233` | tens to about a hundred lines (inferred) | no [issue 3336; pull request 3357 open] |
+| 4 | a named `NOT NULL` column constraint refuses the table | doltgresql `server/ast/column_table_def.go:35-39` | one to three lines | no [issue 3332; pull request 3354 open] |
+| 5 | a `CHECK` calling `regexp_like` refuses every row | go-mysql-server `sql/expression/function/regexp_like.go:132-138`, `sql/plan/alter_check.go:172` | a few to tens of lines | no [issue 3333; pull request 3355 open] |
+| 6 | any role can create and drop any database | doltgresql `server/ast/create_database.go:103`, `server/ast/drop_database.go:33`, `server/auth/auth_handler.go:86` | tens of lines for the `CREATEDB` check; owner-only `DROP DATABASE` is a design change | no [not reported: security, pending the maintainer] |
+| 7 | DoltLite's `VACUUM` answers "out of memory" on a large history | doltlite `src/doltlite_gc.c:92-140` and `:274-280` | tens of lines in one file | no; an earlier 2 GB limit, in the rewrite step, was lifted by pull request 1633, which v0.50.9 includes [issue 2820, closed as fixed 2026-09-11 by pull request 2836; in v0.50.10] |
 
 **Read, and checked against the excerpts here:**
 
@@ -87,8 +91,10 @@ Read on 2026-09-10 in the source at the pinned tags and on both default branches
 
 # Outcome
 
-None yet. The dialect rules and the marking of uncollected stores stay as they are, and nothing is patched, built or filed, until the maintainer chooses.
+The maintainer chose the last option, widened: on 2026-09-11 every defect except the sixth was reported to DoltHub, each from a public reproduction repository whose README is the bug report and whose script runs the failing SQL side by side with PostgreSQL 18.6 or SQLite 3.46.1 -- defects 1 to 5 and 7 above, plus ten more findings from the loads that had no draft here, seventeen repositories and sixteen filings in all ([the issues filed](/sources/doltgresql-issues-filed-2026-09-11.md); the `docs/upstream/` index links each). Defect 6 is a security matter: its repository stays private, and whether to write to security@dolthub.com is still the maintainer's call. Nothing is patched or built here; the dialect rules and the marking of uncollected stores stay as they are, and the pins stand ([the DoltgreSQL pin](/decisions/doltgresql-version-pin.md), [the DoltLite pin](/decisions/doltlite-version-pin.md)).
+
+DoltHub's response, read on 2026-09-12: DoltLite issue 2820 was closed as fixed within eighteen hours and the fix released in v0.50.10 the same evening ([the release](/sources/doltlite-release-v0-50-10.md)); on DoltgreSQL, one fix pull request per issue is open for eleven of the fifteen, none merged, and v1.3.2 (2026-09-12) predates them. Two things follow for this repository, neither decided: whether the DoltLite pin moves to v0.50.10, which would let the nine per-row-commit stores recorded `settled: false` be collected and would make the three largest databases' per-row-commit loads fit on the disk, at the cost of measuring DoltLite's ninety units again; and, later, whether the DoltgreSQL pin moves once a release carries the fixes.
 
 # Status
 
-pending: the maintainer's decision, asked on 2026-09-10.
+pending: the maintainer's decision on the DoltLite pin (asked 2026-09-12) and on the security report for defect 6 (asked 2026-09-11); the patch-or-work-around question itself was settled on 2026-09-11 by reporting upstream.

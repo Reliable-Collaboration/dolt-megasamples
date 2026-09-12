@@ -4,6 +4,8 @@
 
 Record: `knowledge/tools/doltgresql-1-3-1.md`, `knowledge/questions/doltgresql-generated-column-alteration.md`.
 
+Reported upstream: https://github.com/dolthub/doltgresql/issues/3323 (2026-09-11), with the reproduction repository https://github.com/Reliable-Collaboration/repro-doltgresql-bug-1, which runs the failing SQL side by side with the reference engine. As read on 2026-09-12: fix pull request 3347 open, unmerged.
+
 **Steps** (psql against `dolthub/doltgresql:1.3.1`, digest `sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851`):
 
 ```sql

@@ -4,6 +4,8 @@
 
 Record: `knowledge/tools/doltgresql-1-3-1.md`, `knowledge/questions/doltgresql-trigger-old-record.md`.
 
+Reported upstream: https://github.com/dolthub/doltgresql/issues/3336 (2026-09-11), with the reproduction repository https://github.com/Reliable-Collaboration/repro-doltgresql-bug-trigger-when-whole-row, which runs the failing SQL side by side with the reference engine. As read on 2026-09-12: fix pull request 3357 open, unmerged.
+
 **Steps:**
 
 ```sql

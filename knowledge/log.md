@@ -1,5 +1,14 @@
 # Log
 
+## 2026-09-12
+
+* **Creation**: [DoltLite release v0.50.10](/sources/doltlite-release-v0-50-10.md) -- published 2026-09-11, carries pull request 2836, the fix for issue 2820; its two Debian packages checksummed, unused while the pin stands. [The issues filed](/sources/doltgresql-issues-filed-2026-09-11.md) -- the fifteen DoltgreSQL issues and the comment on 3113, each with its reproduction repository, and DoltHub's response as read on 2026-09-12.
+* **Update**: DoltHub answered within a day -- DoltLite issue 2820 closed as fixed and released in v0.50.10; one fix pull request open, none merged, for eleven of the fifteen DoltgreSQL issues; v1.3.2 predates them. [Patch or work around](/decisions/engine-bugs-patch-or-work-around.md) carries the outcome and the two questions now pending (the DoltLite pin, the security report); [DoltLite v0.50.9](/tools/doltlite-0-50-9.md), [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) and [VACUUM memory](/questions/doltlite-vacuum-memory.md) point at the filings; the `docs/upstream/` index links each draft to its issue.
+
+## 2026-09-11
+
+* **Update**: the maintainer chose to report the engine defects upstream rather than patch them: seventeen public reproduction repositories under Reliable-Collaboration (each README the bug report, each script side by side with PostgreSQL 18.6 or SQLite 3.46.1), fifteen DoltgreSQL issues, one DoltLite issue and one comment on an existing issue filed; the database-privilege gap kept private as a security matter. Recorded in [patch or work around](/decisions/engine-bugs-patch-or-work-around.md).
+
 ## 2026-09-10
 
 * **Creation**: [patch or work around](/decisions/engine-bugs-patch-or-work-around.md), pending -- where each of the seven engine defects lives in the pinned source, how large a fix would be, that none is fixed after the pinned releases, and what a patched build would take; each report draft in `docs/upstream/` now says where its defect comes from, [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) where the database-privilege gap comes from, and [VACUUM memory](/questions/doltlite-vacuum-memory.md) the limit DoltLite hits.

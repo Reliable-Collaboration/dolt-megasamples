@@ -11,7 +11,7 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T17:10:00Z"
+  at: "2026-09-12T21:20:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-10T17:10:00Z"
@@ -19,6 +19,9 @@ sources:
 - resource: /sources/doltlite-readme.md
   title: DoltLite README
   accessed: "2026-09-10"
+- resource: /sources/doltlite-release-v0-50-10.md
+  title: DoltLite release v0.50.10, which carries the fix for issue 2820
+  accessed: "2026-09-12"
 - resource: /sources/doltlite-release-v0-50-9.md
   title: DoltLite release v0.50.9 and its packages
   accessed: "2026-09-10"
@@ -48,6 +51,6 @@ Found by refusal on sakila's dump and on the quick subset's schemas (2026-09-10)
 * **A table is committed only when every table its foreign keys name exists.** With `staff` (which references `store`) dumped before `store`, `dolt_commit` after a `staff` row answers `foreign key on table `staff` requires the referenced table `store`` until `store` is created -- the rows go in, the commits are lost. Rule L1 puts every `CREATE TABLE` ahead of the first `INSERT`: [dialect rules](/decisions/pair-dialect-rules.md).
 * **The dump's virtual-table registration only works inside the dump's own transaction.** `.dump` registers an FTS5 table by `INSERT INTO sqlite_schema(...)` under `PRAGMA writable_schema=ON`; run as its own statement, both engines answer `table sqlite_master may not be modified`, and once the virtual table exists first, both refuse the dump's shadow-table rows (`object name reserved for internal use`). Rule L2 creates the virtual table with `CREATE VIRTUAL TABLE`, drops the shadow-table statements and rebuilds the index after the rows (or, under the inline policy, keeps it in step with the port's sync triggers).
 * **Version gap to the baseline.** The fork's base is SQLite 3.54.0, ahead of the newest SQLite release (3.53.4 on 2026-09-10); the stock shell beside it is Debian 13's 3.46.1: [sqlite3 shell](/tools/sqlite3-shell-3-46-1.md).
-* **`VACUUM` fails on the larger per-row-commit files, and the failure is DoltLite's own.** dvdstore with the indexes inline (174,718 commits, 5,170,967,610 bytes before the settle step), chicago_crimes (260,043 commits, 3,626,990,331 bytes), lahman and contoso (about 15 GB each) all answered `Error in 2nd command line argument: out of memory` to `VACUUM` within seconds; on a copy of the chicago_crimes file the shell's anonymous memory peaked at 1,165 MiB under a 16 GiB cgroup and the answer was the same with no cap at all, with `soft_heap_limit` and `hard_heap_limit` at 0 (2026-09-10). dvdstore under the deferred policy (1,823,235,885 bytes) collected in 5.4 s and enron (410,260,509 bytes) in 1.5 s, so the limit sits between 1.8 GB and 3.6 GB for these files. Such a unit is kept with `settled: false`, its size marked as the working footprint in the tables and left out of the totals: [answered question](/questions/doltlite-vacuum-memory.md).
+* **`VACUUM` fails on the larger per-row-commit files, and the failure is DoltLite's own.** dvdstore with the indexes inline (174,718 commits, 5,170,967,610 bytes before the settle step), chicago_crimes (260,043 commits, 3,626,990,331 bytes), lahman and contoso (about 15 GB each) all answered `Error in 2nd command line argument: out of memory` to `VACUUM` within seconds; on a copy of the chicago_crimes file the shell's anonymous memory peaked at 1,165 MiB under a 16 GiB cgroup and the answer was the same with no cap at all, with `soft_heap_limit` and `hard_heap_limit` at 0 (2026-09-10). dvdstore under the deferred policy (1,823,235,885 bytes) collected in 5.4 s and enron (410,260,509 bytes) in 1.5 s, so the limit sits between 1.8 GB and 3.6 GB for these files. Such a unit is kept with `settled: false`, its size marked as the working footprint in the tables and left out of the totals: [answered question](/questions/doltlite-vacuum-memory.md). Reported on 2026-09-11 as dolthub/doltlite issue 2820 with a reproduction repository; DoltHub closed it as fixed the same day (pull request 2836, the mark queue bounded and spilled to disk) and released the fix in v0.50.10 that evening, which this repository does not use while the pin stands ([the release](/sources/doltlite-release-v0-50-10.md), [patch or work around](/decisions/engine-bugs-patch-or-work-around.md)). By 2026-09-12 nine per-row-commit units carried `settled: false`.
 * **Durability per autocommitted statement**: one `fdatasync` per statement (319 for 312 autocommitted `INSERT`s, against `sqlite3`'s four per statement), measured with `strace` on 2026-09-10: [answered question](/questions/doltlite-durability-per-statement.md).
 * No container image is published; the one here is built by `make lite-image` and never pushed.

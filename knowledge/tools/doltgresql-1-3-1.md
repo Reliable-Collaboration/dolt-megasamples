@@ -10,12 +10,14 @@ tags:
 status: stable
 trust: verified
 generated:
-  by: claude-code/claude-opus-5
-  at: "2026-09-10T20:00:00Z"
+  by: claude-code/claude-fable-5-1
+  at: "2026-09-12T21:20:00Z"
 verified:
 - by: claude-code/claude-opus-5
   at: "2026-09-10T20:00:00Z"
 sources:
+- resource: /sources/doltgresql-issues-filed-2026-09-11.md
+  title: The DoltgreSQL issues filed on 2026-09-11 and DoltHub's response, read 2026-09-12
 - resource: /sources/doltgresql-readme.md
   title: DoltgreSQL README
   accessed: "2026-09-10"
@@ -51,6 +53,7 @@ Found by refusal, on the quick subset's schemas (`scripts/preflight_pairs.py`, 2
 * **A `character(n)` value keeps its padding through a text cast.** `SELECT '[' || (class)::text || ']'` on a `character(2)` holding `L ` answers `[L ]` where PostgreSQL answers `[L]`, so `upper((class)::text) = ANY (ARRAY['L'::text, ...])` is false for every padded value and the CHECK refuses the row -- by INSERT and by COPY -- while an unpadded `l` passes. `rtrim((class)::text)` answers `[L]` on both engines; dialect rule G7 wraps such casts inside CHECK constraints (probed 2026-09-10; adventureworks' `production_product` then loads all 504 rows).
 * **A named NOT NULL column constraint refuses the table.** `businessentityid integer CONSTRAINT humanresources_employeedepartmenthist_businessentityid_not_null NOT NULL` (pg_dump 18's form for a NOT NULL constraint with a non-generated name) answers "non-foreign key column constraint names are not yet supported" and the table is not created, so every view and constraint over it fails too (adventureworks: 3 tables, 23 refusals). Dialect rule G5 drops the name and keeps the constraint; with it all 69 tables of adventureworks are created and only its two `xpath` views are refused (probed 2026-09-10). **`convert_from()`** is not implemented either (wikipedia_simple: 4 views refused).
 * **`dolt_gc()` can fail after many DROP/CREATE cycles on one server.** The 21st one-commit reload of the night (sakila, after 20 `DROP DATABASE` / `CREATE DATABASE` cycles on the same server) answered `Error in SaveHashes call: dangling references requested during GC. GC not successful.` and left the store at 7.7 MB instead of 2.0 MB; the same load into the same server a minute later collected normally (2026-09-10). A unit whose collection fails is kept with `settled: false` and its size marked.
+* **Reported upstream (2026-09-11).** The generated-column, `character(n)`, trigger `WHEN`, named NOT NULL and `regexp_like` limits above are dolthub/doltgresql issues 3323, 3325, 3336, 3332 and 3333, each with a public reproduction repository, beside ten further findings from the loads (3324, 3326 to 3331, 3334, 3335, 3337, and a comment on 3113); by 2026-09-12 a fix pull request was open for eleven of the fifteen, none merged, and v1.3.2 predates them ([the issues filed](/sources/doltgresql-issues-filed-2026-09-11.md)). The database-privilege gap is not filed: security, pending the maintainer.
 * **`::regnamespace`** casts are not resolved ("unable to resolve type `regnamespace`"); `information_schema.triggers` answers 0 while `pg_trigger` holds the triggers. The parity queries use `pg_trigger`, `pg_views`, `pg_indexes` and `information_schema.tables`/`table_constraints`, which all answer.
 * **`show session_replication_role`** is not needed and was not tested further; foreign keys stay after the rows in both index policies for a different reason ([load shapes](/decisions/pair-load-shapes-and-measurement.md)).
 

@@ -11,11 +11,14 @@ status: deprecated
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-10T17:10:00Z"
+  at: "2026-09-12T21:20:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-10T17:10:00Z"
 sources:
+- resource: /sources/doltlite-release-v0-50-10.md
+  title: DoltLite release v0.50.10, which carries the fix for issue 2820
+  accessed: "2026-09-12"
 - resource: /tools/doltlite-0-50-9.md
   title: DoltLite v0.50.9 (the observation)
   accessed: "2026-09-10"
@@ -38,3 +41,5 @@ Whether the inline-policy per-row-commit loads of the larger databases can be se
 # Answer
 
 DoltLite's own limit, not the host's. On a copy of chicago_crimes' per-row-commit file (3,626,991,241 bytes, 260,043 commits), `VACUUM` in the DoltLite image (the pinned v0.50.9) under a 16 GiB cgroup answered `out of memory` after 3.5 s with the cgroup's anonymous memory peaking at 1,165 MiB (sampled from the host every half second), and without any cap it answered the same after 2 s; `PRAGMA soft_heap_limit` and `hard_heap_limit` are both 0 (unlimited) on the file, and the file was unchanged afterwards (2026-09-10). A store the engine cannot collect is therefore a limit of DoltLite v0.50.9 on large per-row-commit histories (between dvdstore's 1.8 GB, which collected, and chicago_crimes' 3.6 GB), and the report says so: such units are kept with `settled: false`, their size is the working footprint of the load, marked in the tables and left out of the totals. The per-row-commit loads of the three largest databases are run for their time and footprint with that understanding ([the dialect rules](/decisions/pair-dialect-rules.md), [DoltLite v0.50.9](/tools/doltlite-0-50-9.md)). `doc/doltlite/storage-format.md` and `concurrency.md` say only that `VACUUM` runs garbage collection and may be deferred while writers hold the graph lock; nothing about what it allocates. Where the limit is, read in the v0.50.9 source on 2026-09-10: the garbage collector's mark queue (`src/doltlite_gc.c`) doubles its allocation and returns `SQLITE_NOMEM` once the next size would pass 2^31 bytes, never releases processed entries, and skips an already-marked chunk only when taking it out, so at 72 bytes an entry it tops out at 16,777,216 entries, 1,152 MiB, beside the 1,165 MiB peak above ([patch or work around](/decisions/engine-bugs-patch-or-work-around.md)).
+
+Upstream, after the answer: reported on 2026-09-11 as dolthub/doltlite issue 2820, closed as fixed the same day by pull request 2836 (the mark queue reused as a ring, deduplicated, spilled to a temporary file, held to a 64 MiB budget) and released in v0.50.10; the pin here stays at v0.50.9 unless the maintainer asks, so the answer above still describes the engine this repository measures ([the release](/sources/doltlite-release-v0-50-10.md)).

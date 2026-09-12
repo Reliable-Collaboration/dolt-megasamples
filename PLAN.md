@@ -136,6 +136,12 @@ the dialects and the stack) is the recommended way to keep the evidence reviewab
    DoltgreSQL 1.3.1 enforces table privileges but not database privileges, so `demo` can still create
    and drop databases until a way to stop it is found and recorded in
    [stood-up instances](knowledge/decisions/stood-up-instances.md).
+7. **The engine defects are reported upstream, not patched here** (2026-09-11): one public reproduction
+   repository per finding, side by side with PostgreSQL or SQLite, and an issue on each; the
+   database-privilege gap stays private as a security matter. The pins stand; DoltLite's fix shipped in
+   v0.50.10 the same day and whether the pin moves is open
+   ([patch or work around](knowledge/decisions/engine-bugs-patch-or-work-around.md)).
+
 What the first phase found, and how the loads are shaped and measured, is recorded in
 [knowledge/decisions/pair-dialect-rules.md](knowledge/decisions/pair-dialect-rules.md) and
 [knowledge/decisions/pair-load-shapes-and-measurement.md](knowledge/decisions/pair-load-shapes-and-measurement.md);
