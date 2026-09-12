@@ -25,8 +25,8 @@ sources:
 
 Every step is a Makefile target over one script; every script says what it does at the top.
 
-1. **`make lite-image`** -- downloads the two DoltLite packages of the pinned release into
-   `build/doltlite/`, checks them against the recorded sha256, builds `doltsamples-doltlite:0.50.9`.
+1. **`make lite-image`** -- downloads the two DoltLite packages of the release `versions.json` names into
+   `build/doltlite/`, checks them against the recorded sha256, builds `doltsamples-doltlite:<version>`.
    Needed by every later step of the SQLite pair (the image carries both shells) and by the
    PostgreSQL pair's helper (`wipe`).
 2. **`make export-pairs`** -- with sql-megasamples' stack up (`make -C ../sql-megasamples up`;
@@ -78,3 +78,23 @@ the index-parity report. A row-count shortfall is a refused row: look at `errors
 dolthub/doltgresql@<digest>`), decide whether a dialect rule can carry the data without touching a
 row, record the finding in the engine's tool record, and rerun the unit with `--redo`. A missing
 index the engine refused out loud is recorded as a schema object not taken and is not an error.
+
+# Moving an engine to a newer version (2026-09-12)
+
+One version per result set ([the decision](/decisions/engine-versions-one-per-result-set.md)): every unit records
+its engine's version, and a result set never mixes two.
+
+1. `make versions` -- each engine's version beside the newest release upstream. Nothing moves on its own.
+2. `python3 scripts/versions.py --latest doltlite` (or `doltgres`, `dolt`) -- rewrites `versions.json` and
+   the compose default; DoltLite's packages are downloaded and checksummed, an image is pulled and resolved
+   to its digest. For DoltLite, then `make lite-image`.
+3. Run the engine's pair with `--accept-version-change` (`make run-lite ARGS="--accept-version-change"`, or
+   the chain driver with it): the runner refuses without the flag, naming every unit measured on the old
+   version; with it, each one's record is kept under `superseded` and the unit is measured again. The
+   collectors and the audit fold only units on the current version, so the engine's numbers leave the
+   tables until they return. The baseline engine of the pair is not measured again.
+4. `make report`, then a new tool record for the version (what was verified on it) and an **Update** in
+   `log.md`; `make up` serves the new version, because the stack reads `versions.json`.
+
+Done once so far: DoltLite v0.50.9 to v0.50.10 on 2026-09-12, every DoltLite unit measured again.
+

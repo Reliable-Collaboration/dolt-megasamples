@@ -34,47 +34,29 @@ would measure SQLite twice.
 import json, os, re, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import DUMPS, MEGASAMPLES_DIR, MEM_WORKER, ROOT, mem, run  # noqa: E402
+from common import DUMPS, MEGASAMPLES_DIR, MEM_WORKER, ROOT, VERSIONS, mem, run  # noqa: E402
 import doltgres_dialect, doltlite_dialect  # noqa: E402
 
 # --------------------------------------------------------------------------------- images ---
-# PostgreSQL 18.6, the base of sql-megasamples' own image, pinned by digest (postgres:18.6-bookworm).
-POSTGRES_IMAGE = os.environ.get(
-    "DOLTSAMPLES_POSTGRES_IMAGE",
-    "postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af")
-
 # ====================================================================================================
-# PINNED: DoltgreSQL 1.3.1 (the release current on 2026-09-10; published 2026-09-02).
-# Every DoltgreSQL number in this repository was measured against this one build, named by digest so
-# a moved tag cannot change it. The pin stays until the maintainer explicitly asks for it to be removed
-# (decided 2026-09-10). TO UNDO THE PIN: set DOLTSAMPLES_DOLTGRES_IMAGE (or edit the default
-# below, and the `doltgres` service in compose.yaml, which carries the same digest), then rerun the
-# loads -- the numbers belong to the build that produced them. The decision and the digest's
-# provenance: knowledge/decisions/doltgresql-version-pin.md.
+# ONE VERSION PER RESULT SET (the maintainer's rule, 2026-09-12). versions.json names the exact
+# version of every engine: PostgreSQL and DoltgreSQL by image digest, so a moved tag cannot change
+# them; DoltLite by the SHA-256 of its two release packages, which scripts/lite_image.py checks
+# before docker/doltlite/Dockerfile builds the image (DoltLite ships no image of its own). Nothing
+# is pinned: `python3 scripts/versions.py --latest doltlite` (or doltgres) moves an engine to its
+# newest release. But every DoltLite or DoltgreSQL number in this repository was measured on the
+# version named there, so a moved version supersedes every recorded unit of that engine and the
+# runner measures them all again (`--accept-version-change`; common.version_gate). The decision:
+# knowledge/decisions/engine-versions-one-per-result-set.md.
 # ====================================================================================================
-DOLTGRES_VERSION = "1.3.1"
-DOLTGRES_IMAGE = os.environ.get(
-    "DOLTSAMPLES_DOLTGRES_IMAGE",
-    "dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851")
-
-# ====================================================================================================
-# PINNED: DoltLite v0.50.9 (published 2026-09-10). Every DoltLite number in this repository was measured
-# with exactly this release. No image exists, so docker/doltlite/Dockerfile builds one from the two
-# packages below after scripts/lite_image.py has checked them against the recorded sha256. The pin stays
-# until the maintainer explicitly asks for it to be removed, even when DoltHub publishes newer releases
-# (decided 2026-09-10). TO CHANGE IT: the version, the URLs and both checksums below together, the
-# package names in docker/doltlite/Dockerfile and the image tag in compose.yaml; then measure again.
-# The decision: knowledge/decisions/doltlite-version-pin.md.
-# ====================================================================================================
-LITE_VERSION = "0.50.9"
+POSTGRES_VERSION = VERSIONS["postgres"]["version"]
+POSTGRES_IMAGE = os.environ.get("DOLTSAMPLES_POSTGRES_IMAGE", VERSIONS["postgres"]["image"])
+DOLTGRES_VERSION = VERSIONS["doltgres"]["version"]
+DOLTGRES_IMAGE = os.environ.get("DOLTSAMPLES_DOLTGRES_IMAGE", VERSIONS["doltgres"]["image"])
+LITE_VERSION = VERSIONS["doltlite"]["version"]
 LITE_IMAGE = f"doltsamples-doltlite:{LITE_VERSION}"
-_LITE_RELEASE = f"https://github.com/dolthub/doltlite/releases/download/v{LITE_VERSION}/"
-LITE_PACKAGES = [
-    (f"libdoltlite0_{LITE_VERSION}_amd64.deb", _LITE_RELEASE + f"libdoltlite0_{LITE_VERSION}_amd64.deb",
-     "bc1c936a7f0975af2182c24d98d20da45e04d4ac101df5f892923928aee1a7eb"),
-    (f"doltlite_{LITE_VERSION}_amd64.deb", _LITE_RELEASE + f"doltlite_{LITE_VERSION}_amd64.deb",
-     "cf387247a87166f51df73a832b4d93df4162552cb21f3df66bcb44494751e1a5"),
-]
+LITE_PACKAGES = [(pkg["name"], pkg["url"], pkg["sha256"]) for pkg in VERSIONS["doltlite"]["packages"]]
+SQLITE_VERSION = VERSIONS["sqlite"]["version"]
 
 # ----------------------------------------------------------------------------- containers ---
 PW = "doltsamples"

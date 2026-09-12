@@ -9,9 +9,10 @@ repository is private, and reporting it to security@dolthub.com waits for the ma
 Each draft names the record in `knowledge/` that carries the full evidence and says where it was
 filed. Versions and dates are those of the probes (2026-09-10).
 
-All of them were found on the pinned versions this repository measures, DoltgreSQL 1.3.1 and DoltLite v0.50.9,
-which stay pinned until the maintainer explicitly asks for a pin to be removed. DoltLite's `VACUUM` defect is
-fixed upstream in v0.50.10 (2026-09-11); whether that pin moves is an open decision.
+All of them were found on DoltgreSQL 1.3.1 and DoltLite v0.50.9, the versions this repository measured when the
+reports were written (`versions.json` names the current ones; one version per result set). DoltLite's `VACUUM` defect
+is fixed upstream in v0.50.10 (2026-09-11), and since 2026-09-12 this repository measures that version, every DoltLite
+unit again.
 
 | Draft here | Reproduction repository | Filed as | Upstream, as read on 2026-09-12 |
 |---|---|---|---|
@@ -20,7 +21,7 @@ fixed upstream in v0.50.10 (2026-09-11); whether that pin moves is an open decis
 | `doltgresql-trigger-when-whole-row-comparison.md` | `repro-doltgresql-bug-trigger-when-whole-row` | [doltgresql#3336](https://github.com/dolthub/doltgresql/issues/3336) | fix pull request 3357 open |
 | `doltgresql-named-not-null-constraint.md` | `repro-doltgresql-bug-named-not-null` | [doltgresql#3332](https://github.com/dolthub/doltgresql/issues/3332) | fix pull request 3354 open |
 | `doltgresql-check-with-regexp-like-refuses-rows.md` | `repro-doltgresql-bug-regexp-like-check` | [doltgresql#3333](https://github.com/dolthub/doltgresql/issues/3333) | fix pull request 3355 open |
-| `doltgresql-database-privileges-not-enforced.md` | `repro-doltgresql-bug-database-privileges` (private) | not filed: security | pending the maintainer |
+| `doltgresql-database-privileges-not-enforced.md` | `repro-doltgresql-bug-database-privileges` (private) | reported privately by the maintainer to security@dolthub.com, with the self-granted `CREATEDB` beside it | not public |
 | `doltlite-vacuum-out-of-memory-on-large-history.md` | `repro-doltlite-bug-vacuum-out-of-memory` | [doltlite#2820](https://github.com/dolthub/doltlite/issues/2820) | closed as fixed 2026-09-11 (pull request 2836), released in v0.50.10 |
 
 Ten more findings from the loads had no draft here and were reported the same way, each from its own

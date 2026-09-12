@@ -7,7 +7,7 @@ tags:
 - doltlite
 - pin
 - decision
-status: stable
+status: deprecated
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
@@ -48,4 +48,4 @@ DoltLite published eight releases between 2026-09-01 and 2026-09-10 (v0.50.2 to 
 
 # Status
 
-accepted (2026-09-10; the maintainer's decision).
+superseded-by [one version per result set, and no pins](/decisions/engine-versions-one-per-result-set.md) (deprecated 2026-09-12) -- the maintainer's rule of 2026-09-12 replaces the pin; DoltLite moved to v0.50.10 the same day and every DoltLite unit is measured again. Kept as the record of why v0.50.9 was held and how.

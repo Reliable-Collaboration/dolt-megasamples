@@ -196,9 +196,9 @@ engines so far). What was learned before a row was loaded is in `knowledge/` -- 
 the two engines with the source it was read in or the command that produced it -- and the short
 version is this.
 
-**Both new engines are pinned**: DoltgreSQL {{pairs.doltgres_version}} by image digest and DoltLite
-v{{pairs.doltlite_version}} by the checksums of its packages. Neither moves to a newer release unless the
-maintainer explicitly asks, so everything below describes exactly those versions.
+**One version per result set**: DoltgreSQL {{pairs.doltgres_version}}, named by image digest, and DoltLite
+v{{pairs.doltlite_version}}, named by the checksums of its packages (`versions.json`). Neither moves on its own;
+when one does, every unit of that engine is measured again, so everything below describes exactly those versions.
 
 **What the engines refused decided the method.** DoltgreSQL {{pairs.doltgres_version}} takes
 pg_dump's output as its README promises, with four exceptions found by refusal: no GIN index (the

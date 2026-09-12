@@ -11,7 +11,7 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-12T21:20:00Z"
+  at: "2026-09-12T22:00:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-12T21:20:00Z"
@@ -62,7 +62,7 @@ The issues, in the order filed on 2026-09-11 (times UTC), the reproduction repos
 
 Every issue carries the label `customer issue`. Pull request 3341, "Fixes many issues", was opened and closed unmerged on 2026-09-11 in favour of one pull request per issue; the eleven that replaced it were opened between 22:55 and 23:04 UTC and were all open and unmerged when read. The four without a pull request are the four that ask for a feature (GIN indexes, `JSON_TABLE`, full-text search, `xml`). DoltgreSQL v1.3.2, published 2026-09-12 00:07 UTC, predates all eleven; its notes list Dolt and go-mysql-server merges only.
 
-Not filed: the database-privilege gap ([DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md), limit "Database privileges are not enforced"). Its reproduction repository, `repro-doltgresql-bug-database-privileges`, is private; DoltgreSQL's `SECURITY.md` asks for security reports by email to security@dolthub.com, and whether to send one is the maintainer's call, pending on 2026-09-12.
+Not filed: the database-privilege gap ([DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md), limit "Database privileges are not enforced"). Its reproduction repository, `repro-doltgresql-bug-database-privileges`, is private; DoltgreSQL's `SECURITY.md` asks for security reports by email to security@dolthub.com, and the maintainer sent one, with the self-granted `CREATEDB` beside it (the maintainer's word, 2026-09-12). The maintainer also relayed DoltHub's answer to the public reports: grateful for the mature bug reports, and working through the rest of them.
 
 # Relevant excerpt
 

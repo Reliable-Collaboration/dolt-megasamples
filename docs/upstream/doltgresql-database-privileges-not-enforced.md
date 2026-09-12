@@ -1,10 +1,10 @@
 # DoltgreSQL 1.3.1: a role without CREATEDB can create and drop any database
 
-*Found on DoltgreSQL 1.3.1, the version dolt-megasamples pins by image digest (`sha256:6c85cb1f35be…`). It was the newest release on 2026-09-10; no newer release has been tried.*
+*Found on DoltgreSQL 1.3.1, the version dolt-megasamples measures, named by image digest (`sha256:6c85cb1f35be…`, `versions.json`). It was the newest release on 2026-09-10; v1.3.2 (2026-09-12) has not been tried.*
 
 Record: `knowledge/tools/doltgresql-1-3-1.md`.
 
-Not reported publicly: a privilege gap is a security matter, and DoltgreSQL's `SECURITY.md` asks for such reports by email to security@dolthub.com. A private reproduction repository exists (`Reliable-Collaboration/repro-doltgresql-bug-database-privileges`, side by side with PostgreSQL 18.6); sending the report is the maintainer's call, pending on 2026-09-12.
+Not reported publicly: a privilege gap is a security matter, and DoltgreSQL's `SECURITY.md` asks for such reports by email. The maintainer reported it, with the self-granted `CREATEDB` beside it, to security@dolthub.com (by 2026-09-12); the reproduction repository `Reliable-Collaboration/repro-doltgresql-bug-database-privileges` (side by side with PostgreSQL 18.6) stays private.
 
 **Steps** (psql against `dolthub/doltgresql:1.3.1`, digest `sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851`):
 

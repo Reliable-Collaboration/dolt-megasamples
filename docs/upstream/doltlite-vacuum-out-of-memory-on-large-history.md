@@ -1,6 +1,6 @@
 # DoltLite v0.50.9: VACUUM answers "out of memory" on a 3.6 GB file with 260k commits, at a 1.2 GiB peak
 
-*Found on DoltLite v0.50.9, the version dolt-megasamples pins by the SHA-256 of its two release packages. It was the newest release on 2026-09-10; no newer release has been tried.*
+*Found on DoltLite v0.50.9, the version dolt-megasamples measured until 2026-09-12, named by the SHA-256 of its two release packages. It was the newest release on 2026-09-10; the fix shipped in v0.50.10 on 2026-09-11, and dolt-megasamples measures that version since 2026-09-12.*
 
 Record: `knowledge/tools/doltlite-0-50-9.md`, `knowledge/questions/doltlite-vacuum-memory.md`.
 

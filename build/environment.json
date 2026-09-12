@@ -9,8 +9,8 @@
     "dolt_version": "dolt version 2.3.2",
     "doltgres_image": "dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851",
     "doltgres_version": "1.3.1",
-    "doltlite_image": "doltsamples-doltlite:0.50.9",
-    "doltlite_version": "DoltLite v0.50.9 (SQLite 3.54.0, 64-bit)",
+    "doltlite_image": "doltsamples-doltlite:0.50.10",
+    "doltlite_version": "DoltLite v0.50.10 (SQLite 3.54.0, 64-bit)",
     "mysql_flags": [
       "--local-infile=1",
       "--skip-log-bin"
@@ -25,12 +25,60 @@
   "host": {
     "cpu": "Intel(R) Core(TM) i9-14900KF",
     "cpu_threads": 32,
-    "disk_free_at_capture": "463.7 GiB",
-    "disk_total": "1,006.9 GiB",
+    "disk_free_at_capture": "637.3 GiB",
+    "disk_total": "1,510.8 GiB",
     "filesystem": "ext4",
     "kernel": "6.18.33.2-microsoft-standard-WSL2",
     "memory": "19.5 GiB",
     "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
     "python": "3.14.4"
+  },
+  "versions": {
+    "dolt": {
+      "image": "dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6",
+      "named_by": "image digest",
+      "since": "2026-09-08",
+      "version": "2.3.2"
+    },
+    "doltgres": {
+      "image": "dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851",
+      "named_by": "image digest",
+      "since": "2026-09-10",
+      "version": "1.3.1"
+    },
+    "doltlite": {
+      "named_by": "the SHA-256 of the release's two Debian packages, checked before the image is built",
+      "packages": [
+        {
+          "name": "libdoltlite0_0.50.10_amd64.deb",
+          "sha256": "09f2e13df763560712769a2d4c08175445f3b11e249a9efd6aa0f25769547582",
+          "url": "https://github.com/dolthub/doltlite/releases/download/v0.50.10/libdoltlite0_0.50.10_amd64.deb"
+        },
+        {
+          "name": "doltlite_0.50.10_amd64.deb",
+          "sha256": "3a832d5580cf8860e9d07a1c3d2dbe1e66d1e83c586913b81bc1f36a5119029e",
+          "url": "https://github.com/dolthub/doltlite/releases/download/v0.50.10/doltlite_0.50.10_amd64.deb"
+        }
+      ],
+      "since": "2026-09-12",
+      "version": "0.50.10"
+    },
+    "mysql": {
+      "image": "mysql:9.7.2",
+      "named_by": "image tag",
+      "since": "2026-09-08",
+      "version": "9.7.2"
+    },
+    "postgres": {
+      "image": "postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+      "named_by": "image digest",
+      "since": "2026-09-10",
+      "version": "18.6"
+    },
+    "sqlite": {
+      "named_by": "Debian 13's sqlite3 package inside the DoltLite image, whose base image is named by digest in docker/doltlite/Dockerfile",
+      "since": "2026-09-10",
+      "version": "3.46.1"
+    }
   }
 }

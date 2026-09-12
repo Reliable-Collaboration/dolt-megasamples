@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Build the DoltLite image from the pinned release packages.
+"""Build the DoltLite image from the release packages versions.json names.
 
   python3 scripts/lite_image.py
 
 DoltLite ships no container image, so this repository builds one: docker/doltlite/Dockerfile over
 the two Debian packages of one release, downloaded from the GitHub release and checked against
-the sha256 recorded here before anything is built. The pin is deliberate -- DoltLite is a beta
-with near-daily releases -- and changing it means changing the version, the URLs and the
-checksums together, then re-running the loads.
+the sha256 recorded in versions.json before anything is built. The version is not a pin -- `python3
+scripts/versions.py --latest doltlite` moves it to the newest release, recording the new URLs and
+checksums together -- but every DoltLite number belongs to one version, so after a move every
+DoltLite unit is measured again (one version per result set, 2026-09-12).
 """
 import hashlib, os, subprocess, sys, urllib.request
 
@@ -32,7 +33,7 @@ def fetch(name, url, sha256):
     if got != sha256:
         os.remove(path)
         sys.exit(f"{name}: sha256 {got} is not the recorded {sha256}; removed it. "
-                 f"The release may have changed under the pin -- check before recording a new value.")
+                 f"The release's package may have changed -- check before recording a new value in versions.json.")
     print(f"  . {name} {os.path.getsize(path):,} bytes, sha256 verified", flush=True)
 
 
@@ -42,7 +43,8 @@ def main():
         fetch(name, url, sha)
     print(f"  . building {LITE_IMAGE} (DoltLite {LITE_VERSION})", flush=True)
     p = subprocess.run(["docker", "build", "-q", "-f", os.path.join(ROOT, "docker", "doltlite", "Dockerfile"),
-                        "-t", LITE_IMAGE, WORK], capture_output=True, text=True)
+                        "--build-arg", f"LITE_VERSION={LITE_VERSION}", "-t", LITE_IMAGE, WORK],
+                       capture_output=True, text=True)
     if p.returncode != 0:
         sys.exit(p.stderr or p.stdout)
     v = subprocess.run(["docker", "run", "--rm", "--label", "doltsamples.transient=true", LITE_IMAGE,

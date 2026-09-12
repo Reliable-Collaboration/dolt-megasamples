@@ -1,18 +1,21 @@
 ---
 type: Decision
-title: Patch the pinned engines' defects, or keep working around them
-description: Seven defects found in DoltgreSQL 1.3.1 and DoltLite v0.50.9 -- where each lives in the source, how large a fix would be, and what building a patched engine would take. The maintainer chose to report them upstream with reproduction repositories (2026-09-11); by 2026-09-12 DoltHub had a fix pull request open for five and had released the DoltLite fix in v0.50.10. Still open, whether the DoltLite pin moves to it.
+title: Patch the engines' defects here, work around them, or report them upstream
+description: Seven defects found in DoltgreSQL 1.3.1 and DoltLite v0.50.9 -- where each lives in the source, how large a fix would be, and what building a patched engine would take. The maintainer chose to report them upstream with reproduction repositories (2026-09-11), the security one privately; by 2026-09-12 DoltHub had a fix pull request open for five, had released the DoltLite fix in v0.50.10, and this repository moved to that release.
 resource: /decisions/engine-bugs-patch-or-work-around.md
 tags:
 - doltgresql
 - doltlite
 - pin
 - decision
-status: draft
-trust: open
+status: stable
+trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-12T21:20:00Z"
+  at: "2026-09-12T22:00:00Z"
+verified:
+- by: claude-code/claude-fable-5-1
+  at: "2026-09-12T22:00:00Z"
 sources:
 - resource: https://github.com/dolthub/doltgresql/tree/v1.3.1
   title: DoltgreSQL source at the pinned tag v1.3.1
@@ -45,6 +48,8 @@ sources:
   title: The DoltgreSQL issues filed on 2026-09-11 and DoltHub's response, read 2026-09-12
 - resource: /sources/doltlite-release-v0-50-10.md
   title: DoltLite release v0.50.10, which carries the fix for issue 2820, read 2026-09-12
+- resource: /decisions/engine-versions-one-per-result-set.md
+  title: The rule under which the DoltLite version moved
 ---
 
 # Question
@@ -69,7 +74,7 @@ Read on 2026-09-10 in the source at the pinned tags and on both default branches
 | 3 | a trigger's `WHEN (old.* IS DISTINCT FROM new.*)` refuses every UPDATE | doltgresql `server/plpgsql/statements.go:547`, `server/plpgsql/interpreter_stack.go:212-233` | tens to about a hundred lines (inferred) | no [issue 3336; pull request 3357 open] |
 | 4 | a named `NOT NULL` column constraint refuses the table | doltgresql `server/ast/column_table_def.go:35-39` | one to three lines | no [issue 3332; pull request 3354 open] |
 | 5 | a `CHECK` calling `regexp_like` refuses every row | go-mysql-server `sql/expression/function/regexp_like.go:132-138`, `sql/plan/alter_check.go:172` | a few to tens of lines | no [issue 3333; pull request 3355 open] |
-| 6 | any role can create and drop any database | doltgresql `server/ast/create_database.go:103`, `server/ast/drop_database.go:33`, `server/auth/auth_handler.go:86` | tens of lines for the `CREATEDB` check; owner-only `DROP DATABASE` is a design change | no [not reported: security, pending the maintainer] |
+| 6 | any role can create and drop any database | doltgresql `server/ast/create_database.go:103`, `server/ast/drop_database.go:33`, `server/auth/auth_handler.go:86` | tens of lines for the `CREATEDB` check; owner-only `DROP DATABASE` is a design change | no [reported privately by the maintainer to security@dolthub.com, with the self-granted CREATEDB beside it] |
 | 7 | DoltLite's `VACUUM` answers "out of memory" on a large history | doltlite `src/doltlite_gc.c:92-140` and `:274-280` | tens of lines in one file | no; an earlier 2 GB limit, in the rewrite step, was lifted by pull request 1633, which v0.50.9 includes [issue 2820, closed as fixed 2026-09-11 by pull request 2836; in v0.50.10] |
 
 **Read, and checked against the excerpts here:**
@@ -91,10 +96,10 @@ Read on 2026-09-10 in the source at the pinned tags and on both default branches
 
 # Outcome
 
-The maintainer chose the last option, widened: on 2026-09-11 every defect except the sixth was reported to DoltHub, each from a public reproduction repository whose README is the bug report and whose script runs the failing SQL side by side with PostgreSQL 18.6 or SQLite 3.46.1 -- defects 1 to 5 and 7 above, plus ten more findings from the loads that had no draft here, seventeen repositories and sixteen filings in all ([the issues filed](/sources/doltgresql-issues-filed-2026-09-11.md); the `docs/upstream/` index links each). Defect 6 is a security matter: its repository stays private, and whether to write to security@dolthub.com is still the maintainer's call. Nothing is patched or built here; the dialect rules and the marking of uncollected stores stay as they are, and the pins stand ([the DoltgreSQL pin](/decisions/doltgresql-version-pin.md), [the DoltLite pin](/decisions/doltlite-version-pin.md)).
+The maintainer chose the last option, widened: on 2026-09-11 every defect except the sixth was reported to DoltHub, each from a public reproduction repository whose README is the bug report and whose script runs the failing SQL side by side with PostgreSQL 18.6 or SQLite 3.46.1 -- defects 1 to 5 and 7 above, plus ten more findings from the loads that had no draft here, seventeen repositories and sixteen filings in all ([the issues filed](/sources/doltgresql-issues-filed-2026-09-11.md); the `docs/upstream/` index links each). Defect 6 is a security matter: the maintainer reported it privately to security@dolthub.com, with the self-granted `CREATEDB` found beside it, and its repository stays private. Nothing is patched or built here; the dialect rules and the marking of uncollected stores stay as they are, and the pins stand ([the DoltgreSQL pin](/decisions/doltgresql-version-pin.md), [the DoltLite pin](/decisions/doltlite-version-pin.md)).
 
-DoltHub's response, read on 2026-09-12: DoltLite issue 2820 was closed as fixed within eighteen hours and the fix released in v0.50.10 the same evening ([the release](/sources/doltlite-release-v0-50-10.md)); on DoltgreSQL, one fix pull request per issue is open for eleven of the fifteen, none merged, and v1.3.2 (2026-09-12) predates them. Two things follow for this repository, neither decided: whether the DoltLite pin moves to v0.50.10, which would let the nine per-row-commit stores recorded `settled: false` be collected and would make the three largest databases' per-row-commit loads fit on the disk, at the cost of measuring DoltLite's ninety units again; and, later, whether the DoltgreSQL pin moves once a release carries the fixes.
+DoltHub's response, read on 2026-09-12: DoltLite issue 2820 was closed as fixed within eighteen hours and the fix released in v0.50.10 the same evening ([the release](/sources/doltlite-release-v0-50-10.md)); on DoltgreSQL, one fix pull request per issue is open for eleven of the fifteen, none merged, and v1.3.2 (2026-09-12) predates them. The maintainer's word on 2026-09-12: the DoltHub team was grateful for the reports and is working through the rest. Two things followed: the DoltLite version moved to v0.50.10 the same day, under the new rule that every engine is measured on one version per result set and a moved version is measured again in full ([one version per result set](/decisions/engine-versions-one-per-result-set.md)) -- so DoltLite's ninety units are measured again, the nine stores recorded `settled: false` get a `VACUUM` that can collect them, and the three largest databases' per-row-commit loads are expected to fit on the disk; and DoltgreSQL stays at 1.3.1 until a release carries the fixes and the maintainer moves it.
 
 # Status
 
-pending: the maintainer's decision on the DoltLite pin (asked 2026-09-12) and on the security report for defect 6 (asked 2026-09-11); the patch-or-work-around question itself was settled on 2026-09-11 by reporting upstream.
+accepted (2026-09-11, report upstream rather than patch; 2026-09-12, the security report sent privately by the maintainer and the DoltLite version moved to v0.50.10 under [one version per result set](/decisions/engine-versions-one-per-result-set.md)).

@@ -1,6 +1,6 @@
 # DoltgreSQL 1.3.1: a character(n) value keeps its padding through a cast to text
 
-*Found on DoltgreSQL 1.3.1, the version dolt-megasamples pins by image digest (`sha256:6c85cb1f35be…`). It was the newest release on 2026-09-10; no newer release has been tried.*
+*Found on DoltgreSQL 1.3.1, the version dolt-megasamples measures, named by image digest (`sha256:6c85cb1f35be…`, `versions.json`). It was the newest release on 2026-09-10; v1.3.2 (2026-09-12) has not been tried.*
 
 Record: `knowledge/tools/doltgresql-1-3-1.md`.
 

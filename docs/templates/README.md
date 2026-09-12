@@ -31,14 +31,16 @@ The two are separate on purpose. `sql-megasamples` builds the corpus — 21 data
 provenance and their licences — and is useful on its own to anyone who wants realistic sample data
 in MySQL. This repository only measures things, and reads that corpus as its input.
 
-## Pinned versions
+## Versions
 
-Every engine this experiment measures or serves is pinned to one exact version. A newer release is
-never picked up on its own: a pin stays until the maintainer explicitly asks for it to be removed, and
-every number in this document belongs to exactly the versions below. Changing one means changing the
-places named in the table and measuring again; `knowledge/decisions/` records each pin.
+Every number in this document belongs to exactly one version of each engine, the versions below,
+named in `versions.json`. Nothing is pinned and nothing moves on its own: `python3 scripts/versions.py
+--check` says what is newer upstream, and `python3 scripts/versions.py --latest <engine>` moves one
+engine to its newest release. A result set is measured on one version, so a moved version supersedes
+every recorded unit of that engine and the runners measure them all again before its numbers return
+to these tables (`knowledge/decisions/engine-versions-one-per-result-set.md`).
 
-{{block:pinned_versions}}
+{{block:versions}}
 
 ## The tests
 
@@ -138,15 +140,15 @@ way you ask, and both policies produced byte-identical files.
 ## The same question for PostgreSQL and SQLite
 
 sql-megasamples' corpus also runs on PostgreSQL and SQLite (ports verified against the MySQL hub),
-and DoltHub ships a versioned engine for each: **DoltgreSQL {{pairs.doltgres_version}}, pinned,** speaks the
-PostgreSQL wire protocol over Dolt's storage engine; **DoltLite v{{pairs.doltlite_version}}, pinned,** is a
+and DoltHub ships a versioned engine for each: **DoltgreSQL {{pairs.doltgres_version}}** speaks the
+PostgreSQL wire protocol over Dolt's storage engine; **DoltLite v{{pairs.doltlite_version}}** is a
 SQLite fork with a versioned storage engine in place of SQLite's B-tree, in beta. The five tests were
 run again for each pair, from that engine's own dump, with the same measurement rules: every load
 timed around one command in a container that is already up, the settle step timed separately
 (`CHECKPOINT`; `dolt_commit` and `dolt_gc()`; nothing; `dolt_commit` and `VACUUM`), memory sampled
 from the worker's cgroup, and the row counts and index set checked against the source before any
-size is kept. Both versions stay pinned unless the maintainer explicitly asks for a pin to be removed, so every
-number below belongs to exactly these versions; *Pinned versions* above says how each is pinned.
+size is kept. Every number below belongs to exactly these two versions: *Versions* above says how each is
+named, and a moved version means every unit of that engine is measured again before it is shown.
 
 | # | PostgreSQL / DoltgreSQL | SQLite / DoltLite | how the rows are written |
 |---|---|---|---|
@@ -359,7 +361,7 @@ down, and must be while the loads are timed.
 ```sh
 (cd ../sql-megasamples && make compose && docker compose up -d postgres)   # the PostgreSQL source only
 cd ../dolt-megasamples
-make lite-image                          # DoltLite from the pinned release's checksummed packages
+make lite-image                          # DoltLite from the release's checksummed packages (versions.json)
 make export-pairs                        # pg_dump three ways, the SQLite files and their dumps, references
 make preflight-pairs                     # every schema into all four engines, no rows
 (cd ../sql-megasamples && make down)     # nothing else may run while the loads are timed

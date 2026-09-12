@@ -17,7 +17,9 @@
 #   8091  phpMyAdmin   8092  Adminer        8093  DbGate      8094  CloudBeaver
 #   8095  Dolt Workbench (+ 9002, its GraphQL API, which the browser calls directly)
 #
-# Everything binds to 127.0.0.1. Images are pinned by digest.
+# Everything binds to 127.0.0.1. Images are named by digest; the three engines' images come from
+# versions.json (one version per result set): scripts/stack_config.py writes them into
+# compose.override.yaml on every `make up`, so the defaults below only document the current ones.
 #
 # `data/dolt` is written by scripts/load_dolt.py before this stack ever starts, so the image's
 # /docker-entrypoint-initdb.d hook -- which only fires on an empty data directory -- never runs.
@@ -70,10 +72,11 @@ services:
     restart: "no"
 
   # ============================================================================================
-  # PINNED: DoltgreSQL 1.3.1 by digest -- the build every DoltgreSQL number was measured against
-  # The pin stays until the maintainer explicitly asks for it to be removed.
-  # (scripts/pairs.py carries the same digest; knowledge/decisions/doltgresql-version-pin.md says
-  # how to undo the pin: change both, rerun the DoltgreSQL units). Serves the one-shot loads
+  # DoltgreSQL, the build every DoltgreSQL number was measured against: versions.json names it by
+  # digest and compose.override.yaml (written by `make up`) sets it here, so the image line below
+  # is the documented default, not the source. Moving the version (`python3 scripts/versions.py
+  # --latest doltgres`) means every DoltgreSQL unit is measured again: one version per result set
+  # (knowledge/decisions/engine-versions-one-per-result-set.md). Serves the one-shot loads
   # (data/doltgres-oneshot, one repository per database) on 5433, one above sql-megasamples' 5432.
   # ============================================================================================
   doltgres:
@@ -105,14 +108,16 @@ services:
       DEMO_PASSWORD: ${DEMO_PASSWORD:-demo}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
     restart: "no"
-  # PINNED: DoltLite v0.50.9 (the image tag below; scripts/pairs.py says how to change it, which only the
-  # maintainer's explicit request does).
+  # DoltLite, the version every DoltLite number was measured with: versions.json names it, `make
+  # lite-image` builds the image from its checksummed packages, and compose.override.yaml sets the
+  # tag here on every `make up` (the line below is the documented default). Moving the version means
+  # every DoltLite unit is measured again: one version per result set.
   # DoltLite has no server: the files of the one-shot loads (data/doltlite-oneshot/<db>.doltlite)
-  # and the doltlite shell, in the image `make lite-image` builds from the pinned v0.50.9 packages.
+  # and the doltlite shell, in the image `make lite-image` builds.
   # Use it with `docker exec -it doltsamples-doltlite doltlite /data/sakila.doltlite`, or copy a
   # file out; no web console reads a DoltLite file, since it is not SQLite pages.
   doltlite:
-    image: doltsamples-doltlite:0.50.9
+    image: doltsamples-doltlite:0.50.10
     mem_limit: 512m
     container_name: doltsamples-doltlite
     volumes:

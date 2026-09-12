@@ -24,7 +24,8 @@ help:
 	@echo "make preflight  load every schema into both engines before running the loads"
 	@echo ""
 	@echo "The PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs (scripts/pairs.py):"
-	@echo "make lite-image     build the DoltLite image from the pinned .deb packages (checksummed)"
+	@echo "make lite-image     build the DoltLite image from the .deb packages versions.json names (checksummed)"
+	@echo "make versions       what is newer upstream than versions.json (one version per result set)"
 	@echo "make export-pairs   pg_dump every database out of sql-megasamples PostgreSQL; copy and dump its SQLite files"
 	@echo "make preflight-pairs  every schema into PostgreSQL, DoltgreSQL, SQLite and DoltLite; what each refuses"
 	@echo "make run-pg | run-lite  the five timed loads of a pair (ARGS=\"--only sakila --indexes inline\")"
@@ -177,6 +178,9 @@ summary:
 	@$(PY) scripts/summary.py
 
 # ---------------------------------------------------------------- the two further pairs ---
+versions:
+	@$(PY) scripts/versions.py --check
+
 lite-image:
 	@$(PY) scripts/lite_image.py
 export-postgres:

@@ -1,6 +1,6 @@
 # DoltgreSQL 1.3.1: a table with a STORED generated column accepts one alteration, then refuses every row
 
-*Found on DoltgreSQL 1.3.1, the version dolt-megasamples pins by image digest (`sha256:6c85cb1f35be…`). It was the newest release on 2026-09-10; no newer release has been tried.*
+*Found on DoltgreSQL 1.3.1, the version dolt-megasamples measures, named by image digest (`sha256:6c85cb1f35be…`, `versions.json`). It was the newest release on 2026-09-10; v1.3.2 (2026-09-12) has not been tried.*
 
 Record: `knowledge/tools/doltgresql-1-3-1.md`, `knowledge/questions/doltgresql-generated-column-alteration.md`.
 

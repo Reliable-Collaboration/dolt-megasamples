@@ -22,7 +22,7 @@ disagrees with which. They are cheap; run them after every run.
 import argparse, json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import DUMPS, ROOT, human, load_results  # noqa: E402
+from common import DUMPS, ROOT, human, load_results, version_of  # noqa: E402
 
 MEMORY = os.path.join(ROOT, "build", "memory.json")
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
@@ -221,12 +221,15 @@ def pair_settles_reported(a, results):
                         for v in results.values() for entries in (v.get("pairs") or {}).values()
                         if isinstance(entries, dict) for e in entries.values() if isinstance(e, dict)),
                        default=0)
+    from pairs import ENGINE
     for key, u in sorted((p.get("units") or {}).items()):
-        # only the units the collector reports: one taken with an older method is withdrawn, not shown
+        # only the units the collector reports: one taken with an older method, or on another version
+        # of its engine, is withdrawn, not shown
+        parts = key.split("/")
         if (not u.get("pair") or u.get("status") != "done" or u.get("method") != METHOD
+                or parts[0] not in ENGINE or u.get("engine_version") != version_of(ENGINE[parts[0]])
                 or not settle_failed(u)):
             continue
-        parts = key.split("/")
         name = parts[0] + ("_inline" if parts[2:] == ["inline"] else "")
         if (u.get("finished") or 0) > folded_until:
             a.skip(f"{parts[1]} {name}: its failed settle step is reported as unsettled",

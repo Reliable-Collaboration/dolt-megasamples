@@ -117,11 +117,11 @@ the dialects and the stack) is the recommended way to keep the evidence reviewab
 
 1. **Scope of the per-row-commit shape**: the quick subset first (`make -C ../sql-megasamples
    list-quick`, 15 databases), the remaining databases once the quick subset is sound.
-2. **The pins**: DoltgreSQL 1.3.1 by image digest, marked PINNED in `scripts/pairs.py` and
-   `compose.yaml` with the undo path beside it ([decision](knowledge/decisions/doltgresql-version-pin.md));
-   DoltLite v0.50.9 from its checksummed `.deb` packages, built into an image here
-   (`make lite-image`), never pushed. Both stay pinned unless the maintainer explicitly asks for a pin to be
-   removed, and every document marks them as pinned (decided 2026-09-10).
+2. **The versions**: DoltgreSQL 1.3.1 by image digest; DoltLite from its checksummed `.deb` packages,
+   built into an image here (`make lite-image`), never pushed. First as pins (decided 2026-09-10,
+   [DoltgreSQL](knowledge/decisions/doltgresql-version-pin.md), [DoltLite](knowledge/decisions/doltlite-version-pin.md)),
+   then, from 2026-09-12, under the rule in decision 8 below: `versions.json` names every engine's version,
+   nothing is pinned, and a moved version is measured again in full.
 3. **A knowledge bundle here**, in the sql-megasamples form: `knowledge/` (tool, source, decision
    and question records; `make okf-check`).
 4. **What "the same file" means for DoltLite**: the dump replayed into a DoltLite-format database
@@ -138,9 +138,14 @@ the dialects and the stack) is the recommended way to keep the evidence reviewab
    [stood-up instances](knowledge/decisions/stood-up-instances.md).
 7. **The engine defects are reported upstream, not patched here** (2026-09-11): one public reproduction
    repository per finding, side by side with PostgreSQL or SQLite, and an issue on each; the
-   database-privilege gap stays private as a security matter. The pins stand; DoltLite's fix shipped in
-   v0.50.10 the same day and whether the pin moves is open
-   ([patch or work around](knowledge/decisions/engine-bugs-patch-or-work-around.md)).
+   database-privilege gap went privately to security@dolthub.com from the maintainer. DoltHub answered
+   within a day -- the DoltLite fix shipped in v0.50.10, eleven DoltgreSQL fix pull requests are open
+   ([patch, work around or report](knowledge/decisions/engine-bugs-patch-or-work-around.md)).
+8. **One version per result set, and no pins** (2026-09-12): `versions.json` names the version of every
+   engine; `scripts/versions.py --latest` moves one; a moved version supersedes every recorded unit of that
+   engine and the runners measure them all again (`--accept-version-change`). Applied at once to DoltLite,
+   v0.50.9 to v0.50.10, every DoltLite unit measured again; Dolt 2.3.2 and DoltgreSQL 1.3.1 stay the versions
+   of their result sets ([decision](knowledge/decisions/engine-versions-one-per-result-set.md)).
 
 What the first phase found, and how the loads are shaped and measured, is recorded in
 [knowledge/decisions/pair-dialect-rules.md](knowledge/decisions/pair-dialect-rules.md) and

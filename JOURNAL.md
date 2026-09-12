@@ -218,14 +218,14 @@ disagrees with the measurements cannot survive a regeneration.
 
 The corpus runs on PostgreSQL and SQLite as well, and DoltHub ships a versioned engine for each,
 so the five tests were run again for the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs
-(2 and 2 databases with the one-commit load on both
+(18 and [not measured] databases with the one-commit load on both
 engines so far). What was learned before a row was loaded is in `knowledge/` -- every fact about
 the two engines with the source it was read in or the command that produced it -- and the short
 version is this.
 
-**Both new engines are pinned**: DoltgreSQL 1.3.1 by image digest and DoltLite
-v0.50.9 by the checksums of its packages. Neither moves to a newer release unless the
-maintainer explicitly asks, so everything below describes exactly those versions.
+**One version per result set**: DoltgreSQL 1.3.1, named by image digest, and DoltLite
+v0.50.10, named by the checksums of its packages (`versions.json`). Neither moves on its own;
+when one does, every unit of that engine is measured again, so everything below describes exactly those versions.
 
 **What the engines refused decided the method.** DoltgreSQL 1.3.1 takes
 pg_dump's output as its README promises, with four exceptions found by refusal: no GIN index (the
@@ -234,7 +234,7 @@ re-serialises into text it cannot parse back -- a `CHECK` calling `regexp_like` 
 from the start, and a table with a `STORED` generated column refuses every row after its first
 alteration. The first two are recorded as objects not taken; the last two became dialect rules,
 because the alternative was two databases with no DoltgreSQL number at all. DoltLite
-v0.50.9 refused nothing of the dump but needed two things reordered: every table
+v0.50.10 refused nothing of the dump but needed two things reordered: every table
 before the first row, because it will not commit a table whose foreign key names a table that does
 not exist yet; and the virtual-table registration `.dump` writes into `sqlite_schema`, which both
 engines accept only inside the dump's own transaction. Both rules apply to both engines of the pair.

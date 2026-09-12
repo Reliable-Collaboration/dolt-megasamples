@@ -15,7 +15,7 @@ SQL. Comparing Dolt against the image was comparing against a differently-built 
 import json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, human, load_results, save_results  # noqa: E402
+from common import ROOT, human, load_results, save_results, version_of  # noqa: E402
 
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
 # progress key -> where it lands in results.json
@@ -31,6 +31,10 @@ def main():
     counted = 0
     for key, u in p["units"].items():
         if u.get("status") != "done":
+            continue
+        # one version per result set: a unit measured on another version of its engine is not folded
+        # until it is measured again on the version versions.json names
+        if u.get("engine_version") != version_of("mysql" if key.startswith("mysql") else "dolt"):
             continue
         # `dolt_rowcommit/chinook/inline` is one unit of one database, not a database called
         # "chinook/inline". The index policy is a suffix on the key, so split it off first.

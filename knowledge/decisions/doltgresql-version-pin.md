@@ -7,7 +7,7 @@ tags:
 - doltgresql
 - pin
 - decision
-status: stable
+status: deprecated
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
@@ -49,4 +49,4 @@ Pinned by digest in two places, each under a banner that says PINNED, why, and h
 
 # Status
 
-accepted (2026-09-10; user decision: "Pin Doltgres on the current most recent release but mark that clearly so we can undo it later").
+superseded-by [one version per result set, and no pins](/decisions/engine-versions-one-per-result-set.md) (deprecated 2026-09-12) -- the maintainer's rule of 2026-09-12 replaces the pin. DoltgreSQL stays at 1.3.1 for this result set (every unit is on it; v1.3.2 carries none of the reported fixes); moving it is one command and measures every DoltgreSQL unit again. Kept as the record of why 1.3.1 was held and how the digest was found.

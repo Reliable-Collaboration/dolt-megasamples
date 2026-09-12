@@ -41,9 +41,49 @@ MYSQL_CONTAINER = os.environ.get("MEGASAMPLES_CONTAINER", "megasamples-mysql")
 # the MySQL image sql-megasamples builds; MEGASAMPLES_DIR is that repository's checkout
 MYSQL_IMAGE = os.environ.get("MEGASAMPLES_MYSQL_IMAGE", "sql-megasamples-mysql:dev")
 MEGASAMPLES_DIR = os.environ.get("MEGASAMPLES_DIR", os.path.join(os.path.dirname(ROOT), "sql-megasamples"))
-DOLT_IMAGE = os.environ.get(
-    "DOLT_IMAGE",
-    "dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6")
+# ------------------------------------------------------------- engine versions ---
+# One version per result set (the maintainer's rule, 2026-09-12). versions.json names the exact
+# version of every engine the numbers belong to -- Dolt by image digest here, DoltgreSQL and
+# PostgreSQL by digest and DoltLite by package checksums in pairs.py. Nothing is pinned: `python3
+# scripts/versions.py --latest <engine>` moves an engine to its newest release. But a moved version
+# supersedes every recorded unit of that engine, and the runners measure them all again, because
+# numbers taken on two versions of one engine are not one result set (version_gate below).
+# The decision: knowledge/decisions/engine-versions-one-per-result-set.md.
+VERSIONS_PATH = os.path.join(ROOT, "versions.json")
+VERSIONS = json.load(open(VERSIONS_PATH, encoding="utf-8"))
+DOLT_VERSION = VERSIONS["dolt"]["version"]
+DOLT_IMAGE = os.environ.get("DOLT_IMAGE", VERSIONS["dolt"]["image"])
+
+
+def version_of(engine):
+    """The version of the result set for an engine: mysql, dolt, postgres, doltgres, sqlite, doltlite."""
+    return VERSIONS[engine]["version"]
+
+
+def version_gate(scope, units, accept, flag="--accept-version-change"):
+    """Refuse to add to a result set measured on another version of an engine, unless told to start over.
+
+    `scope` is [(key, engine)] for the units this run would measure; a unit recorded `done` with an
+    engine_version other than versions.json's (or none) is stale. With `accept` false the run stops
+    before anything is written, naming every stale unit; with it true the caller supersedes and
+    measures them again. Returns {engine: [(key, recorded version)]}."""
+    stale = {}
+    for key, engine in scope:
+        u = units.get(key) or {}
+        if u.get("status") == "done" and u.get("engine_version") != version_of(engine):
+            stale.setdefault(engine, []).append((key, u.get("engine_version") or "no version recorded"))
+    if stale and not accept:
+        lines = []
+        for engine, items in stale.items():
+            was = sorted({v for _, v in items})
+            lines.append(f"  {engine}: {len(items)} unit(s) measured with version {', '.join(was)}; "
+                         f"versions.json now says {version_of(engine)}")
+        sys.exit("A result set is measured on one version of each engine, and these units were not:\n"
+                 + "\n".join(lines)
+                 + f"\n\nNothing was changed. Pass {flag} to measure every one of them again on the current "
+                   f"version (their records are kept under `superseded` in build/progress.json), or put "
+                   f"versions.json back to the version they were measured with.")
+    return stale
 
 # ---------------------------------------------------------------------- memory ---
 # WSL2 gave this host 15.5 GB and ran out of it. Nothing here was bounded: the loads created a

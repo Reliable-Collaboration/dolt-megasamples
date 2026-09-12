@@ -172,45 +172,42 @@ def memory_table(results, pair):
     return "\n".join(L)
 
 
-def pinned_table():
-    """Every engine this repository measures or serves, the one version it is pinned to, how, and where
-    the pin is written -- read from the pins themselves and from build/environment.json, so the table
-    cannot drift from what is measured. The pins stay until the maintainer explicitly asks for one to
-    be removed (2026-09-10)."""
+def versions_table():
+    """Every engine this repository measures or serves, the one version its numbers belong to, since
+    when, how the version is named, and what the image itself answers -- read from versions.json and
+    build/environment.json, so the table cannot drift from what is measured. One version per result
+    set (2026-09-12): a moved version means every unit of that engine is measured again."""
     import json, os, re
-    from common import DOLT_IMAGE, ROOT
-    from pairs import DOLTGRES_IMAGE, DOLTGRES_VERSION, LITE_VERSION, POSTGRES_IMAGE
+    from common import ROOT, VERSIONS
     env = {}
     path = os.path.join(ROOT, "build", "environment.json")
     if os.path.exists(path):
         env = (json.load(open(path, encoding="utf-8")).get("engines") or {})
 
-    def number(text, fallback="not recorded"):
-        m = re.search(r"\d+\.\d+(?:\.\d+)?", text or "")
-        return m.group(0) if m else fallback
-
     def short(image):
-        name, _, digest = image.partition("@")
-        return f"{name}@{digest[:19]}…" if digest else image
+        name, _, digest = (image or "").partition("@")
+        return f"`{name}@{digest[:19]}…`" if digest else (f"`{image}`" if image else "")
+
+    def answered(text):
+        return (text or "not recorded").replace("|", "\\|")
 
     dockerfile = open(os.path.join(ROOT, "docker", "doltlite", "Dockerfile"), encoding="utf-8").read()
     base = re.search(r"^FROM (\S+)", dockerfile, re.M)
-    mysql_image = env.get("mysql_image") or "mysql:9.7.2"
     rows = [
-        ("MySQL", number(env.get("mysql_version"), number(mysql_image)), f"image tag `{mysql_image}`",
-         "`scripts/run_all.py`"),
-        ("Dolt", number(env.get("dolt_version")), f"image digest `{short(DOLT_IMAGE)}`",
-         "`scripts/common.py`, `compose.yaml`"),
-        ("PostgreSQL", number(env.get("postgres_version")), f"image digest `{short(POSTGRES_IMAGE)}`",
-         "`scripts/pairs.py`"),
-        ("DoltgreSQL", DOLTGRES_VERSION, f"image digest `{short(DOLTGRES_IMAGE)}`",
-         "`scripts/pairs.py`, `compose.yaml`"),
-        ("SQLite shell", number(env.get("sqlite3_version")),
-         f"Debian 13's package, inside the base image `{short(base.group(1)) if base else 'debian:13-slim'}`",
-         "`docker/doltlite/Dockerfile`"),
-        ("DoltLite", f"v{LITE_VERSION}", "the release's two .deb packages, checked by SHA-256 before the image is built",
-         "`scripts/pairs.py`, `docker/doltlite/Dockerfile`, `compose.yaml`"),
+        ("MySQL", "mysql", short(VERSIONS["mysql"]["image"]), env.get("mysql_version")),
+        ("Dolt", "dolt", short(VERSIONS["dolt"]["image"]), env.get("dolt_version")),
+        ("PostgreSQL", "postgres", short(VERSIONS["postgres"]["image"]), env.get("postgres_version")),
+        ("DoltgreSQL", "doltgres", short(VERSIONS["doltgres"]["image"]), f"release {env.get('doltgres_version', 'not recorded')}"),
+        ("SQLite shell", "sqlite", f"Debian 13's package in {short(base.group(1)) if base else '`debian:13-slim`'}",
+         env.get("sqlite3_version")),
+        ("DoltLite", "doltlite", ", ".join(f"`{pkg['name']}` sha256 `{pkg['sha256'][:12]}…`"
+                                           for pkg in VERSIONS["doltlite"]["packages"]),
+         env.get("doltlite_version")),
     ]
-    L = ["| engine | pinned version | pinned by | where the pin is written |", "|---|---|---|---|"]
-    L += [f"| {e} | **{v}**, pinned | {how} | {where} |" for e, v, how, where in rows]
+    L = ["| engine | version of this result set | since | named by | what the image answers |",
+         "|---|---|---|---|---|"]
+    for label, key, named, observed in rows:
+        v = VERSIONS[key]
+        L.append(f"| {label} | **{v['version']}** | {v['since']} | {named} | {answered(observed)} |")
     return "\n".join(L)
+
