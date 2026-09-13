@@ -146,6 +146,13 @@ the dialects and the stack) is the recommended way to keep the evidence reviewab
    engine and the runners measure them all again (`--accept-version-change`). Applied at once to DoltLite,
    v0.50.9 to v0.50.10, every DoltLite unit measured again; Dolt 2.3.2 and DoltgreSQL 1.3.1 stay the versions
    of their result sets ([decision](knowledge/decisions/engine-versions-one-per-result-set.md)).
+9. **No concurrent load shape** (2026-09-13): a spike with 16 connections and a commit per row made Dolt and
+   DoltgreSQL slower, not faster, while every commit still held one row; the per-row-commit loads stay
+   single-stream ([the question](knowledge/questions/concurrent-commits-per-row.md),
+   `scripts/spike_concurrent_commits.py`).
+10. **DoltgreSQL moves to its newest release once every DoltLite unit is measured** (2026-09-13), then every
+   DoltgreSQL unit is measured again; Dolt is not measured again, since no fix was waited on
+   (`build/run-chain-v6.sh` runs that order).
 
 What the first phase found, and how the loads are shaped and measured, is recorded in
 [knowledge/decisions/pair-dialect-rules.md](knowledge/decisions/pair-dialect-rules.md) and

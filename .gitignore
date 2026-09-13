@@ -27,3 +27,5 @@ compose.override.yaml
 docker/workbench/store/
 # what the stack serves, written by scripts/stack_config.py
 build/serve.json
+build/spike-concurrent/*.sql
+build/spike-concurrent/run.log

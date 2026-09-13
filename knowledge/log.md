@@ -1,5 +1,9 @@
 # Log
 
+## 2026-09-13
+
+* **Creation**: [concurrent commits per row](/questions/concurrent-commits-per-row.md), answered by a spike the maintainer asked for -- with a commit per row, 16 connections make Dolt 0.66x and DoltgreSQL 0.92x as fast as one on dvdstore (0.33x on sakila), at 2.5x the memory and twice the store, while MySQL and PostgreSQL scale 3x to 13x; every commit still holds one row on one branch, because `DOLT_COMMIT` in an explicit transaction commits both at once. No sixth load shape. Script: `scripts/spike_concurrent_commits.py`, results in `build/spike-concurrent/`. The measurement run was paused at a unit boundary for the 1 h 40 min it took and resumed with the maintainer's order: every DoltLite unit first, then DoltgreSQL moved to its newest release and measured again in full; Dolt stays.
+
 ## 2026-09-12
 
 * **Creation**: [one version per result set, and no pins](/decisions/engine-versions-one-per-result-set.md) -- the maintainer's rule replacing the two pins: `versions.json` names every engine's version, every unit records it, both runners refuse to mix versions and measure a moved engine again in full (`--accept-version-change`), `scripts/versions.py` checks upstream and moves one engine, the stack serves the version in `versions.json`. Applied at once: DoltLite v0.50.9 to v0.50.10, every DoltLite unit superseded and measured again. [The DoltLite pin](/decisions/doltlite-version-pin.md) and [the DoltgreSQL pin](/decisions/doltgresql-version-pin.md) deprecated; [the dialect rules](/decisions/pair-dialect-rules.md), [the load shapes](/decisions/pair-load-shapes-and-measurement.md), [stood-up instances](/decisions/stood-up-instances.md) and [running the pairs](/runbooks/pairs-run.md) say so; every document says *Versions* where it said *Pinned versions*.
