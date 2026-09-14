@@ -29,3 +29,4 @@ docker/workbench/store/
 build/serve.json
 build/spike-concurrent/*.sql
 build/spike-concurrent/run.log
+build/skip-*
