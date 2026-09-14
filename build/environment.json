@@ -7,8 +7,8 @@
     "dolt_flags": [],
     "dolt_image": "dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6",
     "dolt_version": "dolt version 2.3.2",
-    "doltgres_image": "dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851",
-    "doltgres_version": "1.3.1",
+    "doltgres_image": "dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae",
+    "doltgres_version": "1.3.2",
     "doltlite_image": "doltsamples-doltlite:0.50.10",
     "doltlite_version": "DoltLite v0.50.10 (SQLite 3.54.0, 64-bit)",
     "mysql_flags": [
@@ -25,7 +25,7 @@
   "host": {
     "cpu": "Intel(R) Core(TM) i9-14900KF",
     "cpu_threads": 32,
-    "disk_free_at_capture": "637.3 GiB",
+    "disk_free_at_capture": "464.1 GiB",
     "disk_total": "1,510.8 GiB",
     "filesystem": "ext4",
     "kernel": "6.18.33.2-microsoft-standard-WSL2",
@@ -41,10 +41,10 @@
       "version": "2.3.2"
     },
     "doltgres": {
-      "image": "dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851",
+      "image": "dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae",
       "named_by": "image digest",
-      "since": "2026-09-10",
-      "version": "1.3.1"
+      "since": "2026-09-14",
+      "version": "1.3.2"
     },
     "doltlite": {
       "named_by": "the SHA-256 of the release's two Debian packages, checked before the image is built",

@@ -218,16 +218,16 @@ disagrees with the measurements cannot survive a regeneration.
 
 The corpus runs on PostgreSQL and SQLite as well, and DoltHub ships a versioned engine for each,
 so the five tests were run again for the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs
-(18 and [not measured] databases with the one-commit load on both
+(13 and 21 databases with the one-commit load on both
 engines so far). What was learned before a row was loaded is in `knowledge/` -- every fact about
 the two engines with the source it was read in or the command that produced it -- and the short
 version is this.
 
-**One version per result set**: DoltgreSQL 1.3.1, named by image digest, and DoltLite
+**One version per result set**: DoltgreSQL 1.3.2, named by image digest, and DoltLite
 v0.50.10, named by the checksums of its packages (`versions.json`). Neither moves on its own;
 when one does, every unit of that engine is measured again, so everything below describes exactly those versions.
 
-**What the engines refused decided the method.** DoltgreSQL 1.3.1 takes
+**What the engines refused decided the method.** DoltgreSQL 1.3.2 takes
 pg_dump's output as its README promises, with four exceptions found by refusal: no GIN index (the
 full-text index of the port), no `xpath`, no `JSON_TABLE`, and two shapes of stored expression it
 re-serialises into text it cannot parse back -- a `CHECK` calling `regexp_like` refuses every row

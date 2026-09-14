@@ -80,7 +80,7 @@ services:
   # (data/doltgres-oneshot, one repository per database) on 5433, one above sql-megasamples' 5432.
   # ============================================================================================
   doltgres:
-    image: dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851
+    image: dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae
     mem_limit: 1536m
     container_name: doltsamples-doltgres
     ports: ["127.0.0.1:5433:5432"]
@@ -95,7 +95,7 @@ services:
       retries: 30
     restart: unless-stopped
   doltgres-init:
-    image: dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851
+    image: dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae
     mem_limit: 256m
     container_name: doltsamples-doltgres-init
     depends_on: { doltgres: { condition: service_healthy } }

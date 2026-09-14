@@ -561,8 +561,23 @@ def compare(ref, got, dropped=()):
     dropped = set(dropped)
     want_idx = {canonical_index(i) for i in ref["indexes"] if i.split("|")[1] not in dropped}
     got_idx = {canonical_index(i) for i in got["indexes"]}
-    report = {"missing": sorted(want_idx - got_idx), "extra": sorted(got_idx - want_idx),
+    missing, extra = want_idx - got_idx, got_idx - want_idx
+    # DoltgreSQL 1.3.2 prints `nulls first` after a uuid column in pg_indexes.indexdef where PostgreSQL
+    # prints nothing (adventureworks_lt's eight unique rowguid indexes, 2026-09-14; 1.3.1 printed none).
+    # The index exists with the same columns, uniqueness and method, so it is not missing; the
+    # difference in what the catalog says is kept under ordering_differs, not hidden.
+    strip = lambda e: re.sub(r" nulls (first|last)\b", "", e)
+    differs = []
+    for w in sorted(missing):
+        twin = next((g for g in extra if strip(g) == strip(w)), None)
+        if twin is not None:
+            missing.discard(w)
+            extra.discard(twin)
+            differs.append(f"{w.split('|')[1]}: expected {w.split('|', 2)[2]}, got {twin.split('|', 2)[2]}")
+    report = {"missing": sorted(missing), "extra": sorted(extra),
               "dropped_by_dialect": sorted(dropped), "checked": len(want_idx)}
+    if differs:
+        report["ordering_differs"] = differs
     extra_tables = sorted(set(got["rows"]) - set(ref["rows"]))
     if extra_tables:
         report["extra_tables"] = extra_tables
@@ -647,6 +662,9 @@ def finish(outcome, errors, ref, got, dropped):
     report["missing"] = [i for i in report["missing"] if i.split("|")[1] not in refused]
     report["refused"] = {i: refused[i.split("|")[1]][:160] for i in explained}
     outcome["index_parity"] = report
+    if report.get("ordering_differs"):
+        outcome["notes"].append(f"{len(report['ordering_differs'])} index definition(s) read back with a null ordering "
+                                f"the source does not print: " + report["ordering_differs"][0][:120])
     outcome["objects"] = got.get("objects")
     settle = [e["message"] for e in errors if settle_error(e)]
     # A store whose garbage collection failed holds every row (the checks below still apply) but

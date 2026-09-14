@@ -77,6 +77,7 @@ def folded(phase, u, suffix):
         "indexes_refused": sorted(i.split("|")[1] for i in parity.get("refused", {})),
         "indexes_dropped": parity.get("dropped_by_dialect", []),
         "indexes_extra": parity.get("extra", []),
+        "indexes_ordering_differs": parity.get("ordering_differs", []),
         "notes": u.get("notes", []),
         "indexes_deferred": suffix == "",
         "method": u.get("method"),
