@@ -2,7 +2,7 @@
 
 ## 2026-09-15
 
-* **Update**: [DoltLite v0.50.10](/tools/doltlite-0-50-10.md) -- `VACUUM` still fails, instantly, on employees' per-row-commit store (3.9M commits, 341 GB) while every other store collected, up to 438 GB and 1.06M commits; read in the source, the fix bounded the mark queue but the materialised index, the marked-chunk set and the checkpoint page remain 2 GiB allocations, a ceiling of about 33.5 million chunks. Filed as dolthub/doltlite issue 2936 on the maintainer's word; the `docs/upstream/` index lists it.
+* **Update**: [DoltLite v0.50.10](/tools/doltlite-0-50-10.md) -- `VACUUM` still fails, instantly, on employees' per-row-commit store (3.9M commits, 341 GB) while every other store collected, up to 438 GB and 1.06M commits; read in the source, the fix bounded the mark queue but the materialised index, the marked-chunk set and the checkpoint page remain 2 GiB allocations, a ceiling of about 33.5 million chunks. Filed as dolthub/doltlite issue 2936 on the maintainer's word; the `docs/upstream/` index lists it. DoltHub answered within two hours with pull request 2944; the 341 GB file was then deleted on the maintainer's word, the measurement kept.
 
 ## 2026-09-13
 

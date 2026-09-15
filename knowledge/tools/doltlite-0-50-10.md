@@ -11,7 +11,7 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-15T15:00:00Z"
+  at: "2026-09-15T17:00:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-12T23:20:00Z"
@@ -31,6 +31,9 @@ sources:
 - resource: https://github.com/dolthub/doltlite/issues/2936
   title: Issue 2936, VACUUM still answers "out of memory" at 3.9 million commits on v0.50.10, filed from this repository
   accessed: "2026-09-15"
+- resource: https://github.com/dolthub/doltlite/pull/2944
+  title: Pull request 2944, Scale GC marking with segmented bitmaps, DoltHub's fix for issue 2936, open
+  accessed: "2026-09-15"
 ---
 
 # Facts
@@ -41,7 +44,7 @@ sources:
 
 # Limits
 
-* **`VACUUM` still fails on the largest per-row-commit store.** employees' per-row-commit load with deferred indexes (3,919,015 commits, 341 GB) answered `Error in 2nd command line argument: out of memory` 2.3 s into its settle step, with the engine at 2.9 GiB (2026-09-14), while every other per-row-commit store collected -- up to oracle_sh's inline file, 438 GB and 1,063,396 commits, 64 min, 22.5 million chunks after collection. Read in the v0.50.10 source on 2026-09-15: pull request 2836 bounded only the mark queue; the materialised chunk index (`src/chunk_index.c:455`, `src/doltlite_gc.c:603` and `:753`, 32 bytes an entry, about 67.1 million chunks), the marked-chunk hash set (`src/prolly_hashset.c:23` and `:93`, 20-byte slots, a power of two grown at half full, so 2^25 = 33.5 million chunks) and the checkpoint index page (`src/chunk_wal.c:1236`, an `int`-sized allocation) are each capped at 2 GiB, and a failure within 2.3 s is one of the first two, before any traversal. The limit is therefore a chunk count of about 33.5 million, not a file size or a commit count; which allocation fired was not determined. Reported as dolthub/doltlite issue 2936 on 2026-09-15 with these numbers and lines. The unit is kept with `settled: false`; its inline twin was not run, its working file being beyond this disk.
+* **`VACUUM` still fails on the largest per-row-commit store.** employees' per-row-commit load with deferred indexes (3,919,015 commits, 341 GB) answered `Error in 2nd command line argument: out of memory` 2.3 s into its settle step, with the engine at 2.9 GiB (2026-09-14), while every other per-row-commit store collected -- up to oracle_sh's inline file, 438 GB and 1,063,396 commits, 64 min, 22.5 million chunks after collection. Read in the v0.50.10 source on 2026-09-15: pull request 2836 bounded only the mark queue; the materialised chunk index (`src/chunk_index.c:455`, `src/doltlite_gc.c:603` and `:753`, 32 bytes an entry, about 67.1 million chunks), the marked-chunk hash set (`src/prolly_hashset.c:23` and `:93`, 20-byte slots, a power of two grown at half full, so 2^25 = 33.5 million chunks) and the checkpoint index page (`src/chunk_wal.c:1236`, an `int`-sized allocation) are each capped at 2 GiB, and a failure within 2.3 s is one of the first two, before any traversal. The limit is therefore a chunk count of about 33.5 million, not a file size or a commit count; which allocation fired was not determined. Reported as dolthub/doltlite issue 2936 on 2026-09-15 with these numbers and lines; within two hours DoltHub had pull request 2940 (closed) and then 2944, "Scale GC marking with segmented bitmaps", open against it. The unit is kept with `settled: false`; the 341 GB file itself was deleted on 2026-09-15 on the maintainer's decision, the fix being in review, so the memory study skips that store; its inline twin was not run, its working file being beyond this disk.
 * **What the loads have not yet shown.** The dialect rules, the durability behaviour and the size and time figures recorded for v0.50.9 ([DoltLite v0.50.9](/tools/doltlite-0-50-9.md)) were not re-verified one by one on this version before the loads ran again; the loads are the re-verification, unit by unit, and every refusal is recorded per unit as before. This record gains an **Update** when the DoltLite result set on v0.50.10 is complete.
 
 # Decision
