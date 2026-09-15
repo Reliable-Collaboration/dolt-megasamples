@@ -1,5 +1,9 @@
 # Log
 
+## 2026-09-15
+
+* **Update**: [DoltLite v0.50.10](/tools/doltlite-0-50-10.md) -- `VACUUM` still fails, instantly, on employees' per-row-commit store (3.9M commits, 341 GB) while every other store collected, up to 438 GB and 1.06M commits; read in the source, the fix bounded the mark queue but the materialised index, the marked-chunk set and the checkpoint page remain 2 GiB allocations, a ceiling of about 33.5 million chunks. Filed as dolthub/doltlite issue 2936 on the maintainer's word; the `docs/upstream/` index lists it.
+
 ## 2026-09-13
 
 * **Creation**: [concurrent commits per row](/questions/concurrent-commits-per-row.md), answered by a spike the maintainer asked for -- with a commit per row, 16 connections make Dolt 0.66x and DoltgreSQL 0.92x as fast as one on dvdstore (0.33x on sakila), at 2.5x the memory and twice the store, while MySQL and PostgreSQL scale 3x to 13x; every commit still holds one row on one branch, because `DOLT_COMMIT` in an explicit transaction commits both at once. No sixth load shape. Script: `scripts/spike_concurrent_commits.py`, results in `build/spike-concurrent/`. The measurement run was paused at a unit boundary for the 1 h 40 min it took and resumed with the maintainer's order: every DoltLite unit first, then DoltgreSQL moved to its newest release and measured again in full; Dolt stays.

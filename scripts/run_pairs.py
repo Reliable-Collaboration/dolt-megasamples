@@ -24,7 +24,7 @@ The loads themselves, the settle steps and the checks are in pairs.py.
 import argparse, json, os, shutil, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, human, run, run_lock, version_gate, version_of  # noqa: E402
+from common import MEM_WORKER, ROOT, human, run, run_lock, version_gate, version_of  # noqa: E402
 from pairs import (ENGINE, LABEL, METHOD, PER_ROW, PHASES, WORKERS, committed_rows, exported,  # noqa: E402
                    load)
 from run_all import PROGRESS, fingerprint, note, save_progress  # noqa: E402
@@ -146,7 +146,7 @@ def main():
             p.setdefault("superseded", {}).setdefault(key, dict(old, superseded=why))
         note(p, key, replace=True, status="running", started=time.time(), phase=phase, database=db,
              indexes=a.indexes, pair=a.pair, engine=ENGINE[phase], engine_version=version_of(ENGINE[phase]),
-             label=LABEL[phase], source_rows=rows[db], method=METHOD)
+             label=LABEL[phase], source_rows=rows[db], method=METHOD, memory_cap=MEM_WORKER)
         started = time.time()
         try:
             res = load(db, phase, a.indexes)

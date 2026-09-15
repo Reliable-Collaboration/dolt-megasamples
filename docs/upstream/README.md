@@ -40,6 +40,7 @@ reproduction repository (`repro-doltgresql-bug-<name>`):
 | full-text search functions and `@@` missing | `text-search-operator` | [#3335](https://github.com/dolthub/doltgresql/issues/3335) | open, no pull request |
 | `xml` type and `xpath()` missing | `xpath` | [#3337](https://github.com/dolthub/doltgresql/issues/3337) | open, no pull request |
 | UPDATE reports the wrong row count | `update-row-count` | comment on existing [#3113](https://github.com/dolthub/doltgresql/issues/3113) | open |
+| DoltLite 0.50.10: `VACUUM` still fails at 3.9M commits, three allocations capped at 2 GiB (found by the loads, no repository) | — | [doltlite#2936](https://github.com/dolthub/doltlite/issues/2936) | filed 2026-09-15 |
 
 The reading of the issues and pull requests behind these tables: `knowledge/sources/doltgresql-issues-filed-2026-09-11.md`
 and `knowledge/sources/doltlite-release-v0-50-10.md`. Where each defect lives in the source, how large a fix would be,
