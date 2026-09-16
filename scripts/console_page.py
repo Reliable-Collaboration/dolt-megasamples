@@ -107,7 +107,14 @@ def main():
     items = [(db, r, sizes(r)) for db, r in sorted(results.items())]
     items = [(db, r, s) for db, r, s in items if any(s.values())]
     if not items:
-        sys.exit("no measurements yet; run `make measure`")
+        with open(OUT, "w", encoding="utf-8") as fh:
+            fh.write("<!doctype html>\n<meta charset=\"utf-8\"><title>dolt-megasamples</title>\n"
+                     "<body style=\"font:15px/1.5 system-ui,sans-serif;max-width:40rem;margin:4rem auto\">"
+                     "<h1>dolt-megasamples</h1><p>No database has been measured on this machine yet, so nothing is "
+                     "served. The runs (<code>make run</code>, <code>make run-pg</code>, <code>make run-lite</code>) "
+                     "load them; <code>make report</code> then writes this page.</p></body>\n")
+        print(f"  . wrote {os.path.relpath(OUT, ROOT)} (no measurements yet)")
+        return 0
     base = [(db, r, s) for db, r, s in items if s["mysql"] and s["dolt"]]
     rc = [(s["dolt"], (r.get("modes", {}).get("rowcommit") or {}).get("disk_bytes")) for _, r, s in base]
     rc = [(a, b) for a, b in rc if a and b]

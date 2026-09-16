@@ -173,10 +173,14 @@ def _size_facts(f, results):
 
 def _memory_facts(f, memory):
     """What Dolt needs to open a database, and what that scales with."""
-    if not memory:
+    if not memory:   # every name the templates use renders as [not measured] until the study runs
         for k in ("memory.floor_mb", "memory.commits_per_mb", "memory.largest_commits",
                   "memory.largest_db", "memory.ladder_top_gb", "memory.oneshot_max_mb",
-                  "memory.oneshot_max_rows", "memory.disk_pair"):
+                  "memory.oneshot_max_rows", "memory.disk_pair",
+                  "memory.commits_per_mb_low", "memory.commits_per_mb_high", "memory.linear_databases",
+                  "memory.linear_from", "memory.linear_to", "memory.breaks_db", "memory.breaks_commits",
+                  "memory.breaks_ratio", "memory.breaks_factor", "memory.max_open_db", "memory.max_open_gb",
+                  "memory.max_open_rows", "memory.max_open_commits", "memory.max_open_disk", "memory.peak_load_gb"):
             f.put(k, None, "memory.json")
         return
     one_shot, rc = memory.get("oneshot") or {}, memory.get("rowcommit") or {}

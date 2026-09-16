@@ -7,7 +7,7 @@ PY ?= python3
 # and as a prerequisite of `report`, which is why the documents stayed stale while every
 # other step ran. Generated from the targets themselves so a new one cannot be forgotten.
 .PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch \
-        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs memory-pairs screenshots catalogue new-run
+        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs memory-pairs screenshots catalogue new-run memory clean-run
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -35,6 +35,8 @@ help:
 	@echo "make test-stack     after make up: both accounts on Dolt and DoltgreSQL, the DoltLite files, every console"
 	@echo "make screenshots    retake the README's pictures from the running stack (docs/screenshots/)"
 	@echo "make catalogue      copy each database's one-line description from the corpus checkout (build/catalogue.json)"
+	@echo "make memory         what Dolt needs to open each database in each shape (build/memory.json)"
+	@echo "make clean-run      remove every measured artefact (results, studies, machine record, figures, screenshots, run state) for a fresh run"
 	@echo "make audit      check the measurements against invariants that must hold"
 	@echo "make docs       regenerate README.md and JOURNAL.md from docs/templates and build/"
 	@echo "make trace      what the per-row-commit loads cost in memory as history accumulated"
@@ -180,6 +182,23 @@ summary:
 # ---------------------------------------------------------------- the two further pairs ---
 versions:
 	@$(PY) scripts/versions.py --check
+# the Dolt memory study, the pairs' counterpart of memory-pairs (scripts/memory_profile.py)
+memory:
+	@$(PY) scripts/memory_profile.py $(ARGS)
+
+# A fresh run on a fresh machine: every artefact that records a measurement goes -- the folded results,
+# the memory studies, the method checks, the machine record, what the stack served, the spike's
+# results, the figures, the screenshots, the console page and the run state -- so nothing measured
+# elsewhere can survive into the new run's documents. The stores (data/) and the exports (build/dumps/)
+# are only named: they are large, and removing them is `make clean-data` and `make clean-pairs`.
+clean-run:
+	@rm -f build/results.json build/memory.json build/memory_pairs.json build/method.json build/environment.json \
+	  build/serve.json build/progress.json build/results.json.previous docker/console/index.html \
+	  docs/img/*.png docs/screenshots/*.png build/spike-concurrent/*.json
+	@echo "  . removed every measured artefact; versions.json and build/catalogue.json stay (make new-run and make catalogue rewrite them)"
+	@test ! -d data || echo "  ! data/ still holds stores from the last run: make clean-data (Dolt) and make clean-pairs (the pairs) remove them"
+	@test ! -d build/dumps || echo "  ! build/dumps/ still holds the last run's exports: rm -rf build/dumps to export afresh"
+
 # a new run: every Dolt engine to its newest release, the old run's units dropped, the DoltLite image
 # rebuilt with the sqlite3 shell it carries recorded
 new-run:

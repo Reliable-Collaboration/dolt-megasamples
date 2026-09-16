@@ -89,7 +89,10 @@ def save(fig, name):
 
 
 def load(path=None):
-    with open(path or os.path.join(ROOT, "build", "results.json"), encoding="utf-8") as fh:
+    path = path or os.path.join(ROOT, "build", "results.json")
+    if not os.path.exists(path):
+        return {}          # nothing measured yet: every figure says so and skips
+    with open(path, encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -180,6 +183,9 @@ def fig_headline(results):
     """The finding in one figure: for each way of writing the rows, each Dolt engine's total against
     its baseline in bulk, as a dot on a log axis with the reference line at 1. Position, not length,
     carries the value, which is what a log scale needs."""
+    if not results:
+        print("  ! headline skipped: nothing measured yet")
+        return
     shapes = ["rowwise", "oneshot", "rowinsert", "rowcommit"]
     names = {"rowwise": "the baseline itself,\none INSERT per row", "oneshot": "one commit\nper database",
              "rowinsert": "one INSERT per row,\none commit", "rowcommit": "one commit\nper row"}
@@ -233,6 +239,9 @@ def fig_sizes_by_engine(results):
     """One row per database, a dot per engine on a shared log axis, one panel per run: the standard
     load and the one-INSERT-per-row load in all six engines, the commit-per-row load in the three Dolt
     engines -- every engine and every run on one page."""
+    if not results:
+        print("  ! sizes-by-engine skipped: nothing measured yet")
+        return
     dbs = order(results)
     fig, axes = plt.subplots(1, 3, figsize=(18, 0.42 * len(dbs) + 2.6), sharey=True, gridspec_kw={"width_ratios": [1.15, 1, 1]})
     panels = [(axes[0], [(p, "bulk") for p in PAIR_ORDER] + [(p, "oneshot") for p in PAIR_ORDER],
@@ -331,6 +340,9 @@ def policy_change(r, pair, shape, axis):
 def fig_index_policy_summary(results):
     """What keeping the indexes during a row-by-row load costs, the median change over the databases,
     every engine on one axis: the README's figure. The per-database figures are in the report."""
+    if not results:
+        print("  ! index-policy-summary skipped: nothing measured yet")
+        return
     import statistics
     shapes = ["rowwise", "rowinsert", "rowcommit"]
     fig, axes = plt.subplots(1, 2, figsize=(12.5, 4.2), sharey=True)
@@ -502,6 +514,9 @@ def fig_memory(results):
 def fig_by_database(results, axis, name, xlabel):
     """Every database, every load, every pair, as dots on one shared log axis per pair: the report's
     full view. Hue is the engine, the marker is the load shape."""
+    if not results:
+        print(f"  ! {name} skipped: nothing measured yet")
+        return
     dbs = order(results)
     fig, axes = plt.subplots(1, 3, figsize=(18, 0.42 * len(dbs) + 2.6), sharey=True)
     for ax, pair in zip(axes, PAIR_ORDER):

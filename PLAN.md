@@ -1,5 +1,8 @@
 # Plan: DoltgreSQL and DoltLite beside Dolt, and instances that stay up
 
+*Release 2 shipped (merged into `main` on 2026-09-16). The plan for release 3, a fresh run on a fresh
+machine on the newest releases, is `agent_handover.md`. This file is kept as written.*
+
 This file is written by hand (it is the one document here that is not generated) and describes
 what is being built next; `README.md`, `REPORT.md` and `JOURNAL.md` describe what exists and what
 was measured. Written 2026-09-10 against Dolt 2.3.x, DoltgreSQL 1.3.1 and DoltLite v0.50.9.

@@ -328,6 +328,7 @@ Every DoltgreSQL load runs in a server started for it alone, and every unit is c
 
 | path | what it is |
 |---|---|
+| `agent_handover.md` | what a new session on a new machine needs to know to run everything again |
 | `docs/templates/` | the prose of every document; the only files a person edits |
 | `scripts/render.py` | turns those templates and the measurements into the documents |
 | `scripts/facts.py` | every number a document may contain, and where each comes from |
