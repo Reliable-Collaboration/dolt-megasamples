@@ -140,11 +140,34 @@ def totals(results, pair, axis):
     return {sh: sum(measure(results[d], pair, test_of(pair, sh), axis) or 0 for d in dbs) for sh in SHAPES}, dbs
 
 
-def dot_axes(ax, title, xlabel, pad=14):
+def dot_axes(ax, title, xlabel, pad=14, unit=None):
     style(ax, title, xlabel, pad=pad)
     ax.set_xscale("log")
     log_axis(ax, "x")
+    if unit:
+        unit_ticks(ax, unit)
     ax.grid(axis="y", visible=False)
+
+
+# Tick positions in the units a reader uses. Sizes are plotted in mebibytes and times in seconds;
+# a decade axis labelled "10,000" makes the reader convert before the chart means anything.
+BYTE_TICKS = [(2 ** -6, "16 KiB"), (2 ** -4, "64 KiB"), (0.25, "256 KiB"), (1, "1 MiB"), (4, "4 MiB"), (16, "16 MiB"),
+              (64, "64 MiB"), (256, "256 MiB"), (1024, "1 GiB"), (4096, "4 GiB"), (16384, "16 GiB"),
+              (65536, "64 GiB"), (262144, "256 GiB"), (1048576, "1 TiB")]
+TIME_TICKS = [(0.1, "0.1 s"), (1, "1 s"), (10, "10 s"), (60, "1 min"), (600, "10 min"), (3600, "1 h"),
+              (36000, "10 h"), (360000, "100 h")]
+
+
+def unit_ticks(ax, unit, which="x"):
+    ticks = BYTE_TICKS if unit == "bytes" else TIME_TICKS
+    axis = ax.xaxis if which == "x" else ax.yaxis
+    lo, hi = (ax.get_xlim() if which == "x" else ax.get_ylim())
+    chosen = [(v, l) for v, l in ticks if lo <= v <= hi]
+    if len(chosen) > 7:  # a wide axis keeps every other tick, so the labels stay evenly spaced
+        chosen = chosen[1::2] if len(chosen) % 2 == 0 else chosen[::2]
+    axis.set_major_locator(plt.FixedLocator([v for v, _ in chosen]))
+    axis.set_major_formatter(FuncFormatter(lambda v, _: dict(chosen).get(v, "")))
+    axis.set_minor_formatter(FuncFormatter(lambda *_: ""))
 
 
 def name_extremes(ax, points, fmt, k=2, fontsize=7):
@@ -208,13 +231,16 @@ def fig_headline(results):
 
 # ------------------------------------------------------------------- F2 every database, every engine ---
 def fig_sizes_by_engine(results):
-    """One row per database, a dot per engine on a shared log axis: the standard load in all six
-    engines, and the commit-per-row load in the three Dolt engines."""
+    """One row per database, a dot per engine on a shared log axis, one panel per run: the standard
+    load and the one-INSERT-per-row load in all six engines, the commit-per-row load in the three Dolt
+    engines -- every engine and every run on one page."""
     dbs = order(results)
-    fig, axes = plt.subplots(1, 2, figsize=(14, 0.42 * len(dbs) + 2.4), sharey=True, gridspec_kw={"width_ratios": [1.15, 1]})
+    fig, axes = plt.subplots(1, 3, figsize=(18, 0.42 * len(dbs) + 2.6), sharey=True, gridspec_kw={"width_ratios": [1.15, 1, 1]})
     panels = [(axes[0], [(p, "bulk") for p in PAIR_ORDER] + [(p, "oneshot") for p in PAIR_ORDER],
                "the standard load:\nthe baselines in bulk, the Dolt engines with one commit"),
-              (axes[1], [(p, "rowcommit") for p in PAIR_ORDER], "one commit per row:\nthe three Dolt engines")]
+              (axes[1], [(p, "rowwise") for p in PAIR_ORDER] + [(p, "rowinsert") for p in PAIR_ORDER],
+               "one INSERT per row:\nthe baselines and, with one commit, the Dolt engines"),
+              (axes[2], [(p, "rowcommit") for p in PAIR_ORDER], "one commit per row:\nthe three Dolt engines")]
     for ax, cols, title in panels:
         for pair, sh in cols:
             xs, ys = [], []
@@ -227,7 +253,7 @@ def fig_sizes_by_engine(results):
                        label=f"{engine_of(pair, sh)}")
         for i in range(len(dbs)):
             ax.axhline(len(dbs) - 1 - i, color=GRID, linewidth=.5, alpha=.6, zorder=1)
-        dot_axes(ax, title, "mebibytes on disk (log scale)", pad=34)
+        dot_axes(ax, title, "on disk (log scale)", pad=34, unit="bytes")
         ax.legend(fontsize=7.5, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0))
     axes[0].set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=7.5)
     sub = ", ".join(f"{times(totals(results, p, 'bytes')[0]['oneshot'] / (totals(results, p, 'bytes')[0]['bulk'] or 1))} "
@@ -429,8 +455,9 @@ def fig_memory(results):
         log_axis(ax, "x")
         log_axis(ax, "y")
         style(ax, "", xlabel)
+        unit_ticks(ax, "bytes", which="y")
         ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
-    axes[0].set_ylabel("memory the store needed to open and count (MiB, log scale)", color=INK, fontsize=9)
+    axes[0].set_ylabel("memory the store needed to open and count (log scale)", color=INK, fontsize=9)
     axes[0].legend(fontsize=7.5, frameon=False, loc="upper left", ncol=2)
     fig.suptitle("The memory a Dolt engine needs to open a store tracks its commits, not its rows, in all three engines",
                  fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.02)
@@ -461,7 +488,7 @@ def fig_by_database(results, axis, name, xlabel):
                        label=PAIRS[pair]["labels"][test_of(pair, sh)])
         for i in range(len(dbs)):
             ax.axhline(len(dbs) - 1 - i, color=GRID, linewidth=.5, alpha=.6, zorder=1)
-        dot_axes(ax, PAIRS[pair]["title"], xlabel, pad=44)
+        dot_axes(ax, PAIRS[pair]["title"], xlabel, pad=44, unit=axis)
         ax.legend(fontsize=6.8, frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.0))
     axes[0].set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=7.5)
     fig.suptitle(("Disk used" if axis == "bytes" else "Time to load") + " by every database in every load of every pair",
@@ -485,8 +512,8 @@ def main():
     for pair in PAIR_ORDER:
         fig_index_policy(results, pair)
     fig_memory(results)
-    fig_by_database(results, "bytes", "disk-by-database.png", "mebibytes on disk (log scale)")
-    fig_by_database(results, "seconds", "time-by-database.png", "seconds (log scale)")
+    fig_by_database(results, "bytes", "disk-by-database.png", "on disk (log scale)")
+    fig_by_database(results, "seconds", "time-by-database.png", "time to load (log scale)")
     for pair in PAIR_ORDER:
         for axis in ("bytes", "seconds"):
             gaps = {sh: sum(1 for d in results if measure(results[d], pair, test_of(pair, sh), axis)) for sh in SHAPES}

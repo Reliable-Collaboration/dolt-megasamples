@@ -11,7 +11,7 @@ generated document acquires a hand-edited section nobody notices.
 import argparse, json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, human, load_results  # noqa: E402
+from common import ROOT, human, load_results, duration  # noqa: E402
 
 RAW = {}
 REPORT = os.path.join(ROOT, "REPORT.md")
@@ -160,7 +160,7 @@ def policy_section(items):
 def secs(v):
     if not v:
         return "—"
-    return f"{v:,.0f}s" if v < 3600 else f"{v / 3600:,.1f}h"
+    return duration(v)
 
 
 def cell(size, mysql):

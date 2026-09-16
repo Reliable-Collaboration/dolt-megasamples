@@ -76,6 +76,8 @@ def blocks():
         "findings_disk": guarded(lambda r: report_pairs.findings_totals(r, "bytes")),
         "findings_time": guarded(lambda r: report_pairs.findings_totals(r, "seconds")),
         "findings_by_database": guarded(lambda r: report_pairs.findings_by_database(r)),
+        "sizes_all": guarded(lambda r: report_pairs.findings_sizes(r, "all")),
+        "times_all": guarded(lambda r: report_pairs.findings_sizes(r, "all", "seconds")),
         "sizes_oneshot": guarded(lambda r: report_pairs.findings_sizes(r, "oneshot")),
         "sizes_rowinsert": guarded(lambda r: report_pairs.findings_sizes(r, "rowinsert")),
         "sizes_rowcommit": guarded(lambda r: report_pairs.findings_sizes(r, "rowcommit")),
@@ -144,7 +146,8 @@ def memory_table(memory):
 
 
 def fmt_mb(v):
-    return f"{v} MB" if v else "over the ladder"
+    from common import human_mb
+    return human_mb(v) if v else "over the ladder"
 
 
 def missing_list():

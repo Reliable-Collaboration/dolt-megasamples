@@ -8,7 +8,7 @@ only the databases that have every test.
 import os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import human  # noqa: E402
+from common import human, human_mb  # noqa: E402
 from pairs import LABEL, PER_ROW, PHASES  # noqa: E402
 from report import cell, secs  # noqa: E402
 
@@ -16,7 +16,7 @@ from report import cell, secs  # noqa: E402
 def seconds(v):
     """A pair unit's time. report.secs prints a dash for zero, which in these tables would read as not
     measured; every pair unit records its time, and one that rounds to zero took less than 0.05 s."""
-    return "0s" if v == 0 else secs(v)
+    return "0.0 s" if v == 0 else secs(v)
 
 TITLES = {"pg": ("PostgreSQL", "DoltgreSQL"), "lite": ("SQLite", "DoltLite")}
 SHORT = {"postgres": "1. PostgreSQL<br>COPY", "postgres_rowwise": "2. PostgreSQL<br>1 INSERT/row",
@@ -254,14 +254,14 @@ def memory_study_table():
             ok = {db: v for db, v in dbs.items() if v.get("outcome") == "ok" and v.get("megabytes")}
             bad = {db: v for db, v in dbs.items() if v.get("outcome") != "ok"}
             top = max(ok.items(), key=lambda kv: kv[1]["megabytes"]) if ok else None
-            opens = f"{top[1]['megabytes']:,} MB (`{top[0]}`)" if top else "—"
-            least = f"{min(v['megabytes'] for v in ok.values()):,} MB" if ok else "—"
+            opens = f"{human_mb(top[1]['megabytes'])} (`{top[0]}`)" if top else "—"
+            least = human_mb(min(v['megabytes'] for v in ok.values())) if ok else "—"
             why = ", ".join(f"`{db}` ({v.get('outcome')})" for db, v in sorted(bad.items())) or "—"
             L.append(f"| {names[engine]} | {label} | {opens} | {least} | {why} |")
     tops = sorted({v.get("ladder_top_mb") for e in study.values() for m in e.values() for v in m.values() if v.get("ladder_top_mb")})
     exited = any(v.get("outcome") == "exited 1" for e in study.values() for m in e.values() for v in m.values())
     L.append("")
-    note = (f"*Ceilings walked up to {', '.join(f'{t:,} MB' for t in tops)}; a query that did not answer at the top is "
+    note = (f"*Ceilings walked up to {', '.join(human_mb(t) for t in tops)}; a query that did not answer at the top is "
             f"\"could not open\" with what the probe saw.")
     if exited:
         note += (" `exited 1` is the image's entrypoint giving up after 300 s of start-up, not the memory ceiling: "
@@ -341,9 +341,10 @@ def findings_sizes(results, shape, axis="bytes"):
     """Every database down and every engine across, for one way of writing the rows: the size (or
     the time) each engine ended with, so a database can be compared across all six engines at once.
     `shape` is 'oneshot' (the standard load: the baselines in bulk, the Dolt engines with one commit),
-    'rowinsert' (one INSERT per row everywhere, one commit on the Dolt side) or 'rowcommit' (one
-    commit per row, which only the Dolt engines have). † marks a store that could not be collected,
-    shown at its working footprint."""
+    'rowinsert' (one INSERT per row everywhere, one commit on the Dolt side), 'rowcommit' (one
+    commit per row, which only the Dolt engines have) or 'all' (every engine and every run, fifteen
+    columns grouped by run). † marks a store that could not be collected, shown at its working
+    footprint."""
     from loads import PAIRS, PAIR_ORDER, rows_of, test_of
     if shape == "oneshot":
         cols = [(pair, "bulk", PAIRS[pair]["baseline"]) for pair in PAIR_ORDER] + \
@@ -351,8 +352,15 @@ def findings_sizes(results, shape, axis="bytes"):
     elif shape == "rowinsert":
         cols = [(pair, "rowwise", PAIRS[pair]["baseline"]) for pair in PAIR_ORDER] + \
                [(pair, "rowinsert", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
-    else:
+    elif shape == "rowcommit":
         cols = [(pair, "rowcommit", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
+    else:  # every engine and every run, grouped by run so the same run's engines sit side by side
+        short = {"bulk": "in bulk", "oneshot": "one commit", "rowwise": "one INSERT per row",
+                 "rowinsert": "one INSERT per row, one commit", "rowcommit": "one commit per row"}
+        cols = []
+        for sh in ("bulk", "oneshot", "rowwise", "rowinsert", "rowcommit"):
+            side = "baseline" if sh in ("bulk", "rowwise") else "engine"
+            cols += [(pair, sh, f"{PAIRS[pair][side]}<br>{short[sh]}") for pair in PAIR_ORDER]
     L = ["| database | rows | " + " | ".join(name for _, _, name in cols) + " |", "|---|---:|" + "---:|" * len(cols)]
     for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
         r = results[db]

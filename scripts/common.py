@@ -201,10 +201,30 @@ def human(n):
     when it is 67.9 GB decimal, or 63.3 GiB. The division was never the problem; the label was.
     Binary is the right choice here because it is what `docker stats` and `du -h` report, and those
     are the numbers a reader will be comparing against."""
-    for unit in ("B", "KiB", "MiB", "GiB"):
-        if abs(n) < 1024 or unit == "GiB":
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if abs(n) < 1000 or unit == "TiB":  # a unit changes at 1,000, so 1,020.7 MiB reads as 1.0 GiB
             return f"{n:,.0f} {unit}" if unit == "B" else f"{n:,.1f} {unit}"
         n /= 1024
+
+
+def human_mb(mb):
+    """A memory ceiling given in mebibytes (what `docker --memory 64m` means), in the same units as
+    every size here: 64 MiB, 2.0 GiB, 12.0 GiB."""
+    return human(mb * 1024 * 1024)
+
+
+def duration(v):
+    """Seconds as a reader would say them: under a minute in seconds, under an hour in minutes and
+    seconds, above that in hours and minutes. 10,000 s is not a quantity anyone can picture."""
+    if v < 10:
+        return f"{v:.1f} s"
+    if v < 60:
+        return f"{v:.0f} s"
+    if v < 3600:
+        m, s = divmod(int(round(v)), 60)
+        return f"{m} min {s:02d} s"
+    h, rem = divmod(int(round(v)), 3600)
+    return f"{h} h {rem // 60:02d} min"
 
 
 LOCK_PATH = os.path.join(ROOT, "build", "run.lock")

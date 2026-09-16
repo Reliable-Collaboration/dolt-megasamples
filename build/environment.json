@@ -25,8 +25,8 @@
   "host": {
     "cpu": "Intel(R) Core(TM) i9-14900KF",
     "cpu_threads": 32,
-    "disk_free_at_capture": "464.1 GiB",
-    "disk_total": "1,510.8 GiB",
+    "disk_free_at_capture": "528.6 GiB",
+    "disk_total": "1.5 TiB",
     "filesystem": "ext4",
     "kernel": "6.18.33.2-microsoft-standard-WSL2",
     "memory": "19.5 GiB",
