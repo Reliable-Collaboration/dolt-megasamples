@@ -29,7 +29,7 @@ ladder above anything the corpus needs.
 import argparse, json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (DOLT_IMAGE, DOLT_VERSION, MYSQL_CONTAINER, ROOT, data_dir, databases, human,  # noqa: E402
+from common import (DOLT_IMAGE, DOLT_VERSION, ROOT, data_dir, human,  # noqa: E402
                     run)
 
 OUT = os.path.join(ROOT, "build", "memory.json")
@@ -59,48 +59,55 @@ def disk_bytes(mode, db):
     return int(parts[0]) if parts and parts[0].isdigit() else None
 
 
-def biggest_table_and_rows(db):
-    """The largest base table and its exact row count, counted rather than estimated."""
-    p = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch", "-e",
-            "SELECT table_name FROM information_schema.tables WHERE table_schema='"
-            + db + "' AND table_type='BASE TABLE' ORDER BY table_rows DESC LIMIT 1")
-    table = p.stdout.strip().splitlines()[0] if p.stdout.strip() else None
-    if not table:
+COUNTS = {}
+
+
+def table_counts(mode, db, timeout):
+    """{table: rows} counted in the store itself, under the top of the ladder, so the study needs
+    nothing but the store: the corpus's MySQL may be down by the time it runs (the README's order has
+    it down before the timed loads). Counted once per database and reused across the shapes, which
+    hold the same rows."""
+    if db in COUNTS:
+        return COUNTS[db]
+    root = f"/data/{os.path.basename(data_dir(mode))}/{db}"
+    base = ["docker", "run", "--rm", "--memory", f"{LADDER[-1]}m", "--memory-swap", f"{LADDER[-1]}m",
+            "-v", f"{os.path.join(ROOT, 'data')}:/data", "-w", root, "--entrypoint", "dolt", DOLT_IMAGE,
+            "--data-dir", root, "--use-db", db, "sql", "-r", "csv", "-q"]
+
+    def ask(query):
+        try:
+            p = subprocess.run(base + [query], capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return []
+        return [l.strip() for l in p.stdout.splitlines()[1:] if l.strip()]   # the first line is the csv header
+
+    tables = [t for t in ask(f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{db}' "
+                             "AND table_type = 'BASE TABLE' ORDER BY table_name") if not t.startswith("dolt_")]
+    counts = {}
+    if tables:
+        for line in ask(" UNION ALL ".join(f"SELECT '{t}' AS t, COUNT(*) AS n FROM `{t}`" for t in tables)):
+            t, _, n = line.rpartition(",")
+            if n.strip().isdigit():
+                counts[t.strip()] = int(n)
+    COUNTS[db] = counts
+    return counts
+
+
+def biggest_table_and_rows(mode, db, timeout):
+    """The largest base table and its exact row count, counted in the store rather than estimated."""
+    counts = table_counts(mode, db, timeout)
+    if not counts:
         return None, None
-    q = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch",
-            "-e", f"SELECT COUNT(*) FROM `{db}`.`{table}`")
-    rows = int(q.stdout.strip()) if q.stdout.strip().isdigit() else None
-    return table, rows
+    table = max(counts, key=lambda t: counts[t])
+    return table, counts[table]
 
 
-def total_rows(db):
-    """Exact row count, summed one table at a time.
-
-    This was built as a single `GROUP_CONCAT`ed `UNION ALL` over every table, which is wrong in a
-    way that produces a plausible number rather than an error: `group_concat_max_len` defaults to
-    1024 bytes, so for a database with many tables the generated SQL is silently truncated
-    mid-statement and the total covers only the tables that fit. `adventureworks` has 69 tables and
-    reported 142,002 rows against an actual 759,240 -- and that wrong figure was then used to argue
-    that memory does not track row count, on the strength of a database that looked five times
-    smaller than it is.
-
-    Counting per table has no length limit and no silent failure mode. `information_schema`'s
-    `table_rows` is not used at all: for InnoDB it is an estimate.
-    """
-    tables = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch",
-                 "-e", "SELECT table_name FROM information_schema.tables WHERE table_schema='"
-                 + db + "' AND table_type='BASE TABLE'").stdout.split()
-    if not tables:
-        return None
-    total = 0
-    for t in tables:
-        q = run("docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot", "-proot", "-N", "--batch",
-                f"-D{db}", "-e", f"SELECT COUNT(*) FROM `{t}`")
-        got = q.stdout.strip()
-        if not got.isdigit():
-            return None
-        total += int(got)
-    return total
+def total_rows(mode, db, timeout):
+    """Exact row count, summed one table at a time in the store. (An earlier version summed a
+    `GROUP_CONCAT`ed `UNION ALL` on the source MySQL, which `group_concat_max_len` silently truncated:
+    `adventureworks` reported 142,002 rows against an actual 759,240.)"""
+    counts = table_counts(mode, db, timeout)
+    return sum(counts.values()) if counts else None
 
 
 def commit_count(mode, db, timeout):
@@ -197,14 +204,14 @@ def main():
     for mode in modes:
         # only stores that exist and are repositories: a database whose load of this shape has not run
         # (or failed) has no store to open, and that is not a memory result
-        wanted = a.only or sorted(databases())
+        wanted = a.only or sorted(d for d in os.listdir(data_dir(mode)) if os.path.isdir(repo_path(mode, d)))
         dbs = [d for d in wanted if os.path.isdir(os.path.join(repo_path(mode, d), ".dolt"))]
         for d in wanted:
             if d not in dbs:
                 print(f"    {d}: no {mode} store to open (the load has not run, or failed); skipped", flush=True)
         print(f"\n  {mode}: {len(dbs)} database(s), op={a.op}", flush=True)
         for db in dbs:
-            table, table_rows = biggest_table_and_rows(db)
+            table, table_rows = biggest_table_and_rows(mode, db, a.timeout)
             query = OPS[a.op].format(table=table or "dolt_log")
             print(f"    {db}", flush=True)
             t0 = time.time()
@@ -214,7 +221,7 @@ def main():
                 "outcome": detail if mb is None else "ok",
                 "rungs": {str(k): v for k, v in sorted(rungs.items())},
                 "seconds_to_profile": round(time.time() - t0, 1),
-                "rows": total_rows(db),
+                "rows": total_rows(mode, db, a.timeout),
                 "largest_table_rows": table_rows,
                 "disk_bytes": disk_bytes(mode, db),
                 "commits": commit_count(mode, db, a.timeout),
