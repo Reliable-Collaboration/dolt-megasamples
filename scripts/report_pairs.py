@@ -411,8 +411,8 @@ def findings_sizes(results, shape, axis="bytes"):
 # ------------------------------------------------------------------ the served stack, for the README ---
 def databases_table(results):
     """Every database with what it is (build/catalogue.json, copied from the corpus's own records by
-    scripts/catalogue.py), its tables and rows, and the size of the store each Dolt engine serves by
-    default: the one-commit load."""
+    scripts/catalogue.py), its tables and rows; then, as its own table so that neither squeezes the
+    other, its size on disk in every engine and every run, the served one-commit stores among them."""
     import json, os
     from common import ROOT
     from loads import PAIR_ORDER, PAIRS, rows_of
@@ -421,15 +421,11 @@ def databases_table(results):
     except (OSError, ValueError):
         what = {}
     order = sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
-    rows = []
+    L = ["| database | what it is | tables | rows |", "|---|---|---:|---:|"]
     for db in order:
         r = results[db]
-        sizes = [measure_of(r, p, "oneshot", "bytes") for p in PAIR_ORDER]
-        rows.append([f"`{db}`", what.get(db, ""), f"{r.get('tables') or 0:,}", f"{rows_of(r):,}"]
-                    + [human(v) if v else "—" for v in sizes])
-    L = [grouped_table([("database", "left"), ("what it is", "left"), ("tables", "right"), ("rows", "right")],
-                       [("on disk, one commit for the database<br><small>as served</small>",
-                         [(PAIRS[p]["engine"], None) for p in PAIR_ORDER], TINT["commit"])], rows)]
+        L.append(f"| `{db}` | {what.get(db, '')} | {r.get('tables') or 0:,} | {rows_of(r):,} |")
+    L += ["", "The same databases on disk, in every engine and every run:", "", sizes_all(results, "bytes")]
     # the same database with a commit per row, so a reader does not take the served size for the
     # only size: what a Dolt engine's store tracks is its commits
     big = results[order[0]]
@@ -437,11 +433,10 @@ def databases_table(results):
     each = [size_cell(big, p, "rowcommit") for p in PAIR_ORDER]
     if once[0][0] and each[0][0]:
         others = "; ".join(f"{PAIRS[p]['engine']} {human(v)}{m}" for p, (v, m) in zip(PAIR_ORDER[1:], each[1:]) if v)
-        L += ["", f"*These are the sizes with one commit per database, which is what is served. The same rows with a commit "
-                  f"per row are a different store: `{order[0]}`, {rows_of(big):,} rows, is {human(once[0][0])} in "
-                  f"{PAIRS[PAIR_ORDER[0]]['engine']} with one commit and {human(each[0][0])} with a commit per row"
-                  + (f" ({others})" if others else "") + ". What a Dolt engine's store tracks is its commits, and every "
-                  "run of every database is in [the experiment's table](#every-database-in-every-engine-every-run).*"]
+        L += ["", f"*What a Dolt engine's store tracks is its commits, not its rows: `{order[0]}`, {rows_of(big):,} rows, is "
+                  f"{human(once[0][0])} in {PAIRS[PAIR_ORDER[0]]['engine']} with one commit and {human(each[0][0])} with a commit "
+                  f"per row" + (f" ({others})" if others else "") + ". The one-commit stores are what `make up` serves; "
+                  "[choosing what is served](#choosing-what-is-served) says how to serve the others.*"]
     return "\n".join(L)
 
 

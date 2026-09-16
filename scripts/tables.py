@@ -33,20 +33,21 @@ def _attrs(align=None, tint=None):
 
 
 def grouped_table(fixed, groups, rows):
-    """fixed: [(header, align)] -- the leading columns, whose header spans both header rows.
+    """fixed: [(header, align[, width])] -- the leading columns, whose header spans both header rows.
     groups: [(label, [(sub_header, tint_or_None), ...], group_tint)] -- a column group, its
     columns (a column's own tint wins over the group's), and the group's tint (None for none).
     rows: [[cell, ...]] -- Markdown-flavoured cell text, len(fixed) + every group's columns."""
+    fixed = [(f[0], f[1], f[2] if len(f) > 2 else None) for f in fixed]
     cols = [(sub, tint if tint is not None else gtint) for _, subs, gtint in groups for sub, tint in subs]
-    top = "".join(f'<th rowspan="2"{_attrs(align)}>{md_inline(h)}</th>' for h, align in fixed)
+    top = "".join(f'<th rowspan="2"{_attrs(align)}{f" width={w}" if w else ""}>{md_inline(h)}</th>' for h, align, w in fixed)
     top += "".join(f'<th colspan="{len(subs)}" align="center"{_attrs(None, gtint)}>{md_inline(label)}</th>'
                    for label, subs, gtint in groups)
-    second = "".join(f'<th align="right"{_attrs(None, tint)}>{md_inline(sub)}</th>' for sub, tint in cols)
+    second = "".join(f'<th{_attrs("right", tint)}>{md_inline(sub)}</th>' for sub, tint in cols)
     body = []
     for row in rows:
         assert len(row) == len(fixed) + len(cols), (len(row), len(fixed), len(cols))
-        cells = "".join(f'<td{_attrs(align)}>{md_inline(str(c))}</td>' for c, (_, align) in zip(row, fixed))
-        cells += "".join(f'<td align="right"{_attrs(None, tint)}>{md_inline(str(c))}</td>'
+        cells = "".join(f'<td{_attrs(align)}>{md_inline(str(c))}</td>' for c, (_, align, _) in zip(row, fixed))
+        cells += "".join(f'<td{_attrs("right", tint)}>{md_inline(str(c))}</td>'
                          for c, (_, tint) in zip(row[len(fixed):], cols))
         body.append(f"<tr>{cells}</tr>")
     return ("<table>\n<thead>\n<tr>" + top + "</tr>\n<tr>" + second + "</tr>\n</thead>\n<tbody>\n"

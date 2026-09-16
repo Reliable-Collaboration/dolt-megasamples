@@ -44,7 +44,7 @@ disagrees with the evidence.
 **The databases, running**
 
 * [Quick start](#quick-start)
-* [The databases](#the-databases) -- the {{corpus.databases}}, what each is, and its size in each engine
+* [The databases](#the-databases) -- the {{corpus.databases}}, what each is, and its size in every engine and every run
 * [The engines](#the-engines) -- the versions, and what each serves
 * [Connect with your own tool](#connect-with-your-own-tool)
 * [The consoles](#the-consoles)
@@ -53,7 +53,7 @@ disagrees with the evidence.
 **The experiment**
 
 * [The finding](#the-finding) -- every engine as a multiple of its baseline, disk and time
-* [Every database in every engine, every run](#every-database-in-every-engine-every-run) -- the one table of sizes
+* [Every database in every engine, every run](#every-database-in-every-engine-every-run) -- the same, drawn
 * [What history costs](#what-history-costs) -- a commit per row against the bulk load
 * [What keeping the indexes costs](#what-keeping-the-indexes-costs)
 * [What memory needs](#what-memory-needs)
@@ -79,10 +79,12 @@ above `sql-megasamples`' ports, so the two stacks run side by side.
 ## The databases
 
 Each is the corpus's port of a well-known sample or public dataset, and the description is the one
-its own research record carries. The sizes are the stores served by default -- the one-commit load,
-after garbage collection; every other load is in [the experiment's table](#every-database-in-every-engine-every-run).
-What each dataset is, where it came from and what its licence asks is in
+its own research record carries; where it came from and what its licence asks is in
 [`sql-megasamples`' catalogue](https://github.com/Reliable-Collaboration/sql-megasamples/blob/main/CATALOGUE.md).
+The second table is every engine and every run of the experiment, grouped by run so the engines of
+the same run sit side by side: the baselines in bulk and one `INSERT` per row, the Dolt engines with
+one commit for the database, one `INSERT` per row with one commit, and one commit per row. A dash is
+a load with no result; † marks a store the engine could not collect, shown at its working footprint.
 
 {{block:databases}}
 
@@ -214,14 +216,10 @@ how, and what would make a reviewer hesitate. Every table and figure of the full
 
 ![Every database in every engine, one panel per run: the standard load, one INSERT per row, one commit per row](docs/img/sizes-by-engine.png)
 
-One table: every database down, every engine and every run across, grouped by run so that the
-engines of the same run sit side by side. The baselines have two runs (in bulk, and one `INSERT`
-per row) and the Dolt engines three (one commit for the database, one `INSERT` per row with one
-commit, and one commit per row). A dash is a load with no result; † marks a store the engine could
-not collect, shown at its working footprint. The same table in time to load, and every run under
-both index policies, are in [REPORT.md](REPORT.md#every-engine-side-by-side).
-
-{{block:sizes_all}}
+The table is at the top of this file, under [The databases](#the-databases): every database down,
+every engine and every run across, grouped by run so that the engines of the same run sit side by
+side. The same table in time to load, and every run under both index policies, are in
+[REPORT.md](REPORT.md#every-engine-side-by-side).
 
 ## What history costs
 
