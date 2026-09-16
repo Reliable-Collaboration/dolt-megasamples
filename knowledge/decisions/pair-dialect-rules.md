@@ -68,7 +68,7 @@ The refusals were found on sakila's rows (2026-09-10) and on the quick subset's 
 
 # Outcome
 
-**One version per result set.** Every rule below was found on DoltgreSQL 1.3.1 and DoltLite v0.50.9 and is written for the versions `versions.json` names (DoltgreSQL 1.3.1; DoltLite v0.50.10 since 2026-09-12, on which the rules were not found to change -- the loads say so as they run again). A moved version means every unit of that engine is measured again and the rules re-checked against it ([one version per result set](/decisions/engine-versions-one-per-result-set.md)).
+**One version per result set.** Every rule below was found on DoltgreSQL 1.3.1 and DoltLite v0.50.9 and is written for the versions `versions.json` names -- DoltgreSQL 1.3.2 since 2026-09-14 and DoltLite v0.50.10 since 2026-09-12 -- on which every database loaded again under the same rules with the same refusals ([DoltgreSQL 1.3.2](/tools/doltgresql-1-3-2.md), [DoltLite v0.50.10](/tools/doltlite-0-50-10.md)). A moved version means every unit of that engine is measured again and the rules re-checked against it ([one version per result set](/decisions/engine-versions-one-per-result-set.md)).
 
 **DoltgreSQL** (`scripts/doltgres_dialect.py`, working on pg_dump's object blocks, never on the rows inside `TABLE DATA`; since method 2 the files are also read and written byte for byte, after a text-mode read was found to turn the carriage returns inside row values into line feeds -- the rules never touched a row, the read did):
 

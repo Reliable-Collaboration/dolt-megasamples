@@ -133,9 +133,9 @@ the dialects and the stack) is the recommended way to keep the evidence reviewab
    time under both index policies, run once every other result is in (`--skip-row-by-row employees`
    until then; [running the pairs](knowledge/runbooks/pairs-run.md)).
 6. **DoltgreSQL's accounts follow Dolt's**: `admin`/`admin` reads and writes, `demo`/`demo` only reads.
-   DoltgreSQL 1.3.1 enforces table privileges but not database privileges, so `demo` can still create
-   and drop databases until a way to stop it is found and recorded in
-   [stood-up instances](knowledge/decisions/stood-up-instances.md).
+   DoltgreSQL 1.3.1 enforced table privileges but not database privileges, so `demo` could create and
+   drop databases; 1.3.2 refuses both (2026-09-16 probe), and `demo` can still grant itself `CREATEDB`
+   ([stood-up instances](knowledge/decisions/stood-up-instances.md)).
 7. **The engine defects are reported upstream, not patched here** (2026-09-11): one public reproduction
    repository per finding, side by side with PostgreSQL or SQLite, and an issue on each; the
    database-privilege gap went privately to security@dolthub.com from the maintainer. DoltHub answered

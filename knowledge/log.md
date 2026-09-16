@@ -1,5 +1,11 @@
 # Log
 
+## 2026-09-16
+
+* **Verification**: every unit of the experiment is measured -- the DoltgreSQL 1.3.2 result set completed at 11:10 UTC (105 units, 39 h of loads; the last three under a 12 GiB worker cap, recorded per unit), all 85 facts have a measurement, every document regenerated, `make check` clean.
+* **Creation**: [DoltgreSQL 1.3.2](/tools/doltgresql-1-3-2.md) and [release v1.3.2](/sources/doltgresql-release-v1-3-2.md) -- the same refusals as 1.3.1 under the same dialect rules, 0.89x to 0.96x the time, 8.1 GiB at the engine's highest; database privileges enforced now (pull request 3343, probed), the self-granted `CREATEDB` still allowed; the catalog prints a null ordering the source does not. [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) deprecated as the record of the first result set's version.
+* **Update**: DoltHub merged all eleven fix pull requests for the issues filed on 2026-09-11, closing them, after v1.3.3 (2026-09-15) shipped; [the issues filed](/sources/doltgresql-issues-filed-2026-09-11.md), [patch, work around or report](/decisions/engine-bugs-patch-or-work-around.md), [stood-up instances](/decisions/stood-up-instances.md), [the dialect rules](/decisions/pair-dialect-rules.md) and the `docs/upstream/` index say so. The memory study of the pairs runs, its ladder capped at 12 GiB.
+
 ## 2026-09-15
 
 * **Update**: [DoltLite v0.50.10](/tools/doltlite-0-50-10.md) -- `VACUUM` still fails, instantly, on employees' per-row-commit store (3.9M commits, 341 GB) while every other store collected, up to 438 GB and 1.06M commits; read in the source, the fix bounded the mark queue but the materialised index, the marked-chunk set and the checkpoint page remain 2 GiB allocations, a ceiling of about 33.5 million chunks. Filed as dolthub/doltlite issue 2936 on the maintainer's word; the `docs/upstream/` index lists it. DoltHub answered within two hours with pull request 2944; the 341 GB file was then deleted on the maintainer's word, the measurement kept.

@@ -1,7 +1,7 @@
 ---
 type: Source
 title: The DoltgreSQL issues filed from this repository on 2026-09-11, and DoltHub's response
-description: Fifteen issues on dolthub/doltgresql (3323 to 3337) and one comment on the existing issue 3113, each backed by a public reproduction repository under Reliable-Collaboration that runs the failing SQL side by side with PostgreSQL 18.6; as read on 2026-09-12, all are open and labelled "customer issue", eleven have a fix pull request open, and none is in a release.
+description: Fifteen issues on dolthub/doltgresql (3323 to 3337) and one comment on the existing issue 3113, each backed by a public reproduction repository under Reliable-Collaboration that runs the failing SQL side by side with PostgreSQL 18.6; eleven were fixed by pull requests merged on 2026-09-16 and closed, the four feature requests stay open, and no release carries the fixes yet (v1.3.3 predates them).
 resource: https://github.com/dolthub/doltgresql/issues?q=author%3Amattchristenson
 tags:
 - doltgresql
@@ -11,7 +11,7 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-12T22:00:00Z"
+  at: "2026-09-16T12:00:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-12T21:20:00Z"
@@ -60,7 +60,7 @@ The issues, in the order filed on 2026-09-11 (times UTC), the reproduction repos
 | 3337 | 02:24 | The `xml` type does not exist, and `xpath()` is not found | repro-doltgresql-bug-xpath | unassigned; no pull request |
 | 3113 (existing) | 02:25, comment | UPDATE metadata semantics incorrect | repro-doltgresql-bug-update-row-count | open, one comment (ours) |
 
-Every issue carries the label `customer issue`. Pull request 3341, "Fixes many issues", was opened and closed unmerged on 2026-09-11 in favour of one pull request per issue; the eleven that replaced it were opened between 22:55 and 23:04 UTC and were all open and unmerged when read. The four without a pull request are the four that ask for a feature (GIN indexes, `JSON_TABLE`, full-text search, `xml`). DoltgreSQL v1.3.2, published 2026-09-12 00:07 UTC, predates all eleven; its notes list Dolt and go-mysql-server merges only.
+Every issue carries the label `customer issue`. Pull request 3341, "Fixes many issues", was opened and closed unmerged on 2026-09-11 in favour of one pull request per issue; the eleven that replaced it were opened between 22:55 and 23:04 UTC and **all merged on 2026-09-16 between 09:02 and 10:22 UTC** (read that day), closing issues 3323, 3324, 3325, 3326, 3327, 3328, 3330, 3332, 3333, 3334 and 3336. The four without a pull request are the four that ask for a feature (GIN indexes, `JSON_TABLE`, full-text search, `xml`) and stay open. DoltgreSQL v1.3.2 (2026-09-12) and v1.3.3 (2026-09-15) both predate the merges; v1.3.2 does carry pull request 3343, the authorization check on `CREATE DATABASE` and `DROP DATABASE`, the fix for the first half of the private report ([DoltgreSQL 1.3.2](/tools/doltgresql-1-3-2.md)).
 
 Not filed: the database-privilege gap ([DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md), limit "Database privileges are not enforced"). Its reproduction repository, `repro-doltgresql-bug-database-privileges`, is private; DoltgreSQL's `SECURITY.md` asks for security reports by email to security@dolthub.com, and the maintainer sent one, with the self-granted `CREATEDB` beside it (the maintainer's word, 2026-09-12). The maintainer also relayed DoltHub's answer to the public reports: grateful for the mature bug reports, and working through the rest of them.
 

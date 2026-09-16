@@ -374,8 +374,9 @@ make report && make docs && make check
 Every DoltgreSQL load runs in a server started for it alone, and every unit is checked against the
 reference recorded at export -- the row count of every table and the index set -- before its size
 counts. The pairs take longer than the MySQL/Dolt run: the per-row-commit loads of the largest
-databases dominate, and DoltLite cannot garbage-collect a per-row-commit file above a few
-gigabytes, so those stores are reported as the working footprint of the load. `make progress` shows
+databases dominate, and DoltLite's `VACUUM` fails on a per-row-commit store above about 33 million
+chunks (employees, 3.9 million commits, on v0.50.10; on v0.50.9 above a few gigabytes), so such a
+store is reported as the working footprint of the load. `make progress` shows
 both runs; `make clean-pairs` removes the pairs' stores together with their recorded units, so the
 next run measures them again.
 
@@ -415,9 +416,10 @@ stores of the larger databases are big files, and the ones DoltLite could not co
 working footprint of the load.
 
 The accounts are the same on both sides and on both servers: `demo` / `demo` reads, `admin` /
-`admin` writes. One exception was measured: DoltgreSQL 1.3.1 does not enforce database
-privileges, so on it any account, `demo` included, can create and drop databases; table privileges
-are enforced. Each console opens on the read-only one. Every service carries a memory limit, so
+`admin` writes. One exception was measured: DoltgreSQL 1.3.1 did not enforce database privileges,
+so on it any account, `demo` included, could create and drop databases; 1.3.2 refuses both, but
+still lets a role grant itself `CREATEDB`, which PostgreSQL refuses. Table privileges are enforced
+on both. Each console opens on the read-only one. Every service carries a memory limit, so
 both stacks together fit comfortably on a modest machine. DoltgreSQL serves the one-commit loads
 (`data/doltgres-oneshot`) and the DoltLite container holds the one-commit files
 (`data/doltlite-oneshot`); `make lite-image` builds its image first. The landing page says how to

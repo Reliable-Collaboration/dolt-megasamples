@@ -4,7 +4,7 @@
 
 Record: `knowledge/tools/doltgresql-1-3-1.md`.
 
-Not reported publicly: a privilege gap is a security matter, and DoltgreSQL's `SECURITY.md` asks for such reports by email. The maintainer reported it, with the self-granted `CREATEDB` beside it, to security@dolthub.com (by 2026-09-12); the reproduction repository `Reliable-Collaboration/repro-doltgresql-bug-database-privileges` (side by side with PostgreSQL 18.6) stays private.
+Not reported publicly: a privilege gap is a security matter, and DoltgreSQL's `SECURITY.md` asks for such reports by email. The maintainer reported it, with the self-granted `CREATEDB` beside it, to security@dolthub.com (by 2026-09-12); the reproduction repository `Reliable-Collaboration/repro-doltgresql-bug-database-privileges` (side by side with PostgreSQL 18.6) stays private. DoltgreSQL 1.3.2 enforces `CREATE DATABASE` and `DROP DATABASE` (pull request 3343; probed 2026-09-16 with the repository's script); a role can still grant itself `CREATEDB`.
 
 **Steps** (psql against `dolthub/doltgresql:1.3.1`, digest `sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851`):
 

@@ -1,13 +1,13 @@
 ---
 type: Tool
 title: DoltgreSQL 1.3.1
-description: The PostgreSQL-compatible Dolt server the PostgreSQL pair measures, pinned by image digest, with what was verified by loading sakila into it before the experiment ran.
+description: The PostgreSQL-compatible Dolt server the PostgreSQL pair measured from 2026-09-10 to 2026-09-14 at 1.3.1, named by image digest, with what was verified by loading sakila into it before the experiment ran; superseded by 1.3.2 on 2026-09-14, every DoltgreSQL unit measured again.
 resource: https://github.com/dolthub/doltgresql
 tags:
 - engine
 - doltgresql
 - pin
-status: stable
+status: deprecated
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
@@ -28,6 +28,8 @@ stale_after: "2027-03-01"
 ---
 
 # Facts
+
+**Superseded on 2026-09-14** by [DoltgreSQL 1.3.2](/tools/doltgresql-1-3-2.md) under [one version per result set](/decisions/engine-versions-one-per-result-set.md): the numbers taken on 1.3.1 are kept under `superseded` in `build/progress.json` and no longer shown. This record stays as the account of the version the first DoltgreSQL result set was measured on and the defects were found on.
 
 Everything below was observed on 2026-09-10 against `dolthub/doltgresql@sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851` (tag `1.3.1`, published 2026-09-02), started with `DOLTGRES_PASSWORD` set, and driven with `psql` from `postgres:18.6-bookworm` over the wire and with the image's own `psql` 17.11. Licence Apache-2.0.
 
@@ -53,7 +55,7 @@ Found by refusal, on the quick subset's schemas (`scripts/preflight_pairs.py`, 2
 * **A `character(n)` value keeps its padding through a text cast.** `SELECT '[' || (class)::text || ']'` on a `character(2)` holding `L ` answers `[L ]` where PostgreSQL answers `[L]`, so `upper((class)::text) = ANY (ARRAY['L'::text, ...])` is false for every padded value and the CHECK refuses the row -- by INSERT and by COPY -- while an unpadded `l` passes. `rtrim((class)::text)` answers `[L]` on both engines; dialect rule G7 wraps such casts inside CHECK constraints (probed 2026-09-10; adventureworks' `production_product` then loads all 504 rows).
 * **A named NOT NULL column constraint refuses the table.** `businessentityid integer CONSTRAINT humanresources_employeedepartmenthist_businessentityid_not_null NOT NULL` (pg_dump 18's form for a NOT NULL constraint with a non-generated name) answers "non-foreign key column constraint names are not yet supported" and the table is not created, so every view and constraint over it fails too (adventureworks: 3 tables, 23 refusals). Dialect rule G5 drops the name and keeps the constraint; with it all 69 tables of adventureworks are created and only its two `xpath` views are refused (probed 2026-09-10). **`convert_from()`** is not implemented either (wikipedia_simple: 4 views refused).
 * **`dolt_gc()` can fail after many DROP/CREATE cycles on one server.** The 21st one-commit reload of the night (sakila, after 20 `DROP DATABASE` / `CREATE DATABASE` cycles on the same server) answered `Error in SaveHashes call: dangling references requested during GC. GC not successful.` and left the store at 7.7 MB instead of 2.0 MB; the same load into the same server a minute later collected normally (2026-09-10). A unit whose collection fails is kept with `settled: false` and its size marked.
-* **Reported upstream (2026-09-11).** The generated-column, `character(n)`, trigger `WHEN`, named NOT NULL and `regexp_like` limits above are dolthub/doltgresql issues 3323, 3325, 3336, 3332 and 3333, each with a public reproduction repository, beside ten further findings from the loads (3324, 3326 to 3331, 3334, 3335, 3337, and a comment on 3113); by 2026-09-12 a fix pull request was open for eleven of the fifteen, none merged, and v1.3.2 predates them ([the issues filed](/sources/doltgresql-issues-filed-2026-09-11.md)). The database-privilege gap was reported privately by the maintainer to security@dolthub.com, with the self-granted `CREATEDB` beside it (2026-09-12).
+* **Reported upstream (2026-09-11).** The generated-column, `character(n)`, trigger `WHEN`, named NOT NULL and `regexp_like` limits above are dolthub/doltgresql issues 3323, 3325, 3336, 3332 and 3333, each with a public reproduction repository, beside ten further findings from the loads (3324, 3326 to 3331, 3334, 3335, 3337, and a comment on 3113); by 2026-09-12 a fix pull request was open for eleven of the fifteen; all eleven merged on 2026-09-16, after v1.3.3, and those issues are closed; the four feature requests stay open ([the issues filed](/sources/doltgresql-issues-filed-2026-09-11.md)). The database-privilege gap was reported privately by the maintainer to security@dolthub.com, with the self-granted `CREATEDB` beside it (2026-09-12); v1.3.2 enforces `CREATE DATABASE` and `DROP DATABASE` (pull request 3343), the self-grant remains ([DoltgreSQL 1.3.2](/tools/doltgresql-1-3-2.md)).
 * **`::regnamespace`** casts are not resolved ("unable to resolve type `regnamespace`"); `information_schema.triggers` answers 0 while `pg_trigger` holds the triggers. The parity queries use `pg_trigger`, `pg_views`, `pg_indexes` and `information_schema.tables`/`table_constraints`, which all answer.
 * **`show session_replication_role`** is not needed and was not tested further; foreign keys stay after the rows in both index policies for a different reason ([load shapes](/decisions/pair-load-shapes-and-measurement.md)).
 

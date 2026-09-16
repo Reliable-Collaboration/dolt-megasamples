@@ -116,7 +116,13 @@ def main():
     ap.add_argument("--mode", action="append", choices=MODES)
     ap.add_argument("--only", action="append")
     ap.add_argument("--timeout", type=float, default=900)
+    ap.add_argument("--top", type=int, default=None, metavar="MB",
+                    help="walk the ladder only up to this ceiling (a database that fails there is reported as a "
+                         "bound); 2026-09-16: 12288, the memory the maintainer's other work left free")
     a = ap.parse_args()
+    if a.top:
+        LADDER[:] = [m for m in LADDER if m <= a.top]
+        print(f"  ladder capped at {LADDER[-1]} MB (--top): a database that fails there is reported as a bound", flush=True)
     # a measurement in its own right: never beside a runner, which may be writing the very store, and
     # never while the stack serves the stores, which would put two servers over one repository
     lock, holder = run_lock("memory_profile_pairs.py")

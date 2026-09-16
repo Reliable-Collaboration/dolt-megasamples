@@ -4,7 +4,7 @@
 
 Record: `knowledge/tools/doltgresql-1-3-1.md`.
 
-Reported upstream: https://github.com/dolthub/doltgresql/issues/3325 (2026-09-11), with the reproduction repository https://github.com/Reliable-Collaboration/repro-doltgresql-bug-bpchar-padding, which runs the failing SQL side by side with the reference engine. As read on 2026-09-12: fix pull request 3349 open, unmerged.
+Reported upstream: https://github.com/dolthub/doltgresql/issues/3325 (2026-09-11), with the reproduction repository https://github.com/Reliable-Collaboration/repro-doltgresql-bug-bpchar-padding, which runs the failing SQL side by side with the reference engine. As read on 2026-09-16: fixed by pull request 3349, merged 2026-09-16 after v1.3.3, so not yet in a release; the issue is closed.
 
 **Steps:**
 
