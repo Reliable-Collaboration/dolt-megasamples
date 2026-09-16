@@ -287,9 +287,6 @@ def report(items):
           "**both** engines, which is why MySQL is measured that way too: it separates what row-wise "
           "writing costs from what Dolt costs. And a commit per row is the one case where both "
           "axes go the wrong way at once.", ""]
-    if rc:
-        L += ["![Dolt ÷ MySQL for each load](docs/img/modes-vs-mysql.png)", "",
-              "![Totalled over the databases measured in every mode](docs/img/totals-by-mode.png)", ""]
 
     # --- 1 ------------------------------------------------------------------------------------
     L += ["## 1. One commit per database", "",
@@ -298,7 +295,7 @@ def report(items):
           f"{smallest['ratio']:.2f}× (`{smallest['db']}`) to {largest['ratio']:.2f}× "
           f"(`{largest['db']}`), a spread of more than "
           f"{largest['ratio'] / smallest['ratio']:.0f} to one.", "",
-          "![All databases](docs/img/totals.png)", "",
+          "![Disk used, every database, every load, every pair](docs/img/disk-by-database.png)", "",
           "![Ratio per database](docs/img/ratio-by-database.png)", "",
           "The shape of the spread is legible. Small databases favour Dolt heavily because InnoDB "
           "allocates a tablespace per table whether or not anything is in it. Text-heavy data "
@@ -348,7 +345,7 @@ def report(items):
               f"{human(worst['dolt'])} in one Dolt commit, {human(worst['rowcommit'])} in "
               f"{(worst['rowcommit_commits'] or 0):,} — **{worst['rowcommit'] / worst['mysql']:.0f}× "
               "MySQL for identical data**.", "",
-              "![What history costs](docs/img/commit-granularity.png)", "",
+              "![Time to load, every database, every load, every pair](docs/img/time-by-database.png)", "",
               "| database | rows | MySQL | one commit | ÷MySQL | one commit per row | ÷MySQL | × one commit |",
               "|---|---:|---:|---:|---:|---:|---:|---:|"]
         for i in sorted(rc, key=lambda x: -x["rows"]):

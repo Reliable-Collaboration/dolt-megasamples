@@ -127,20 +127,37 @@ def inline_table(results, pair):
 
 
 def refusals(results):
+    """What an engine refused, one line per database and distinct refusal, naming the loads it
+    happened in -- the same view refused in all eight loads of a database is one line, not eight."""
     L = []
     for pair in PHASES:
         data = units(results, pair)
         for db in sorted(data):
+            groups = {}
+            loads = 0
             for ph in PHASES[pair] + [x + "_inline" for x in PHASES[pair]]:
                 u = data[db].get(ph)
                 if not u:
                     continue
+                loads += 1
                 items = list(u.get("refused_objects") or [])
                 if u.get("indexes_refused"):
                     items.append(f"{len(u['indexes_refused'])} index(es) refused: " + ", ".join(u["indexes_refused"]))
                 if items:
-                    L.append(f"* `{db}`, {LABEL[ph.replace('_inline', '')]}"
-                             f"{' (inline)' if ph.endswith('_inline') else ''}: " + "; ".join(items))
+                    label = LABEL[ph.replace("_inline", "")] + (" (inline)" if ph.endswith("_inline") else "")
+                    groups.setdefault(tuple(items), []).append(label)
+            for items, where in groups.items():
+                engine = where[0].split(",")[0]
+                of_engine = sum(1 for ph in PHASES[pair] + [x + "_inline" for x in PHASES[pair]]
+                                if data[db].get(ph) and LABEL[ph.replace("_inline", "")].startswith(engine))
+                if len(where) == of_engine and of_engine > 1:
+                    scope = f"every {engine} load"
+                elif len(where) == 1:
+                    scope = where[0]
+                else:
+                    scope = f"{engine}, {len(where)} of its {of_engine} loads (" + "; ".join(
+                        w.split(", ", 1)[1] for w in where) + ")"
+                L.append(f"* `{db}` -- {scope}: " + "; ".join(items))
     dropped = {}
     for pair in PHASES:
         for db, m in units(results, pair).items():

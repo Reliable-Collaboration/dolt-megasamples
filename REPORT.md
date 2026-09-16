@@ -44,15 +44,11 @@ Both axes matter and they do not move together, so both are given for every load
 
 Read the two columns together. The standard Dolt load is a third of MySQL's disk for several times its load time — a trade, not a free win. Writing row by row is expensive in **both** engines, which is why MySQL is measured that way too: it separates what row-wise writing costs from what Dolt costs. And a commit per row is the one case where both axes go the wrong way at once.
 
-![Dolt ÷ MySQL for each load](docs/img/modes-vs-mysql.png)
-
-![Totalled over the databases measured in every mode](docs/img/totals-by-mode.png)
-
 ## 1. One commit per database
 
 The standard load. **524.1 MiB against MySQL's 1.8 GiB — 0.29×** over all 21 databases, and the ratio is not uniform: it runs from 0.05× (`pubs`) to 0.65× (`oracle_sh`), a spread of more than 13 to one.
 
-![All databases](docs/img/totals.png)
+![Disk used, every database, every load, every pair](docs/img/disk-by-database.png)
 
 ![Ratio per database](docs/img/ratio-by-database.png)
 
@@ -94,7 +90,7 @@ The same rows with a commit after each one take **116.7 GiB where the one-commit
 
 19 of the 21 end up larger than MySQL. The extreme is `employees`: 3,919,015 rows, 178.3 MiB in MySQL, 42.5 MiB in one Dolt commit, 63.3 GiB in 3,919,018 — **363× MySQL for identical data**.
 
-![What history costs](docs/img/commit-granularity.png)
+![Time to load, every database, every load, every pair](docs/img/time-by-database.png)
 
 | database | rows | MySQL | one commit | ÷MySQL | one commit per row | ÷MySQL | × one commit |
 |---|---:|---:|---:|---:|---:|---:|---:|

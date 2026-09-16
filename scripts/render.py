@@ -55,8 +55,8 @@ def blocks():
         "per_database": guarded(lambda r: report.detail_table(report.rows(r))
                                 if hasattr(report, "detail_table") else
                                 report.summary_table(report.rows(r))),
-        "index_policy": guarded(lambda r: report.policy_section(report.rows(r))
-                                or "*Neither index policy has been measured yet.*"),
+        "index_policy": guarded(lambda r: demote(report.policy_section(report.rows(r))
+                                                 or "*Neither index policy has been measured yet.*")),
         "index_parity": guarded(lambda r: "\n".join(report.index_parity_table(report.rows(r)))
                                 or "*No mode has been measured for index parity yet.*"),
         "environment": guarded(lambda r: report.environment_table(), need="environment"),
@@ -73,6 +73,18 @@ def blocks():
         "lite_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "lite")),
         "pair_memory_study": lambda: report_pairs.memory_study_table(),
     }
+
+
+def demote(text):
+    """A block that carries its own top-level heading, placed under a heading of the README's own:
+    the block's H2 goes, and its H3s become H4s, so the README's structure is the template's."""
+    lines = [l for l in text.split("\n")]
+    out = []
+    for k, l in enumerate(lines):
+        if k < 2 and l.startswith("## "):
+            continue
+        out.append("#" + l if l.startswith("### ") else l)
+    return "\n".join(out).lstrip("\n")
 
 
 def memory_table(memory):

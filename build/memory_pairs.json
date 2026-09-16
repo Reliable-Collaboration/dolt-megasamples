@@ -195,11 +195,11 @@
    "adventureworks": {
     "ladder_top_mb": 12288,
     "largest_table_rows": 121317,
-    "measured": "2026-09-16T11:22:33Z",
-    "megabytes": null,
-    "outcome": "exited 1",
+    "measured": "2026-09-16T13:30:35Z",
+    "megabytes": 384,
+    "outcome": "ok",
     "query_table": "sales_salesorderdetail",
-    "seconds_to_profile": 301.9
+    "seconds_to_profile": 523.3
    },
    "adventureworks_lt": {
     "ladder_top_mb": 12288,
@@ -249,11 +249,11 @@
    "employees": {
     "ladder_top_mb": 12288,
     "largest_table_rows": 2844047,
-    "measured": "2026-09-16T11:41:47Z",
-    "megabytes": null,
-    "outcome": "exited 1",
+    "measured": "2026-09-16T14:17:08Z",
+    "megabytes": 2048,
+    "outcome": "ok",
     "query_table": "salaries",
-    "seconds_to_profile": 301.9
+    "seconds_to_profile": 2792.8
    },
    "enron": {
     "ladder_top_mb": 12288,
