@@ -27,7 +27,7 @@ These were given during release 2 and still hold. Quote them back when a decisio
   updates are complete with a full list of what needs to get done, what's left to do. Also provide a
   list of decisions that were made and things that I should know about, as well as if input is
   needed from me. Author status updates so that they are cumulative." A detached monitor that prints
-  the state hourly is the reliable way; see *Running long jobs* below.
+  the state hourly is the reliable way; see *Things that went wrong before* below.
 - **Never publish anything without explicit approval**: no GitHub issues, no comments on upstream
   repositories, no pull-request merges, no pushes to `main`. Pushing to this branch is fine.
 - **Verified versus inferred.** Say which is which. A claim about an engine's behaviour is verified
