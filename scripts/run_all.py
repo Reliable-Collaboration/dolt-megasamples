@@ -758,6 +758,15 @@ def main():
         p = json.load(open(PROGRESS, encoding="utf-8"))
     else:
         p = load_progress()
+    # the dumps every selected unit reads must exist before anything is recorded: a missing file is
+    # `make export` not having been run, not a failed load
+    missing = [os.path.relpath(f, ROOT) for db in dbs
+               for f in [os.path.join(dumps_dir(), f"{db}.sql")]
+               + ([os.path.join(dumps_dir(True), f"{db}.sql")] if any(ph in PER_ROW for ph in phases) else [])
+               if not os.path.exists(f)]
+    if missing:
+        sys.exit(f"{len(missing)} dump(s) the run needs do not exist (`make export` writes both styles):\n  "
+                 + "\n  ".join(missing[:8]) + ("\n  ..." if len(missing) > 8 else "") + "\nNothing was changed.")
     # one version per run: refused before anything is written, over every recorded unit of these engines
     version_gate(p.get("units") or {}, {"mysql" if ph.startswith("mysql") else "dolt" for ph in phases})
     p["databases"] = dbs

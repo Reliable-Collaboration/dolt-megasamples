@@ -14,7 +14,7 @@ help:
 	@echo "make progress   what the run has done, is doing, and has left"
 	@echo "make watch      the same, redrawn every minute"
 	@echo "make all        the size-only pipeline: export -> load -> measure -> report"
-	@echo "make export     mysqldump every database out of a running sql-megasamples MySQL"
+	@echo "make export     mysqldump every database out of a running sql-megasamples MySQL, both statement styles"
 	@echo "make load       load those dumps into Dolt, commit and gc"
 	@echo "make measure    size both engines and check they hold the same rows"
 	@echo "make report     regenerate REPORT.md, the README tables and the figures"
@@ -55,8 +55,11 @@ help:
 # The experiment needs sql-megasamples' MySQL running: it is the source of every dump.
 all: export load measure report
 
+# both statement styles: the extended INSERTs the bulk load uses, and one INSERT per row for the
+# row-by-row loads (build/dumps/rowwise/); the runner needs both
 export:
-	@$(PY) scripts/export_mysql.py
+	@$(PY) scripts/export_mysql.py $(ARGS)
+	@$(PY) scripts/export_mysql.py --per-row $(ARGS)
 load:
 	@$(PY) scripts/load_dolt.py
 measure:
