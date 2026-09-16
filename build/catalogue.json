@@ -1,0 +1,23 @@
+{
+ "adventureworks": "Microsoft's flagship 68-table, 5-schema OLTP sample (bicycle manufacturer)",
+ "adventureworks_lt": "The lightweight 12-table AdventureWorks (SalesLT schema)",
+ "chicago_crimes": "The City of Chicago's 8.6 M-row reported-crime extract plus the 434-row IUCR code lookup",
+ "chinook": "Luis Rocha's digital media store sample (v1.4.5, 2024-02-12)",
+ "contoso": "SQLBI's synthetic Contoso retail star schema V2",
+ "dvdstore": "Dell/VMware's open-source OLTP benchmark schema (DVD e-commerce with reviews and memberships)",
+ "employees": "The MySQL \"Employees Sample Database\" - 300,024 fabricated employees with 2.8 M salary rows",
+ "enron": "About 517k real corporate emails from 150 Enron custodians, distributed by CMU as a maildir-style tree of RFC 822 files",
+ "jaffle_shop": "dbt Labs' fictional jaffle (toasted sandwich) shop",
+ "lahman": "Sean Lahman's historical MLB statistics 1871-2025, now published by SABR as 27 CSV tables (plus Access and SQL Server forms) under CC BY-SA 3.0",
+ "northwind": "Microsoft's classic 13-table trading-company sample (SQL Server 2000 era) shipped as a single 1 MB T-SQL script with all data inline",
+ "nyc_taxi": "New York City yellow and green taxi trip records in Parquet, plus the 265-row taxi zone lookup",
+ "oracle_co": "Oracle's \"modern\" e-commerce sample (7 tables, 8,783 rows) with identity columns, a JSON check constraint on a BLOB",
+ "oracle_hr": "The 7-table, 216-row teaching schema from Oracle's db-sample-schemas v23.3, converted from its plain INSERT scripts",
+ "oracle_oe": "The object-relational Order Entry schema",
+ "oracle_sh": "Oracle's star-schema data-warehouse sample",
+ "pubs": "Microsoft's tiny 11-table publishers/authors sample (SQL Server 2000 era) shipped as a 126 KB T-SQL script with inline data",
+ "sakila": "Oracle's DVD-rental sample database for MySQL (Version 1.5), 16 tables / 7 views / 3 procedures / 3 functions / 6 triggers, 46,268 rows",
+ "smallsets": "Three classic teaching datasets in one database — the Titanic passenger list, Fisher's Iris measurements and the Palmer Penguins",
+ "stackexchange_beer": "CC BY-SA XML dump of a Stack Exchange Q&A site (Posts, Users, Comments, Votes, Badges, Tags, PostLinks, PostHistory) converted to MySQL with FULLTEXT",
+ "wikipedia_simple": "Current-revision article text plus MediaWiki link tables of the Simple English Wikipedia"
+}

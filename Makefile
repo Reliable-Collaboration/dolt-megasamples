@@ -7,7 +7,7 @@ PY ?= python3
 # and as a prerequisite of `report`, which is why the documents stayed stale while every
 # other step ran. Generated from the targets themselves so a new one cannot be forgotten.
 .PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch \
-        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs memory-pairs
+        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs memory-pairs screenshots catalogue
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -32,6 +32,8 @@ help:
 	@echo "make memory-pairs   what DoltgreSQL and DoltLite need to open each database in each shape (build/memory_pairs.json)"
 	@echo "make okf-check      validate the knowledge bundle (knowledge/)"
 	@echo "make test-stack     after make up: both accounts on Dolt and DoltgreSQL, the DoltLite files, every console"
+	@echo "make screenshots    retake the README's pictures from the running stack (docs/screenshots/)"
+	@echo "make catalogue      copy each database's one-line description from the corpus checkout (build/catalogue.json)"
 	@echo "make audit      check the measurements against invariants that must hold"
 	@echo "make docs       regenerate README.md and JOURNAL.md from docs/templates and build/"
 	@echo "make trace      what the per-row-commit loads cost in memory as history accumulated"
@@ -191,6 +193,16 @@ run-pg:
 	@$(PY) scripts/run_pairs.py --pair pg $(ARGS)
 run-lite:
 	@$(PY) scripts/run_pairs.py --pair lite $(ARGS)
+# the README's screenshots, taken by docs/screenshots/capture.py in the Playwright image on the host's
+# network, because the Workbench's page calls its API at the address the host publishes
+screenshots:
+	@docker run --rm --network host -v "$(CURDIR)/docs/screenshots:/out" \
+	  mcr.microsoft.com/playwright/python:v1.49.1-noble sh -c "pip install -q --break-system-packages playwright==1.49.1 && python3 /out/capture.py"
+
+# what each database is, in the corpus's own words; needs the sql-megasamples checkout (MEGASAMPLES_DIR)
+catalogue:
+	@$(PY) scripts/catalogue.py
+
 test-stack:
 	@$(PY) scripts/stack_check.py
 memory-pairs:

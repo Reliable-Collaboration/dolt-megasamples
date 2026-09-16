@@ -8,7 +8,7 @@ to connect a tool of one's own to each engine that stays up (Dolt, DoltgreSQL, a
 files), and the consoles with what each can open. It is generated from `build/results.json`, so
 it shows what was measured and cannot drift from the report.
 """
-import html, os, sys
+import html, json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import ROOT, human, load_results  # noqa: E402
@@ -60,8 +60,8 @@ CONNECT = [
     (f"DoltgreSQL {DOLTGRES_VERSION} (PostgreSQL protocol)", [
         ("address", f"127.0.0.1 port {P['doltgres']}"),
         ("accounts", f"demo / {SHOWN['demo']} (reads every table) · admin / {SHOWN['admin']} (superuser) · postgres / {SHOWN['doltgres']}"),
-        ("caution", "DoltgreSQL 1.3.1 does not enforce database privileges: any account, demo included, can create and drop "
-                    "databases, and a dropped database is gone from this stack until it is loaded again"),
+        ("privileges", f"enforced from 1.3.2 (this is {DOLTGRES_VERSION}): demo is refused CREATE DATABASE and DROP DATABASE; "
+                       "a role can still grant itself CREATEDB, which PostgreSQL refuses"),
         ("client", f"PGPASSWORD={SHOWN['demo']} psql -h 127.0.0.1 -p {P['doltgres']} -U demo -d sakila"),
         ("URL", f"postgresql://demo:{SHOWN['demo']}@127.0.0.1:{P['doltgres']}/sakila"),
         ("JDBC", f"jdbc:postgresql://127.0.0.1:{P['doltgres']}/sakila"),
@@ -125,13 +125,22 @@ def main():
     granularity = ""
     if rc:
         mults = sorted(b / a for a, b in rc)
-        granularity = (f' Committing one row at a time instead costs <b>{mults[0]:.0f}× to {mults[-1]:.0f}×</b> '
-                       f'as much, measured on {len(rc)} of them — history is the expensive part, not the rows. '
-                       f'See <code>REPORT.md</code>.')
+        granularity = (f' On Dolt, a commit per row costs <b>{mults[0]:.0f}× to {mults[-1]:.0f}×</b> the one-commit '
+                       f'store, measured on {len(rc)} databases: history is the expensive part, not the rows.')
     have_pg = any(s["postgres"] or s["doltgres"] for _, _, s in items)
     have_lite = any(s["sqlite"] or s["doltlite"] for _, _, s in items)
     served_pg = set(((serve.get("engines") or {}).get("doltgres") or {}).get("databases") or [])
-    dolt_ratio = (f"{do / my:.2f}× MySQL across {len(base)} databases" if my else "not measured yet")
+    def pair_ratio(a, b):
+        both = [(s[a], s[b]) for _, _, s in items if s[a] and s[b]]
+        return (sum(y for _, y in both) / sum(x for x, _ in both), len(both)) if both else (None, 0)
+    ratios = [(name, *pair_ratio(a, b)) for name, a, b in (("MySQL", "mysql", "dolt"), ("PostgreSQL", "postgres", "doltgres"),
+                                                          ("SQLite", "sqlite", "doltlite"))]
+    ratio_line = ", ".join(f"<b>{r:.2f}×</b> {name}'s" for name, r, n in ratios if r)
+    catalogue = {}
+    try:
+        catalogue = json.load(open(os.path.join(ROOT, "build", "catalogue.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
 
     links = "\n".join(
         f'      <a class="console" href="http://127.0.0.1:{port}/"><b>{name}</b><em>{html.escape(cover)}</em>'
@@ -141,7 +150,7 @@ def main():
         + "".join(f'<tr><th>{html.escape(k)}</th><td>{"<code>" + html.escape(v) + "</code>" if k in ("client", "URL", "JDBC", "open", "copy one out") else html.escape(v)}</td></tr>'
                   for k, v in rows) + '</table></div>' for title, rows in CONNECT)
 
-    head = ['<th>database</th><th class="n">rows</th><th class="n">MySQL</th><th class="n">Dolt</th><th class="n">ratio</th><th></th>']
+    head = ['<th>database</th>' + ('<th>what it is</th>' if catalogue else '') + '<th class="n">rows</th><th class="n">MySQL</th><th class="n">Dolt</th>']
     if mode != "oneshot":
         head.append('<th class="n">commits served<br>Dolt / DoltgreSQL / DoltLite</th>')
     if have_pg:
@@ -157,13 +166,10 @@ def main():
         opens = "".join(
             f'<a class="go" title="Open {db} in {n}" href="{html.escape(u.format(db=db))}">{c}</a>'
             for n, c, u in DEEP if ("DoltgreSQL" not in n or db in served_pg))
-        ratio = (s["dolt"] / s["mysql"]) if s["mysql"] and s["dolt"] else None
-        bar = min(100, ratio * 100) if ratio else 0
         row = (f'      <tr><td><code>{html.escape(db)}</code><span class="opens">{opens}</span></td>'
-               f'<td class="n">{(r.get("rows_mysql") or 0):,}</td>'
-               f'<td class="n">{fmt(s["mysql"])}</td><td class="n">{fmt(s["dolt"])}</td>'
-               f'<td class="n">{f"{ratio:.2f}×" if ratio else "—"}</td>'
-               f'<td><div class="bar"><i style="width:{bar:.1f}%"></i></div></td>')
+               + (f'<td class="what">{html.escape(catalogue.get(db, ""))}</td>' if catalogue else '')
+               + f'<td class="n">{(r.get("rows_mysql") or 0):,}</td>'
+               f'<td class="n">{fmt(s["mysql"])}</td><td class="n">{fmt(s["dolt"])}</td>')
         if mode != "oneshot":
             e = serve.get("engines") or {}
             c = commits_served(r, mode)
@@ -187,11 +193,6 @@ def main():
         served_line = (f' <b>Serving the {html.escape(mode)} loads</b> ({html.escape(serve["label"])}): {counts} databases'
                        + (f'; {left} left out for memory or because the shape was not loaded for them, see <code>build/serve.json</code>' if left else '')
                        + '. The commits column says how much history each served database carries; the sizes are still the one-commit loads.')
-    more = ""
-    shown_pairs = [name for flag, name in ((have_pg, "PostgreSQL and DoltgreSQL"), (have_lite, "SQLite and DoltLite")) if flag]
-    if shown_pairs:
-        more = (f" The same rows were also loaded into {' and into '.join(shown_pairs)}, each pair from its own "
-                f"dump; their one-commit sizes are in the last columns, with a dash where one is not measured yet.")
     page = f"""<!doctype html>
 <meta charset="utf-8"><title>dolt-megasamples</title>
 <style>
@@ -205,21 +206,26 @@ def main():
  a.console b {{ display:block; }} a.console em {{ display:block; font-size:.85rem; opacity:.8; }}
  a.console span {{ font-size:.85rem; opacity:.7; }}
  .engines {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(20rem,1fr)); gap:.75rem; }}
- .engine {{ border:1px solid var(--line); border-radius:.5rem; padding:.5rem 1rem; }}
+ .engine {{ border:1px solid var(--line); border-radius:.5rem; padding:.5rem 1rem; min-width:0; }}
+ table.kv {{ width:100%; table-layout:fixed; }} table.kv th {{ width:6.5rem; }}
+ table.kv td {{ overflow-wrap:anywhere; }} table.kv code {{ white-space:pre-wrap; overflow-wrap:anywhere; }}
+ td.what {{ font-size:.85rem; opacity:.85; }}
  .engine h3 {{ margin:.25rem 0 .5rem; font-size:1rem; }}
  table.kv th {{ text-align:left; font-weight:600; padding:.1rem .6rem .1rem 0; white-space:nowrap; vertical-align:top; font-size:.9rem; }}
  table.kv td {{ font-size:.9rem; padding:.1rem 0; }} table.kv code {{ font-size:.85rem; }}
  table.db {{ border-collapse:collapse; width:100%; }}
  table.db th, table.db td {{ padding:.35rem .5rem; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; }}
  table.db th.n, table.db td.n {{ text-align:right; white-space:nowrap; }}
- .bar {{ width:6rem; height:.5rem; background:var(--line); border-radius:.25rem; overflow:hidden; }}
- .bar i {{ display:block; height:100%; background:var(--fill); }}
  .opens a {{ font-size:.75rem; margin-left:.35rem; text-decoration:none; opacity:.6; }} .opens a:hover {{ opacity:1; }}
  footer {{ margin-top:2rem; font-size:.85rem; opacity:.7; }}
 </style>
 <h1>dolt-megasamples</h1>
-<p class="lead">The sql-megasamples databases loaded into Dolt — and into DoltgreSQL and DoltLite — with what each costs
-on disk beside the engine it mirrors. The Dolt column is the one-commit load, {dolt_ratio}.{granularity}{more}{served_line}</p>
+<p class="lead">The {len(items)} sample databases of <a href="https://github.com/Reliable-Collaboration/sql-megasamples">sql-megasamples</a>,
+loaded into Dolt, DoltgreSQL and DoltLite and served here beside their consoles, so you can open real data in each
+versioned engine with a tool of your own. They are also the subject of an experiment -- what does a Dolt engine cost
+against the database it stands in for, in disk, time and memory? Loaded once and committed once, as served here, the
+stores are {ratio_line}; a commit per row costs far more.{granularity} <code>README.md</code> tells the story and
+<code>REPORT.md</code> carries every number.{served_line}</p>
 
 <h2>Consoles, by what they can open</h2>
 <div class="consoles">
@@ -236,7 +242,7 @@ on disk beside the engine it mirrors. The Dolt column is the one-commit load, {d
 <tr>{''.join(head)}</tr>
 {chr(10).join(cards)}
 </table>
-<footer>Sizes are the settled one-commit loads (after garbage collection or VACUUM); the report gives every shape.
+<footer>Sizes are the settled one-commit loads (after garbage collection or VACUUM), the shape served by default; the README's table gives every run.
 A = open in Adminer, Aᴘ = in Adminer on DoltgreSQL, P = in phpMyAdmin. Every number was measured on exactly these engine versions; a moved version means every unit of that engine is measured again: see Versions in README.md. Generated by scripts/console_page.py.</footer>
 """
     with open(OUT, "w", encoding="utf-8") as fh:

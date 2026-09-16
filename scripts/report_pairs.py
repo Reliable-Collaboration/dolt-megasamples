@@ -375,3 +375,57 @@ def findings_sizes(results, shape, axis="bytes"):
             cells.append(((human(v) if axis == "bytes" else seconds(v)) + mark) if v else "—")
         L.append(f"| `{db}` | {rows_of(r):,} | " + " | ".join(cells) + " |")
     return "\n".join(L)
+
+
+# ------------------------------------------------------------------ the served stack, for the README ---
+def databases_table(results):
+    """Every database with what it is (build/catalogue.json, copied from the corpus's own records by
+    scripts/catalogue.py), its tables and rows, and the size of the store each Dolt engine serves by
+    default: the one-commit load."""
+    import json, os
+    from common import ROOT
+    from loads import PAIR_ORDER, PAIRS, rows_of
+    try:
+        what = json.load(open(os.path.join(ROOT, "build", "catalogue.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        what = {}
+    L = ["| database | what it is | tables | rows | " + " | ".join(PAIRS[p]["engine"] for p in PAIR_ORDER) + " |",
+         "|---|---|---:|---:|" + "---:|" * len(PAIR_ORDER)]
+    for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
+        r = results[db]
+        sizes = [measure_of(r, p, "oneshot", "bytes") for p in PAIR_ORDER]
+        L.append(f"| `{db}` | {what.get(db, '')} | {r.get('tables') or 0:,} | {rows_of(r):,} | "
+                 + " | ".join(human(v) if v else "—" for v in sizes) + " |")
+    return "\n".join(L)
+
+
+def connect_table():
+    """How to reach each served engine, in the words the landing page uses (scripts/console_page.py),
+    so the README and the page cannot disagree about a port, an account or a client line."""
+    import console_page
+    code = {"client", "URL", "JDBC", "open", "copy one out"}
+    engines = [(title.split(" (")[0], dict(rows)) for title, rows in console_page.CONNECT]
+    keys = []
+    for _, rows in engines:
+        keys += [k for k in rows if k not in keys]
+    L = ["| | " + " | ".join(name for name, _ in engines) + " |", "|---|" + "---|" * len(engines)]
+    for k in keys:
+        cells = []
+        for _, rows in engines:
+            v = rows.get(k)
+            cells.append(("`" + v + "`" if k in code else v) if v else "—")
+        L.append(f"| {k} | " + " | ".join(cells) + " |")
+    return "\n".join(L)
+
+
+def consoles_table():
+    """The consoles as the landing page lists them, most coverage first, with the index page on top."""
+    import console_page
+    P = console_page.P
+    L = ["| | address | browses | notes |", "|---|---|---|---|",
+         f"| **console index** | **<http://127.0.0.1:{P['console']}/>** | every engine | **start here**: how to connect your own "
+         "tool, the consoles by what each can open, and every database with what it is and its size in each engine, "
+         "generated from the measurements and the running stack |"]
+    for name, port, cover, note in console_page.CONSOLES:
+        L.append(f"| {name} | <http://127.0.0.1:{port}/> | {cover} | {note} |")
+    return "\n".join(L)
