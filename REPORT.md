@@ -348,7 +348,7 @@ Tests 2, 4 and 5 run twice: once with the secondary indexes and foreign keys dro
 | database | 2. PostgreSQL<br>1 INSERT/row<br>deferred → inline | 4. DoltgreSQL<br>1 INSERT/row<br>deferred → inline | 5. DoltgreSQL<br>1 commit/row<br>deferred → inline |
 |---|---:|---:|---:|
 | `employees` | 283.2 MiB → 283.1 MiB<br>26 min 48 s → 26 min 54 s | 51.8 MiB → 51.2 MiB<br>2 h 14 min → 1 h 54 min | 36.6 GiB → 38.8 GiB<br>5 h 59 min → 5 h 58 min |
-| `wikipedia_simple` | 203.7 MiB → 228.6 MiB<br>9 min 31 s → 8 min 16 s | 54.8 MiB → 53.1 MiB<br>30 min 14 s → 35 min 06 s | 10.1 GiB → 19.9 GiB<br>1 h 29 min → 2 h 09 min |
+| `wikipedia_simple` | 203.7 MiB → 228.6 MiB<br>9 min 31 s → 8 min 15 s | 54.8 MiB → 53.1 MiB<br>30 min 14 s → 35 min 06 s | 10.1 GiB → 19.9 GiB<br>1 h 29 min → 2 h 09 min |
 | `oracle_sh` | 115.8 MiB → 119.1 MiB<br>8 min 39 s → 7 min 36 s | 145.0 MiB → 136.3 MiB<br>30 min 08 s → 39 min 04 s | 15.5 GiB → 56.6 GiB<br>1 h 20 min → 2 h 04 min |
 | `adventureworks` | 141.0 MiB → 146.4 MiB<br>5 min 38 s → 5 min 14 s | 38.6 MiB → 37.4 MiB<br>40 min 12 s → 43 min 26 s | 8.1 GiB → 11.5 GiB<br>2 h 18 min → 2 h 47 min |
 | `contoso` | 115.1 MiB → 117.6 MiB<br>5 min 27 s → 5 min 05 s | 40.4 MiB → 40.3 MiB<br>17 min 04 s → 19 min 25 s | 6.8 GiB → 11.6 GiB<br>50 min 01 s → 58 min 34 s |
@@ -359,15 +359,15 @@ Tests 2, 4 and 5 run twice: once with the secondary indexes and foreign keys dro
 | `enron` | 29.9 MiB → 30.9 MiB<br>23 s → 29 s | 9.1 MiB → 9.2 MiB<br>1 min 09 s → 1 min 17 s | 352.0 MiB → 711.0 MiB<br>3 min 07 s → 3 min 23 s |
 | `nyc_taxi` | 17.0 MiB → 17.3 MiB<br>26 s → 29 s | 2.8 MiB → 2.8 MiB<br>1 min 16 s → 1 min 28 s | 312.8 MiB → 921.3 MiB<br>3 min 17 s → 3 min 39 s |
 | `sakila` | 15.3 MiB → 15.7 MiB<br>24 s → 24 s | 1.9 MiB → 1.6 MiB<br>1 min 40 s → 1 min 45 s | 323.0 MiB → 644.7 MiB<br>5 min 25 s → 5 min 46 s |
-| `chinook` | 9.8 MiB → 9.8 MiB<br>8.5 s → 9.3 s | 599.8 KiB → 601.3 KiB<br>22 s → 22 s | 85.9 MiB → 118.0 MiB<br>1 min 00 s → 1 min 04 s |
-| `oracle_oe` | 10.9 MiB → 10.9 MiB<br>5.8 s → 7.1 s | 1.5 MiB → 1.5 MiB<br>18 s → 19 s | 81.2 MiB → 139.8 MiB<br>48 s → 52 s |
-| `oracle_co` | 9.3 MiB → 9.4 MiB<br>4.5 s → 6.0 s | 441.0 KiB → 448.7 KiB<br>14 s → 14 s | 42.9 MiB → 70.5 MiB<br>37 s → 38 s |
-| `adventureworks_lt` | 11.1 MiB → 11.2 MiB<br>2.5 s → 3.1 s | 1.0 MiB → 996.7 KiB<br>7.7 s → 8.0 s | 20.9 MiB → 35.7 MiB<br>22 s → 23 s |
-| `northwind` | 9.4 MiB → 9.4 MiB<br>1.7 s → 2.5 s | 516.0 KiB → 555.4 KiB<br>6.3 s → 6.8 s | 13.9 MiB → 28.7 MiB<br>17 s → 18 s |
-| `smallsets` | 8.0 MiB → 8.0 MiB<br>1.2 s → 1.7 s | 156.3 KiB → 156.3 KiB<br>3.3 s → 3.2 s | 8.4 MiB → 8.5 MiB<br>8.3 s → 8.4 s |
-| `jaffle_shop` | 7.6 MiB → 7.6 MiB<br>0.3 s → 0.3 s | 21.2 KiB → 18.4 KiB<br>0.6 s → 0.7 s | 671.7 KiB → 786.6 KiB<br>1.3 s → 1.3 s |
-| `pubs` | 8.1 MiB → 8.1 MiB<br>0.3 s → 0.4 s | 81.4 KiB → 68.6 KiB<br>0.7 s → 0.6 s | 652.4 KiB → 775.3 KiB<br>1.5 s → 1.5 s |
-| `oracle_hr` | 8.1 MiB → 8.1 MiB<br>0.3 s → 0.3 s | 54.5 KiB → 45.7 KiB<br>0.6 s → 0.6 s | 392.8 KiB → 884.1 KiB<br>1.1 s → 1.2 s |
+| `chinook` | 9.8 MiB → 9.8 MiB<br>8.4 s → 9.2 s | 599.8 KiB → 601.3 KiB<br>22 s → 22 s | 85.9 MiB → 118.0 MiB<br>1 min 00 s → 1 min 04 s |
+| `oracle_oe` | 10.9 MiB → 10.9 MiB<br>5.7 s → 7.0 s | 1.5 MiB → 1.5 MiB<br>18 s → 19 s | 81.2 MiB → 139.8 MiB<br>48 s → 52 s |
+| `oracle_co` | 9.3 MiB → 9.4 MiB<br>4.4 s → 5.9 s | 441.0 KiB → 448.7 KiB<br>14 s → 14 s | 42.9 MiB → 70.5 MiB<br>37 s → 38 s |
+| `adventureworks_lt` | 11.1 MiB → 11.2 MiB<br>2.4 s → 3.0 s | 1.0 MiB → 996.7 KiB<br>7.7 s → 8.0 s | 20.9 MiB → 35.7 MiB<br>22 s → 23 s |
+| `northwind` | 9.4 MiB → 9.4 MiB<br>1.6 s → 2.3 s | 516.0 KiB → 555.4 KiB<br>6.3 s → 6.8 s | 13.9 MiB → 28.7 MiB<br>17 s → 18 s |
+| `smallsets` | 8.0 MiB → 8.0 MiB<br>1.1 s → 1.5 s | 156.3 KiB → 156.3 KiB<br>3.3 s → 3.2 s | 8.4 MiB → 8.5 MiB<br>8.3 s → 8.4 s |
+| `jaffle_shop` | 7.6 MiB → 7.6 MiB<br>0.2 s → 0.2 s | 21.2 KiB → 18.4 KiB<br>0.6 s → 0.7 s | 671.7 KiB → 786.6 KiB<br>1.3 s → 1.3 s |
+| `pubs` | 8.1 MiB → 8.1 MiB<br>0.2 s → 0.3 s | 81.4 KiB → 68.6 KiB<br>0.7 s → 0.6 s | 652.4 KiB → 775.3 KiB<br>1.5 s → 1.5 s |
+| `oracle_hr` | 8.1 MiB → 8.1 MiB<br>0.2 s → 0.2 s | 54.5 KiB → 45.7 KiB<br>0.6 s → 0.6 s | 392.8 KiB → 884.1 KiB<br>1.1 s → 1.2 s |
 
 ### SQLite and DoltLite
 
@@ -411,6 +411,8 @@ the README.
 * `oracle_co` -- every DoltgreSQL load: VIEW: product_reviews: at or near "as": syntax error
 * `sakila` -- every DoltgreSQL load: VIEW: actor_info: Expression #4 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'group_concat(c.name::text || '
 * `wikipedia_simple` -- every DoltgreSQL load: VIEW: v_article: function: 'convert_from' not found; VIEW: v_category_member: function: 'convert_from' not found; VIEW: v_page: function: 'convert_from' not found; VIEW: v_pagelink: function: 'convert_from' not found
+
+Read back with a null ordering the source does not print, and otherwise identical -- recorded on the unit as `indexes_ordering_differs`, not failed: DoltgreSQL: `adventureworks_lt` 8, `adventureworks` 31, `employees` 1, `wikipedia_simple` 3 index(es).
 
 Dropped by the dialect before any load, on both engines of the pair (the GIN indexes and the indexes of the generated-column tables): `adventureworks`: production_workorder_ix_workorder_productid, production_workorder_ix_workorder_scrapreasonid, purchasing_purchaseorderdetail_ix_purchaseorderdetail_productid, purchasing_purchaseorderdetail_purchaseorderdetailid, purchasing_purchaseorderheader_fk_purchaseorderheader__9528bb49, purchasing_purchaseorderheader_ix_purchaseorderheader__f31c3d9f, purchasing_purchaseorderheader_ix_purchaseorderheader_vendorid, sales_salesorderdetail_ak_salesorderdetail_rowguid, sales_salesorderdetail_fk_salesorderdetail_specialoffe_d92db17b, sales_salesorderdetail_ix_salesorderdetail_productid, sales_salesorderdetail_salesorderdetailid, sales_salesorderheader_ak_salesorderheader_rowguid, sales_salesorderheader_ak_salesorderheader_salesordernumber, sales_salesorderheader_fk_salesorderheader_address_bil_6e62388a, sales_salesorderheader_fk_salesorderheader_address_shi_9449e824, sales_salesorderheader_fk_salesorderheader_creditcard__91df62eb, sales_salesorderheader_fk_salesorderheader_currencyrat_949e3880, sales_salesorderheader_fk_salesorderheader_salesterrit_3fbe2db3, sales_salesorderheader_fk_salesorderheader_shipmethod__e11da550, sales_salesorderheader_ix_salesorderheader_customerid, sales_salesorderheader_ix_salesorderheader_salespersonid; `adventureworks_lt`: salesorderdetail_ix_salesorderdetail_productid, salesorderdetail_rowguid, salesorderdetail_salesorderdetailid, salesorderheader_fk_salesorderheader_address_billto_addressid, salesorderheader_fk_salesorderheader_address_shipto_addressid, salesorderheader_ix_salesorderheader_customerid, salesorderheader_rowguid, salesorderheader_salesordernumber; `dvdstore`: products_ix_prod_actor, products_ix_prod_title; `enron`: message_ft_message; `oracle_oe`: product_descriptions_prod_desc_ft; `oracle_sh`: supplementary_demographics_sup_text_idx; `sakila`: film_text_idx_title_description; `stackexchange_beer`: posts_ft_posts_body; `wikipedia_simple`: text_ft_old_text.
 

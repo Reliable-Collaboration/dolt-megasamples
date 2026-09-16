@@ -122,7 +122,9 @@ def build():                                                    # noqa: C901 - a
               "results.json:*.tables", commas)
     else:
         per_db = {}
-        for mode in (memory or {}).values():
+        for key, mode in (memory or {}).items():
+            if key.startswith("_"):
+                continue
             for db, r in mode.items():
                 if r.get("rows") is not None:
                     per_db[db] = r["rows"]
@@ -325,8 +327,9 @@ def _method_facts(f, method):
 def _run_facts(f, progress):
     # the MySQL/Dolt run's units: the pairs share build/progress.json, are measured once each, and are
     # described by their own section, so counting them here changed a sentence about the first run
+    from common import current
     units = {k: u for k, u in ((progress or {}).get("units") or {}).items() if not u.get("pair")}
-    done = [u for u in units.values() if u.get("status") == "done"]
+    done = [u for k, u in units.items() if current(k, u)]
     f.put("run.units_done", len(done) or None, "progress.json: units with status done", commas)
     f.put("run.units_total", len(units) or None, "progress.json: units recorded", commas)
     f.put("run.hours", sum((u.get("wall_seconds") or 0) for u in done) / 3600 or None,
@@ -353,8 +356,8 @@ def main():
 def _pair_facts(f, results):
     """The PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs, folded in by scripts/collect_pairs.py."""
     from pairs import DOLTGRES_VERSION, LITE_VERSION, PHASES
-    f.put("pairs.doltgres_version", DOLTGRES_VERSION, "scripts/pairs.py:DOLTGRES_VERSION (pinned by digest)")
-    f.put("pairs.doltlite_version", LITE_VERSION, "scripts/pairs.py:LITE_VERSION (pinned by package checksum)")
+    f.put("pairs.doltgres_version", DOLTGRES_VERSION, "versions.json:doltgres.version (this run's, named by image digest)")
+    f.put("pairs.doltlite_version", LITE_VERSION, "versions.json:doltlite.version (this run's, named by package checksums)")
     for pair, phases in PHASES.items():
         base, one, rc = phases[0], phases[2], phases[4]
         data = {db: (r.get("pairs") or {}).get(pair) or {} for db, r in (results or {}).items()}

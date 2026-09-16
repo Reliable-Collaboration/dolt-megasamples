@@ -78,13 +78,13 @@ def pair_table(results, pair, suffix=""):
     for db in sorted(data, key=lambda d: -data[d]["__rows"]):
         m = data[db]
         base = m.get(phases[0]) or {}
-        rows.append([f"`{db}`", f"{m['__rows']:,}"] + [size_time(m.get(k), base, baseline=k in phases[:2]) for k in keys])
+        rows.append([f"`{db}`", f"{m['__rows']:,}"] + [size_time(m.get(k), base, baseline=k.replace(suffix, "") in phases[:2]) for k in keys])
     L = []
     full = [db for db in data if all((data[db].get(k) or {}).get("disk_bytes") for k in keys)
             and not any((data[db].get(k) or {}).get("settled") is False for k in keys)]
     if full:
         b = {k: sum(data[db][k]["disk_bytes"] for db in full) for k in keys}
-        t = {k: sum((data[db][k].get("load_seconds" if k in phases[:2] else "total_seconds") or 0) for db in full)
+        t = {k: sum((data[db][k].get("load_seconds" if k.replace(suffix, "") in phases[:2] else "total_seconds") or 0) for db in full)
              for k in keys}
         b0, t0 = b[keys[0]], max(t[keys[0]], 0.1)
         cells = [f"**{human(b0)}<br>{seconds(t0)}**"] + [
@@ -130,8 +130,9 @@ def inline_table(results, pair):
             if shown(d) == "—" and shown(i) == "—":
                 cells.append("—")
                 continue
+            t = "load_seconds" if ph in phases[:2] else "total_seconds"   # the pair table's rule
             cells.append(f"{shown(d)} → {shown(i)}<br>"
-                         f"{seconds(d.get('total_seconds')) if d else '—'} → {seconds(i.get('total_seconds')) if i else '—'}")
+                         f"{seconds(d.get(t)) if d else '—'} → {seconds(i.get(t)) if i else '—'}")
         L.append(f"| `{db}` | " + " | ".join(cells) + " |")
     if any(UNSETTLED in c for c in L):
         L.append("\n*† The store could not be garbage-collected, so the size is the working footprint after the load.*")
@@ -168,6 +169,19 @@ def refusals(results):
                     scope = f"{engine}, {len(where)} of its {of_engine} loads (" + "; ".join(
                         w.split(", ", 1)[1] for w in where) + ")"
                 L.append(f"* `{db}` -- {scope}: " + "; ".join(items))
+    ordering = {}
+    for pair in PHASES:
+        for db, m in units(results, pair).items():
+            for ph, u in m.items():
+                if isinstance(u, dict) and u.get("indexes_ordering_differs"):
+                    ordering.setdefault((TITLES[pair][1], db), set()).update(u["indexes_ordering_differs"])
+    if ordering:
+        by_engine = {}
+        for (engine, db), items in ordering.items():
+            by_engine.setdefault(engine, []).append(f"`{db}` {len(items)}")
+        L.append("\nRead back with a null ordering the source does not print, and otherwise identical -- recorded on the "
+                 "unit as `indexes_ordering_differs`, not failed: "
+                 + "; ".join(f"{engine}: {', '.join(sorted(v))} index(es)" for engine, v in sorted(by_engine.items())) + ".")
     dropped = {}
     for pair in PHASES:
         for db, m in units(results, pair).items():
@@ -199,6 +213,8 @@ def refusals_summary(results):
                     kind = item.split(":", 1)[0].strip().lower()
                     fn = re.search(r"function: '([^']+)' not found", item)
                     seen.add((kind, fn.group(1) if fn else "other", item))
+                for item in u.get("indexes_refused") or []:
+                    seen.add(("index", "other", item))
             engine = TITLES[pair][1]
             c = counts.setdefault(engine, {"dbs": set(), "kinds": {}})
             for kind, why, _ in seen:
@@ -216,10 +232,21 @@ def refusals_summary(results):
             n = sum(whys.values())
             reasons = [f"{k} over `{why}`" for why, k in sorted(whys.items()) if why != "other"]
             if whys.get("other"):
-                reasons.append(f"{whys['other']} for another reason")
+                reasons.append(f"{whys['other']} for {'other reasons' if whys['other'] > 1 else 'another reason'}")
             kinds.append(f"{n} {kind}{'s' if n != 1 else ''} in {len(c['dbs'])} database{'s' if len(c['dbs']) != 1 else ''}"
                          f" ({', '.join(reasons)})")
         parts.append(f"{engine} refused " + "; ".join(kinds))
+    # the MySQL/Dolt pair: what the transform left out of Dolt's schema, from the report's own rows
+    import report
+    dolt = [i for i in report.rows(results) if (i["views_my"] - i["views_do"]) or (i["rout_my"] - i["rout_do"])]
+    if dolt:
+        views = sum(i["views_my"] - i["views_do"] for i in dolt)
+        routines = sum(i["rout_my"] - i["rout_do"] for i in dolt)
+        what = [f"{views} view{'s' if views != 1 else ''}" if views else "", f"{routines} routine{'s' if routines != 1 else ''}" if routines else ""]
+        parts.append(f"Dolt's transform left out {' and '.join(w for w in what if w)} in {len(dolt)} database{'s' if len(dolt) != 1 else ''}"
+                     " (cross-database views and stored routines it does not take, named in REPORT.md)")
+    else:
+        parts.append("Dolt's transform left nothing out")
     return "; ".join(parts) + "."
 
 
@@ -293,6 +320,8 @@ def memory_study_table():
     if not os.path.exists(path):
         return "*No memory study of the pairs yet (`make memory-pairs`).*"
     study = json.load(open(path, encoding="utf-8"))
+    from common import version_of
+    stamped = study.get("_versions") or {}
     names = {"doltgres": "DoltgreSQL", "doltlite": "DoltLite"}
     shapes = [("oneshot", "one commit per database"), ("rowinsert", "one INSERT per row, one commit"),
               ("rowinsert_inline", "the same, indexes inline"), ("rowcommit", "one commit per row"),
@@ -310,8 +339,9 @@ def memory_study_table():
             least = human_mb(min(v['megabytes'] for v in ok.values())) if ok else "—"
             why = ", ".join(f"`{db}` ({v.get('outcome')})" for db, v in sorted(bad.items())) or "—"
             L.append(f"| {names[engine]} | {label} | {opens} | {least} | {why} |")
-    tops = sorted({v.get("ladder_top_mb") for e in study.values() for m in e.values() for v in m.values() if v.get("ladder_top_mb")})
-    exited = any(v.get("outcome") == "exited 1" for e in study.values() for m in e.values() for v in m.values())
+    cells = [v for k, e in study.items() if not k.startswith("_") for m in e.values() for v in m.values()]
+    tops = sorted({v.get("ladder_top_mb") for v in cells if v.get("ladder_top_mb")})
+    exited = any(str(v.get("outcome", "")).startswith("exited") for v in cells)
     L.append("")
     note = (f"*Ceilings walked up to {', '.join(human_mb(t) for t in tops)}; a query that did not answer at the top is "
             f"\"could not open\" with what the probe saw.")
@@ -319,6 +349,10 @@ def memory_study_table():
         note += (" `exited 1` is the image's entrypoint giving up after 300 s of start-up, not the memory ceiling: "
                  "DoltgreSQL scans every table when it opens a store, and a per-row-commit history of hundreds of "
                  "thousands of commits did not finish scanning in time.")
+    stale = [f"{names[e]} (measured on {v}, the run is on {version_of(e)})" for e, v in sorted(stamped.items())
+             if v != version_of(e)]
+    if stale:
+        note += " The study is not this run's for " + ", ".join(stale) + "; `make memory-pairs` measures it again."
     L.append(note + "*")
     return "\n".join(L)
 

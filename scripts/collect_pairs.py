@@ -19,8 +19,7 @@ deleted every committed pair result: 2026-09-10 review.)
 import json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, human, load_results, save_results  # noqa: E402
-from common import version_of  # noqa: E402
+from common import current, ROOT, human, load_results, save_results  # noqa: E402
 from pairs import ENGINE, METHOD, PAIR_OF, PHASES, committed_rows, settle_error  # noqa: E402
 
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
@@ -92,7 +91,15 @@ def main():
     p = json.load(open(PROGRESS, encoding="utf-8"))
     r = load_results()
     units = p.get("units") or {}
-    keys = set(units) | set(p.get("superseded") or {})
+    # every recorded unit, and every folded entry whose unit is gone (a new run dropped it), so that
+    # what results.json holds is exactly what the current run measured
+    keys = set(units)
+    for db, entry in r.items():
+        for pair, tests in (entry.get("pairs") or {}).items():
+            for name in list(tests):
+                if name in ("source_rows", "source_rows_committed"):
+                    continue
+                keys.add(f"{name.replace('_inline', '')}/{db}" + ("/inline" if name.endswith("_inline") else ""))
     counted = withdrawn = 0
     for key in sorted(keys):
         parts = key.split("/")
@@ -105,8 +112,7 @@ def main():
         live = units.get(key) or {}
         # one version per result set: a unit measured on another version of its engine is withdrawn
         # until it is measured again on the version versions.json names
-        if not (live.get("status") == "done" and live.get("method") == METHOD
-                and live.get("engine_version") == version_of(ENGINE[phase])):
+        if not current(key, live):
             entry = ((r.get(db) or {}).get("pairs") or {}).get(pair)
             if entry and name in entry:
                 del entry[name]

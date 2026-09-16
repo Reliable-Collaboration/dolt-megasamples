@@ -566,10 +566,14 @@ def compare(ref, got, dropped=()):
     # prints nothing (adventureworks_lt's eight unique rowguid indexes, 2026-09-14; 1.3.1 printed none).
     # The index exists with the same columns, uniqueness and method, so it is not missing; the
     # difference in what the catalog says is kept under ordering_differs, not hidden.
+    # the rule is exactly that finding: the source prints no null ordering and the engine prints one;
+    # a source that names an ordering, or an engine that prints a different one, is a real difference
     strip = lambda e: re.sub(r" nulls (first|last)\b", "", e)
     differs = []
     for w in sorted(missing):
-        twin = next((g for g in extra if strip(g) == strip(w)), None)
+        if strip(w) != w:
+            continue
+        twin = next((g for g in extra if strip(g) == w and strip(g) != g), None)
         if twin is not None:
             missing.discard(w)
             extra.discard(twin)

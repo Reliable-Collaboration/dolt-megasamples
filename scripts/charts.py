@@ -281,7 +281,7 @@ def fig_history_cost(results):
     fig, axes = plt.subplots(1, 2, figsize=(14, 0.42 * len(dbs) + 2.4), sharey=True)
     span = {}
     for ax, axis in zip(axes, ("bytes", "seconds")):
-        pts_all = []
+        pts_all, per_pair = [], {}
         for pair in PAIR_ORDER:
             xs, ys, pts = [], [], []
             for i, d in enumerate(dbs):
@@ -294,11 +294,13 @@ def fig_history_cost(results):
             ax.scatter(xs, ys, s=40, color=colour(pair, "rowcommit"), marker="s", zorder=3, edgecolor="white", linewidth=.6,
                        label=f"{DOLT_OF[pair]} against {BASELINE_OF[pair]}")
             pts_all += pts
+            per_pair[pair] = pts
         span[axis] = (min(x for x, _, _ in pts_all), max(x for x, _, _ in pts_all)) if pts_all else (0, 0)
         for i in range(len(dbs)):
             ax.axhline(len(dbs) - 1 - i, color=GRID, linewidth=.5, alpha=.6, zorder=1)
         ax.axvline(1.0, color=INK, linewidth=1, linestyle="--")
-        name_extremes(ax, pts_all, times, k=1)
+        for pair, pts in per_pair.items():   # the largest and the smallest ratio of each engine, named
+            name_extremes(ax, pts, times, k=1)
         dot_axes(ax, "disk" if axis == "bytes" else "time to load",
                  "one commit per row, as a multiple of the same engine's baseline in bulk (log scale)", pad=30)
         ax.legend(fontsize=7.5, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0))
@@ -310,14 +312,14 @@ def fig_history_cost(results):
                                                      if span["seconds"][1] else ""))
                  if span["bytes"][1] else "What a commit per row costs against the bulk load",
                  fontsize=12, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
-    fig.text(.01, -0.01, "Databases in order of rows; the largest and the smallest ratio in each panel are named. DoltLite's "
+    fig.text(.01, -0.01, "Databases in order of rows; each engine's largest and smallest ratio are named. DoltLite's "
              "uncollected store is absent here and shown at its working footprint in the tables.", fontsize=7.5, color=INK, alpha=.8)
     fig.tight_layout()
     save(fig, "history-cost.png")
 
 
 # ------------------------------------------------------------------------ F4 index policy, summary ---
-POLICY_MORE, POLICY_LESS, POLICY_NONE = "#D55E00", "#0072B2", "#c9c7c2"
+POLICY_NONE = "#c9c7c2"   # a change within half a percent either way: the bar has no direction to show
 
 
 def policy_change(r, pair, shape, axis):
@@ -382,7 +384,7 @@ def fig_index_policy(results, pair="dolt"):
                 if pct is not None:
                     vals.append(pct)
                     ys.append(len(dbs) - 1 - i)
-                    cols.append(POLICY_MORE if pct > 0.5 else POLICY_LESS if pct < -0.5 else POLICY_NONE)
+                    cols.append(colour(pair, sh) if abs(pct) > 0.5 else POLICY_NONE)
             if vals:
                 ax.barh(ys, vals, 0.66, color=cols)
                 for yy, vv in sorted(zip(ys, vals), key=lambda z: -abs(z[1]))[:2]:
@@ -402,8 +404,8 @@ def fig_index_policy(results, pair="dolt"):
             ax.set_axisbelow(True)
             if col == 0:
                 ax.set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=6.5)
-    handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (POLICY_MORE, POLICY_LESS, POLICY_NONE)]
-    axes[0][0].legend(handles, ["keeping them costs more", "keeping them costs less", "no difference"],
+    handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (ENGINE[BASELINE_OF[pair]], ENGINE[DOLT_OF[pair]], POLICY_NONE)]
+    axes[0][0].legend(handles, [BASELINE_OF[pair], DOLT_OF[pair], "within half a percent either way"],
                       fontsize=8, frameon=False, ncol=3, loc="lower left", bbox_to_anchor=(0.0, 1.16))
     fig.suptitle(f"What maintaining the indexes during a row-by-row load costs, {meta['title']}, database by database",
                  fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.0)
@@ -473,18 +475,18 @@ def fig_memory(results):
     axes[0].legend(fontsize=7.5, frameon=False, loc="upper left", ncol=2)
     # the title is what the study measured: the same database, the same rows, opened with one commit and
     # with a commit per row -- the largest ratio between the two, and in how many engines it exceeds one
-    ratios = []
-    for engine in {e for e, _ in pts}:
+    # a one-commit store's need is an upper bound at the ladder's first rung, so the ratio to the same
+    # database's commit-per-row store is a lower bound: "at least", engine by engine
+    worst = {}
+    for engine in sorted({e for e, _ in pts}):
         once = {p[3]: p[2] for p in pts.get((engine, "oneshot"), []) if p[2]}
         each = {p[3]: p[2] for p in pts.get((engine, "rowcommit"), []) if p[2]}
-        ratios += [(each[d] / once[d], engine) for d in once if d in each]
-    engines_up, n_engines = len({e for r, e in ratios if r > 1}), len({e for e, _ in pts})
-    words = {1: "one", 2: "two", 3: "three"}
-    where = (f"in all {words.get(n_engines, n_engines)} engines" if engines_up == n_engines and n_engines > 1
-             else f"in {words.get(engines_up, engines_up)} of the {words.get(n_engines, n_engines)} engines")
-    fig.suptitle(f"Opening a commit-per-row store needs up to {max(r for r, _ in ratios):.0f}× the memory of the same "
-                 f"database with one commit, {where}"
-                 if ratios else "What each Dolt engine needs to open a store",
+        ratios = [each[d] / once[d] for d in once if d in each]
+        if ratios:
+            worst[engine] = max(ratios)
+    fig.suptitle(f"Opening a commit-per-row store needs at least {min(worst.values()):.0f}× to {max(worst.values()):.0f}× the memory "
+                 f"of the same database with one commit ({', '.join(f'{e} {v:.0f}×' for e, v in worst.items())})"
+                 if worst else "What each Dolt engine needs to open a store",
                  fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.02)
     fig.text(.02, -0.08,
              "Left: at the same row count the one-commit and the one-commit-per-row stores of the same database need very different\n"

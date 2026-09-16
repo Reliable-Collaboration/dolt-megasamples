@@ -34,12 +34,12 @@ import argparse, json, os, re, shutil, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (DOLT_IMAGE, DUMPS, MEM_HELPER, MEM_WORKER, MYSQL_CONTAINER, RESULTS,
                     ROOT, data_dir, databases, mem,  # noqa: E402
-                    dumps_dir, human, run, version_gate, version_of)
+                    dumps_dir, human, run, version_gate, version_of, VERSIONS, current as unit_current)
 from dolt_dialect import defer_indexes, transform  # noqa: E402
 from load_dolt import per_row_commits  # noqa: E402
 
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
-MYSQL_IMAGE = os.environ.get("MYSQL_TIMING_IMAGE", "mysql:9.7.2")
+MYSQL_IMAGE = VERSIONS["mysql"]["image"]   # the baseline the corpus builds, as versions.json records it
 MYSQL_NAME = "doltsamples-mysql-timing"
 MYSQL_DATA = os.path.join(ROOT, "data", "mysql")
 MYSQL_PW = "timing"
@@ -709,9 +709,6 @@ def main():
                     help="pack the store with `dolt gc` every N chunks of a per-row-commit load. "
                          "Off by default because it changes what is measured; use it when a load "
                          "will not otherwise fit in memory, and the notes will say it was used")
-    ap.add_argument("--accept-version-change", action="store_true",
-                    help="measure again every unit recorded on another version of its engine (versions.json "
-                         "moved): one version per result set, 2026-09-12")
     ap.add_argument("--floor-gb", type=float, default=8.0,
                     help="stop before starting a unit if less than this many GB are free. The "
                          "per-row-commit phase is the one that can fill a disk: it wrote 160 GB "
@@ -754,13 +751,15 @@ def main():
         # reach -- a report blending two runs, with nothing on its face to say so. Only a full
         # restart does this: `--only` and `--phase` are deliberate partial re-measurements.
         if not a.only and not a.phase and os.path.exists(RESULTS):
-            os.replace(RESULTS, RESULTS + ".superseded")
+            os.replace(RESULTS, RESULTS + ".previous")
             print(f"  . --restart: moved {os.path.relpath(RESULTS, ROOT)} aside to "
-                  f"{os.path.basename(RESULTS)}.superseded; these runs replace it\n", flush=True)
+                  f"{os.path.basename(RESULTS)}.previous; these runs replace it\n", flush=True)
     elif a.resume and os.path.exists(PROGRESS):
         p = json.load(open(PROGRESS, encoding="utf-8"))
     else:
         p = load_progress()
+    # one version per run: refused before anything is written, over every recorded unit of these engines
+    version_gate(p.get("units") or {}, {"mysql" if ph.startswith("mysql") else "dolt" for ph in phases})
     p["databases"] = dbs
     p["phases"] = phases
     save_progress(p)
@@ -783,17 +782,7 @@ def main():
         return "mysql" if phase.startswith("mysql") else "dolt"
 
     units = [(phase, db) for phase in phases for db in order]
-    # one version per result set (versions.json, 2026-09-12): a unit recorded on another version of
-    # its engine is measured again, once the run is told to start that engine over
-    stale = version_gate([(key_of(ph, db), engine_of(ph)) for ph, db in units], p["units"],
-                         a.accept_version_change)
-    for engine, items in stale.items():
-        print(f"--accept-version-change: {len(items)} {engine} unit(s) measured with version "
-              f"{', '.join(sorted({v for _, v in items}))} are measured again with {version_of(engine)}; "
-              f"their records are kept under `superseded`\n", flush=True)
-    todo = [(ph, db) for ph, db in units
-            if p["units"].get(key_of(ph, db), {}).get("status") != "done"
-            or p["units"][key_of(ph, db)].get("engine_version") != version_of(engine_of(ph))]
+    todo = [(ph, db) for ph, db in units if not unit_current(key_of(ph, db), p["units"].get(key_of(ph, db), {}))]
     print(f"{len(units)} units, {len(todo)} to do "
           f"({len(units) - len(todo)} already recorded on "
           f"{', '.join(sorted({engine_of(ph) + ' ' + version_of(engine_of(ph)) for ph in phases}))})\n", flush=True)
@@ -814,13 +803,6 @@ def main():
                   flush=True)
             return 2
         key = key_of(phase, db)
-        old = p["units"].get(key) or {}
-        if old.get("status") == "done" and old.get("engine_version") != version_of(engine_of(phase)):
-            # the first measurement is kept under `superseded`, as the pairs runner keeps its own
-            p.setdefault("superseded", {}).setdefault(
-                key, dict(old, superseded=f"measured with {engine_of(phase)} "
-                                          f"{old.get('engine_version') or 'of no recorded version'}; measured "
-                                          f"again with {engine_of(phase)} {version_of(engine_of(phase))}"))
         note(p, key, replace=True, status="running", started=time.time(),
              phase=phase, database=db, indexes=a.indexes, engine_version=version_of(engine_of(phase)))
         started = time.time()

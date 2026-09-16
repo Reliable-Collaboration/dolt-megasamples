@@ -1,4 +1,8 @@
 {
+ "_versions": {
+  "doltgres": "1.3.2",
+  "doltlite": "0.50.10"
+ },
  "doltgres": {
   "oneshot": {
    "adventureworks": {

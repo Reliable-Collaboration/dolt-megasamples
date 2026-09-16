@@ -44,7 +44,8 @@ SHORT = ["myExt", "myRow", "dolt1", "doltRI", "doltRC", "myRow!", "doltRI!", "do
 
 def load(name):
     p = os.path.join(BUILD, name)
-    return json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+    d = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+    return {k: v for k, v in d.items() if not k.startswith("_")}   # a study's version stamp is not a mode
 
 
 def units():

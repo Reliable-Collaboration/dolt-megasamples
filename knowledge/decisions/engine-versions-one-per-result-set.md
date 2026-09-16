@@ -1,7 +1,7 @@
 ---
 type: Decision
 title: One version per result set, and no pins
-description: The maintainer's rule of 2026-09-12, replacing the two pins -- every number belongs to exactly one version of each engine (versions.json names it), nothing is pinned, `scripts/versions.py --latest` moves an engine to its newest release, and a moved version supersedes every recorded unit of that engine so the runners measure them all again; applied at once to DoltLite, moved from v0.50.9 to v0.50.10 with every DoltLite unit measured again.
+description: The maintainer's rule of 2026-09-12, revised 2026-09-16 -- one version of each engine per run and no pins; a new run (`make new-run`) starts on the newest release of every Dolt engine and keeps those versions until it is complete; a moved engine's old records are dropped, not kept, because the repository presents the current run and its history keeps the earlier ones; the baselines are the corpus's, recorded as found.
 resource: /decisions/engine-versions-one-per-result-set.md
 tags:
 - dolt
@@ -45,6 +45,7 @@ DoltHub fixed DoltLite's `VACUUM` defect one day after it was reported and relea
 * **Keep the pins as they were.** Lost: the nine per-row-commit stores recorded `settled: false` would stay uncollected, and the three largest databases' per-row-commit loads could not fit on the disk (about 920 GB projected for oracle_sh and wikipedia_simple against 645 GB free on 2026-09-12), while the fix already existed upstream.
 * **Follow the newest release at every run.** Lost: numbers taken over several days would mix versions, and nobody could reproduce a figure without knowing which release produced it -- the reason the pins existed.
 * **One version per result set, no pins.** Chosen. Each engine's numbers belong to exactly one version, named in one place; moving an engine is one deliberate command; and a moved version invalidates every recorded unit of that engine, so a result set can never mix versions.
+* **Keep the old run's records under `superseded` when a version moves.** Chosen on 2026-09-12, reversed on 2026-09-16. The runners kept one superseded record per unit, so the second move overwrote the first's record, and the review found 253 of 290 kept records were the method-one leftovers rather than the versions' -- but the maintainer's answer was not to keep them better: "we don't want this to become a historical record - old commits can contain old data - we want to present what we know as current with most recent runs". Lost by dropping them: nothing the repository's history does not hold.
 
 # Evidence
 
@@ -60,6 +61,8 @@ Read on 2026-09-12: DoltLite v0.50.10 carries the fix (pull request 2836 is 20 c
 * Every document says *Versions* where it said *Pinned versions*: the README's generated table (version, since, how named, what the image answers), the README and journal prose, the report's environment table, the landing page, the banners in `scripts/pairs.py`, `scripts/common.py`, `compose.yaml` and the Dockerfile.
 * Applied at once: DoltLite moved from v0.50.9 to v0.50.10 on 2026-09-12 and every DoltLite unit (90 measured with method 2 on v0.50.9) is superseded and measured again; the SQLite baseline (sqlite3 3.46.1, unchanged) is not. [The DoltLite pin](/decisions/doltlite-version-pin.md) and [the DoltgreSQL pin](/decisions/doltgresql-version-pin.md) are deprecated by this record; [DoltLite v0.50.9](/tools/doltlite-0-50-9.md) stays as the record of the version the first DoltLite result set was measured on, and [DoltLite v0.50.10](/tools/doltlite-0-50-10.md) carries what was verified on the new one.
 
+* **Revised 2026-09-16**, in the maintainer's words: "lets not pin anything anymore - We'll want any new run to use the latest release version of everything out there. The only real requirement is that we want all of the experiments in a run to use the same latest version, we don't want to switch in the middle." So: `make new-run` (`scripts/versions.py --latest`) resolves the newest release of every Dolt engine at once, writes `versions.json` and the compose defaults, and drops every unit and memory-study cell of an engine that moved; it refuses while a runner holds the lock, so a run keeps its versions until it is complete. The runners' gate covers every recorded unit of the engines a run touches (not only the run's scope) and has no override; `--accept-version-change` and the `superseded` records are gone. The baselines are recorded, not chosen: MySQL and PostgreSQL as the corpus builds them, the sqlite3 shell as Debian ships it in the DoltLite image, read from the built image into `versions.json` by `make lite-image --record`. The image overrides that could run another engine than the recorded one are gone, and the MySQL timing image comes from `versions.json`. Every folded number and every memory study carries its version and `make check` fails on any that is not this run's; `common.current()` is the one test every reader of `build/progress.json` uses.
+
 # Status
 
-accepted (2026-09-12; the maintainer's decision, quoted above).
+accepted (2026-09-12; revised 2026-09-16; the maintainer's decisions, quoted above).

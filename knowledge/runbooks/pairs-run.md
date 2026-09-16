@@ -81,18 +81,21 @@ index the engine refused out loud is recorded as a schema object not taken and i
 
 # Moving an engine to a newer version (2026-09-12)
 
-One version per result set ([the decision](/decisions/engine-versions-one-per-result-set.md)): every unit records
-its engine's version, and a result set never mixes two.
+One version per run, and no pins ([the decision](/decisions/engine-versions-one-per-result-set.md)): every
+unit records its engine's version, a run never mixes two, and a new run starts on the newest releases.
 
 1. `make versions` -- each engine's version beside the newest release upstream. Nothing moves on its own.
-2. `python3 scripts/versions.py --latest doltlite` (or `doltgres`, `dolt`) -- rewrites `versions.json` and
-   the compose default; DoltLite's packages are downloaded and checksummed, an image is pulled and resolved
-   to its digest. For DoltLite, then `make lite-image`.
-3. Run the engine's pair with `--accept-version-change` (`make run-lite ARGS="--accept-version-change"`, or
-   the chain driver with it): the runner refuses without the flag, naming every unit measured on the old
-   version; with it, each one's record is kept under `superseded` and the unit is measured again. The
-   collectors and the audit fold only units on the current version, so the engine's numbers leave the
-   tables until they return. The baseline engine of the pair is not measured again.
+2. `make new-run` -- `scripts/versions.py --latest` resolves the newest release of Dolt, DoltgreSQL and
+   DoltLite (packages downloaded fresh and checked against the release's digests, images pulled and resolved
+   to their digests), rewrites `versions.json` and the compose defaults, and drops from `build/progress.json`
+   and the memory studies every record of an engine that moved (the repository's history keeps the old run);
+   then `make lite-image --record` builds the DoltLite image and records the sqlite3 shell it carries. It
+   refuses while a runner holds `build/run.lock`: a run keeps its versions until it is complete.
+3. The runs: `make run`, `make run-pg`, `make run-lite`, both index policies, `make memory-pairs`. A runner
+   refuses before writing anything if any recorded unit of an engine it touches is on another version, over
+   the whole result set and not only the run's scope; the collectors withdraw such units' numbers, and
+   `make check` fails if a document carries another version's number or study. The baseline engine of a
+   pair is measured again only if its own version changed.
 4. `make report`, then a new tool record for the version (what was verified on it) and an **Update** in
    `log.md`; `make up` serves the new version, because the stack reads `versions.json`.
 

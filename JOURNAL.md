@@ -266,7 +266,7 @@ server keeps every database under its data directory open, so each load's memory
 store loaded before it: a 255-row database peaked at 976 MiB after eleven others. The code review
 found it in the recorded peaks, which rose with run order rather than with size. Every DoltgreSQL
 load now runs in a server started for it alone, and every DoltgreSQL unit is measured again; the
-first measurements are kept in `build/progress.json` under `superseded`.
+first measurements are gone from `build/progress.json`, and the repository's history keeps them.
 
 **Two more faults, found by the second review pass, changed the method again.** The dumps were read
 in text mode, which turns a carriage return into a line feed; pg_dump's `--inserts` form keeps the

@@ -90,7 +90,9 @@ def embed_report(r):
     text = report.report(report.rows(r))
     text = text.replace(report.GENERATED, "").replace(report.HUMAN_NOTE, "")
     for heading in ("## The machine\n", "## What maintaining the indexes costs\n"):   # each carried once already
-        a = text.index(heading)
+        a = text.find(heading)
+        if a < 0:          # the report writes the index section only once a policy has been measured
+            continue
         b = text.find("\n## ", a + 1)
         text = text[:a] + (text[b + 1:] if b >= 0 else "")
     return demote_all(text)

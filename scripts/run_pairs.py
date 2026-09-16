@@ -10,11 +10,11 @@ shape (`<phase>/<database>[/inline]`), with the same fields plus what the pairs 
 peaks for every unit, the size before the settle step, the index-parity report, every refusal,
 the measurement method, and the engine's version). A unit recorded `done` with the current method
 on the current version is skipped, so the run can be stopped and resumed; a unit recorded with an
-older method is measured again, and its first record is kept under `superseded`. So is a unit
-measured on another version of its engine -- one version per result set (versions.json) -- but
-only once the run is told to start that engine over (`--accept-version-change`); otherwise it
-refuses before writing anything. Units run cheapest-first: phases in the order given, and within
-a phase the databases with the fewest rows first, so the tables fill in from the top.
+older method is measured again. A run keeps one version of each engine (versions.json): if any
+recorded unit of an engine this run touches was measured on another version, the run refuses
+before writing anything and points at `make new-run`, which moves every engine to its newest
+release and drops the old run's units. Units run cheapest-first: phases in the order given, and
+within a phase the databases with the fewest rows first, so the tables fill in from the top.
 
 One runner at a time: every runner holds build/run.lock for as long as it runs (common.run_lock),
 so two can never stop each other's workers or write over each other's records.
@@ -24,15 +24,15 @@ The loads themselves, the settle steps and the checks are in pairs.py.
 import argparse, json, os, shutil, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import MEM_WORKER, ROOT, human, run, run_lock, version_gate, version_of  # noqa: E402
+from common import MEM_WORKER, ROOT, current as unit_current, human, run, run_lock, version_gate, version_of  # noqa: E402
 from pairs import (ENGINE, LABEL, METHOD, PER_ROW, PHASES, WORKERS, committed_rows, exported,  # noqa: E402
                    load)
 from run_all import PROGRESS, fingerprint, note, save_progress  # noqa: E402
 
 
 def current(u, engine):
-    """Measured, with the method the collector reports, on the version of this result set."""
-    return u.get("status") == "done" and u.get("method") == METHOD and u.get("engine_version") == version_of(engine)
+    """Measured, with the method the collector reports, on the version of this result set (common.current)."""
+    return unit_current("", dict(u, engine=u.get("engine") or engine))
 
 
 def main():
@@ -49,9 +49,6 @@ def main():
                     help="skip databases with more than N rows (the report says which were not run)")
     ap.add_argument("--floor-gb", type=float, default=8.0, help="stop before a unit if less than this is free")
     ap.add_argument("--resume", action="store_true", help="add to a run recorded on another machine")
-    ap.add_argument("--accept-version-change", action="store_true",
-                    help="measure again every unit recorded on another version of its engine (versions.json "
-                         "moved): one version per result set, 2026-09-12")
     ap.add_argument("--skip-row-by-row", action="append", default=[], metavar="DB",
                     help="leave this database's row-by-row loads out of this run; its one-commit loads still run "
                          "(employees' row-by-row loads are run last, after every other result: 2026-09-10)")
@@ -99,14 +96,8 @@ def main():
         p["host"] = fingerprint()
     else:
         p = {"started": time.time(), "units": {}, "host": fingerprint()}
-    # one version per result set: refused before anything is written
-    scope = [(f"{ph}/{db}" + ("" if a.indexes == "deferred" else "/inline"), ENGINE[ph])
-             for ph in phases for db in order if not (ph in PER_ROW and db in a.skip_row_by_row)]
-    stale = version_gate(scope, p.get("units") or {}, a.accept_version_change)
-    for engine, items in stale.items():
-        print(f"--accept-version-change: {len(items)} {engine} unit(s) measured with version "
-              f"{', '.join(sorted({v for _, v in items}))} are measured again with {version_of(engine)}; "
-              f"their records are kept under `superseded`\n", flush=True)
+    # one version per run: refused before anything is written, over every recorded unit of these engines
+    version_gate(p.get("units") or {}, {ENGINE[ph] for ph in phases})
     p.setdefault("pairs", {})[a.pair] = {"databases": dbs, "phases": phases, "indexes": a.indexes,
                                          "row_by_row_skipped": sorted(a.skip_row_by_row)}
     save_progress(p)
@@ -134,16 +125,6 @@ def main():
             print("\ndocker is not answering; stopping so no unit is recorded unverified.", flush=True)
             return 2
         key = key_of(phase, db)
-        old = p["units"].get(key) or {}
-        if old.get("status") == "done" and (old.get("method") != METHOD
-                                            or old.get("engine_version") != version_of(ENGINE[phase])):
-            # the first measurement is kept, not the last one before this: a unit interrupted while being
-            # measured again must not replace it
-            why = (f"measured with method {old.get('method', 1)}; measured again with method {METHOD}"
-                   if old.get("method") != METHOD else
-                   f"measured with {ENGINE[phase]} {old.get('engine_version') or 'of no recorded version'}; "
-                   f"measured again with {ENGINE[phase]} {version_of(ENGINE[phase])}")
-            p.setdefault("superseded", {}).setdefault(key, dict(old, superseded=why))
         note(p, key, replace=True, status="running", started=time.time(), phase=phase, database=db,
              indexes=a.indexes, pair=a.pair, engine=ENGINE[phase], engine_version=version_of(ENGINE[phase]),
              label=LABEL[phase], source_rows=rows[db], method=METHOD, memory_cap=MEM_WORKER)

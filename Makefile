@@ -7,7 +7,7 @@ PY ?= python3
 # and as a prerequisite of `report`, which is why the documents stayed stale while every
 # other step ran. Generated from the targets themselves so a new one cannot be forgotten.
 .PHONY: all audit charts check clean clean-data collect docs down environment estimate experiment export help load measure measure-all method-checks preflight progress report run status summary trace up watch \
-        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs memory-pairs screenshots catalogue
+        export-postgres export-sqlite export-pairs lite-image preflight-pairs run-pg run-lite okf-check test-stack clean-pairs memory-pairs screenshots catalogue new-run
 
 help:
 	@echo "make run        the whole experiment, timed: 5 loads x every database (hours)"
@@ -25,12 +25,13 @@ help:
 	@echo ""
 	@echo "The PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs (scripts/pairs.py):"
 	@echo "make lite-image     build the DoltLite image from the .deb packages versions.json names (checksummed)"
-	@echo "make versions       what is newer upstream than versions.json (one version per result set)"
 	@echo "make export-pairs   pg_dump every database out of sql-megasamples PostgreSQL; copy and dump its SQLite files"
 	@echo "make preflight-pairs  every schema into PostgreSQL, DoltgreSQL, SQLite and DoltLite; what each refuses"
 	@echo "make run-pg | run-lite  the five timed loads of a pair (ARGS=\"--only sakila --indexes inline\")"
 	@echo "make memory-pairs   what DoltgreSQL and DoltLite need to open each database in each shape (build/memory_pairs.json)"
 	@echo "make okf-check      validate the knowledge bundle (knowledge/)"
+	@echo "make versions       each engine's version here beside the newest release upstream"
+	@echo "make new-run        start a new run: every Dolt engine to its newest release, the old run's units dropped"
 	@echo "make test-stack     after make up: both accounts on Dolt and DoltgreSQL, the DoltLite files, every console"
 	@echo "make screenshots    retake the README's pictures from the running stack (docs/screenshots/)"
 	@echo "make catalogue      copy each database's one-line description from the corpus checkout (build/catalogue.json)"
@@ -105,7 +106,7 @@ preflight:
 	@$(PY) scripts/preflight.py
 
 run: preflight
-	@$(PY) scripts/run_all.py
+	@$(PY) scripts/run_all.py $(ARGS)
 progress:
 	@$(PY) scripts/progress.py
 watch:
@@ -179,6 +180,11 @@ summary:
 # ---------------------------------------------------------------- the two further pairs ---
 versions:
 	@$(PY) scripts/versions.py --check
+# a new run: every Dolt engine to its newest release, the old run's units dropped, the DoltLite image
+# rebuilt with the sqlite3 shell it carries recorded
+new-run:
+	@$(PY) scripts/versions.py --latest
+	@$(PY) scripts/lite_image.py --record
 
 lite-image:
 	@$(PY) scripts/lite_image.py

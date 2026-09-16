@@ -90,12 +90,13 @@ a load with no result; † marks a store the engine could not collect, shown at 
 
 ## The engines
 
-Every number in this document belongs to exactly one version of each engine, the versions below,
-named in `versions.json`. Nothing is pinned and nothing moves on its own: `python3 scripts/versions.py
---check` says what is newer upstream, and `python3 scripts/versions.py --latest <engine>` moves one
-engine to its newest release. A result set is measured on one version, so a moved version supersedes
-every recorded unit of that engine and the runners measure them all again before its numbers return
-to these tables (`knowledge/decisions/engine-versions-one-per-result-set.md`).
+Every number in this document belongs to one run, and a run uses one version of each engine, the
+versions below, recorded in `versions.json`. Nothing is pinned: a new run (`make new-run`) starts on
+the newest release of every Dolt engine and keeps those versions until it is complete, so nothing
+switches in the middle; the baselines are the corpus's own, recorded as found. A new run drops the
+units of every engine that moved and measures them again; what earlier runs found is in this
+repository's history, not in its documents (`knowledge/decisions/engine-versions-one-per-result-set.md`).
+`make versions` says what is newer upstream.
 
 {{block:versions}}
 

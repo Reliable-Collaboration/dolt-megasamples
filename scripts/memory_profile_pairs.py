@@ -18,7 +18,7 @@ the Dolt study holds the Dolt server.
 import argparse, json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, run, run_lock  # noqa: E402
+from common import ROOT, run, run_lock, DOLTGRES_START_LIMIT, version_of  # noqa: E402
 from pairs import DOLTGRES_IMAGE, LITE_IMAGE, PW, reference  # noqa: E402
 from memory_profile import LADDER  # noqa: E402
 
@@ -77,43 +77,70 @@ def attempt(engine, mode, db, mb, table, timeout):
             "-v", f"{store(engine, mode, db)}:/var/lib/doltgres", DOLTGRES_IMAGE)
     if p.returncode != 0:
         return f"could not start: {p.stderr.strip()[:120]}"
-    deadline = time.time() + timeout
+    t0, deadline = time.time(), time.time() + timeout
     result = "timeout"
-    while time.time() < deadline:
-        state = run("docker", "inspect", "-f", "{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}", PROBE).stdout.split()
-        if not state or state[0] != "running":
-            result = ("oom" if (state and (state[2] == "true" or state[1] == "137"))
-                      else f"exited {state[1] if state else '?'}: the server did not accept connections within "
-                           f"{int(timeout)} s")
-            break
-        q = run("docker", "exec", "-e", f"PGPASSWORD={PW}", PROBE, "psql", "-X", "-h", "127.0.0.1", "-U", "postgres",
-                "-d", db, "-tA", "-c", f'SELECT COUNT(*) FROM "{table}"')
-        if q.returncode == 0 and q.stdout.strip().isdigit():
-            result = "ok"
-            break
-        if q.returncode == 0:
-            result = f"answered {q.stdout.strip()[:60]}"
-            break
-        time.sleep(2)
-    run("docker", "rm", "-f", PROBE)
+    try:
+        while time.time() < deadline:
+            state = run("docker", "inspect", "-f", "{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}", PROBE).stdout.split()
+            if not state or state[0] != "running":
+                elapsed = time.time() - t0
+                if state and (state[2] == "true" or state[1] == "137"):
+                    result = "oom"
+                elif elapsed >= timeout - 5:   # the entrypoint's own limit, set to the probe's deadline
+                    result = f"exited {state[1] if state else '?'}: the server did not accept connections within {int(timeout)} s"
+                else:
+                    tail = run("docker", "logs", "--tail", "3", PROBE).stderr.strip().replace("\n", " | ")[:160]
+                    result = f"exited {state[1] if state else '?'} after {elapsed:.0f} s: {tail}"
+                break
+            q = run("docker", "exec", "-e", f"PGPASSWORD={PW}", PROBE, "psql", "-X", "-h", "127.0.0.1", "-U", "postgres",
+                    "-d", db, "-tA", "-c", f'SELECT COUNT(*) FROM "{table}"')
+            if q.returncode == 0 and q.stdout.strip().isdigit():
+                result = "ok"
+                break
+            if q.returncode == 0:
+                result = f"answered {q.stdout.strip()[:60]}"
+                break
+            time.sleep(2)
+    finally:
+        run("docker", "rm", "-f", PROBE)   # never left running over a measured store, Ctrl-C included
     return result
 
 
+TOO_SMALL = ("oom", "timeout")   # killed at this ceiling, or not open and answering within the budget at it
+
+
 def smallest_that_works(engine, mode, db, table, timeout, verbose=True):
-    top = attempt(engine, mode, db, LADDER[-1], table, timeout)
+    """(megabytes, detail, rungs): the smallest ceiling at which the store opened and answered within
+    the budget, the last reason a rung failed, and every rung's outcome. Only a memory outcome moves
+    the floor up; a rung that fails for another reason (the container could not start, the daemon
+    answered strangely) is tried once more and then aborts the cell with that reason, so an
+    infrastructure fault is never recorded as a memory need."""
+    rungs = {}
+
+    def probe(mb):
+        r = attempt(engine, mode, db, mb, table, timeout)
+        if r != "ok" and r not in TOO_SMALL:
+            r2 = attempt(engine, mode, db, mb, table, timeout)
+            r = r2 if r2 in ("ok",) + TOO_SMALL else f"aborted at {mb} MB: {r2}"
+        rungs[mb] = r
+        if verbose:
+            print(f"      {mb:>5} MB -> {r[:60]}", flush=True)
+        return r
+
+    top = probe(LADDER[-1])
     if top != "ok":
-        return None, top
+        return None, top, rungs
     lo, hi, detail = 0, len(LADDER) - 1, "ok"
     while lo < hi:
         mid = (lo + hi) // 2
-        r = attempt(engine, mode, db, LADDER[mid], table, timeout)
-        if verbose:
-            print(f"      {LADDER[mid]:>5} MB -> {r[:40]}", flush=True)
+        r = probe(LADDER[mid])
         if r == "ok":
             hi = mid
-        else:
+        elif r in TOO_SMALL:
             detail, lo = r, mid + 1
-    return LADDER[lo], detail
+        else:
+            return None, r, rungs
+    return LADDER[lo], detail, rungs
 
 
 def main():
@@ -121,12 +148,15 @@ def main():
     ap.add_argument("--engine", action="append", choices=["doltgres", "doltlite"])
     ap.add_argument("--mode", action="append", choices=MODES)
     ap.add_argument("--only", action="append")
-    ap.add_argument("--timeout", type=float, default=900)
+    ap.add_argument("--timeout", type=float, default=DOLTGRES_START_LIMIT,
+                    help="seconds a rung has to open the store and answer; the same limit the served stack gives DoltgreSQL")
     ap.add_argument("--top", type=int, default=None, metavar="MB",
                     help="walk the ladder only up to this ceiling (a database that fails there is reported as a "
                          "bound); 2026-09-16: 12288, the memory the maintainer's other work left free")
     a = ap.parse_args()
-    if a.top:
+    if a.top is not None:
+        if a.top < LADDER[0]:
+            sys.exit(f"--top {a.top} is below the ladder's first rung, {LADDER[0]} MB")
         LADDER[:] = [m for m in LADDER if m <= a.top]
         print(f"  ladder capped at {LADDER[-1]} MB (--top): a database that fails there is reported as a bound", flush=True)
     # a measurement in its own right: never beside a runner, which may be writing the very store, and
@@ -149,13 +179,14 @@ def main():
                 table, n = largest_table(engine, db)
                 print(f"    {db} ({table}, {n:,} rows)", flush=True)
                 t0 = time.time()
-                mb, detail = smallest_that_works(engine, mode, db, table, a.timeout)
+                mb, detail, rungs = smallest_that_works(engine, mode, db, table, a.timeout)
                 facts.setdefault(engine, {}).setdefault(mode, {})[db] = {
-                    "megabytes": mb, "outcome": detail if mb is None else "ok",
+                    "megabytes": mb, "outcome": detail if mb is None else "ok", "rungs": {str(k): v for k, v in sorted(rungs.items())},
                     "seconds_to_profile": round(time.time() - t0, 1), "query_table": table, "largest_table_rows": n,
                     "ladder_top_mb": LADDER[-1], "measured": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+                facts.setdefault("_versions", {})[engine] = version_of(engine)   # the study belongs to this run
                 json.dump(facts, open(OUT, "w", encoding="utf-8"), indent=1, sort_keys=True)
-                print(f"      -> {mb if mb else 'more than ' + str(LADDER[-1])} MB ({detail})", flush=True)
+                print(f"      -> {f'{mb} MB' if mb else 'did not open at the ladder top, ' + str(LADDER[-1]) + ' MB'} ({detail})", flush=True)
     print(f"\n  . wrote {os.path.relpath(OUT, ROOT)}")
     return 0
 

@@ -42,17 +42,23 @@ MYSQL_CONTAINER = os.environ.get("MEGASAMPLES_CONTAINER", "megasamples-mysql")
 MYSQL_IMAGE = os.environ.get("MEGASAMPLES_MYSQL_IMAGE", "sql-megasamples-mysql:dev")
 MEGASAMPLES_DIR = os.environ.get("MEGASAMPLES_DIR", os.path.join(os.path.dirname(ROOT), "sql-megasamples"))
 # ------------------------------------------------------------- engine versions ---
-# One version per result set (the maintainer's rule, 2026-09-12). versions.json names the exact
-# version of every engine the numbers belong to -- Dolt by image digest here, DoltgreSQL and
-# PostgreSQL by digest and DoltLite by package checksums in pairs.py. Nothing is pinned: `python3
-# scripts/versions.py --latest <engine>` moves an engine to its newest release. But a moved version
-# supersedes every recorded unit of that engine, and the runners measure them all again, because
-# numbers taken on two versions of one engine are not one result set (version_gate below).
+# One version per run, and no pins (the maintainer's rule, 2026-09-12, revised 2026-09-16). A run
+# starts on the newest release of every Dolt engine (`make new-run`: scripts/versions.py resolves
+# them and writes versions.json) and keeps those versions until it is complete: nothing switches in
+# the middle. versions.json is therefore a record of what the current result set was measured on,
+# not a choice anyone maintains by hand. The baselines are the corpus's own -- MySQL and PostgreSQL
+# as sql-megasamples builds them, the sqlite3 shell as Debian ships it in the DoltLite image -- and
+# are recorded, not chosen. A new run drops every unit measured on another version; git history is
+# the archive of earlier runs, this repository presents the current one.
 # The decision: knowledge/decisions/engine-versions-one-per-result-set.md.
 VERSIONS_PATH = os.path.join(ROOT, "versions.json")
 VERSIONS = json.load(open(VERSIONS_PATH, encoding="utf-8"))
 DOLT_VERSION = VERSIONS["dolt"]["version"]
-DOLT_IMAGE = os.environ.get("DOLT_IMAGE", VERSIONS["dolt"]["image"])
+DOLT_IMAGE = VERSIONS["dolt"]["image"]
+# the seconds the DoltgreSQL image's entrypoint gives the server to accept connections; a per-row-commit
+# store of hundreds of thousands of commits takes minutes to open (the server scans every table first),
+# so the served stack (compose.yaml) and the memory study's probe both allow this much
+DOLTGRES_START_LIMIT = 1800
 
 
 def version_of(engine):
@@ -60,30 +66,47 @@ def version_of(engine):
     return VERSIONS[engine]["version"]
 
 
-def version_gate(scope, units, accept, flag="--accept-version-change"):
-    """Refuse to add to a result set measured on another version of an engine, unless told to start over.
+def engine_of_unit(key, u):
+    """Which engine a recorded unit measured: the pairs' units say; the MySQL/Dolt run's are named by key."""
+    if u.get("engine"):
+        return u["engine"]
+    return "mysql" if (u.get("phase") or key).startswith("mysql") else "dolt"
 
-    `scope` is [(key, engine)] for the units this run would measure; a unit recorded `done` with an
-    engine_version other than versions.json's (or none) is stale. With `accept` false the run stops
-    before anything is written, naming every stale unit; with it true the caller supersedes and
-    measures them again. Returns {engine: [(key, recorded version)]}."""
+
+def current(key, u):
+    """Whether a recorded unit belongs to the current result set: done, measured the way the pairs'
+    collector reports (their method), on the version of its engine that versions.json names. Every
+    reader of build/progress.json -- runners, collectors, progress, facts, the audit -- uses this one
+    test, so nothing can count a unit that another reader withdraws."""
+    if u.get("status") != "done":
+        return False
+    if u.get("pair"):
+        from pairs import METHOD   # pairs imports this module; resolved lazily
+        if u.get("method") != METHOD:
+            return False
+    return u.get("engine_version") == version_of(engine_of_unit(key, u))
+
+
+def version_gate(units, engines):
+    """Refuse to measure while the result set holds units of these engines on another version.
+
+    The check is over every recorded unit of the engines this run touches, not only the units in the
+    run's scope, so a narrow run cannot slip new-version units in beside old ones. Nothing is written
+    before it; the way forward is `make new-run`, which moves every engine to its newest release and
+    drops the units measured on the old ones."""
     stale = {}
-    for key, engine in scope:
-        u = units.get(key) or {}
-        if u.get("status") == "done" and u.get("engine_version") != version_of(engine):
+    for key, u in units.items():
+        engine = engine_of_unit(key, u)
+        if engine in engines and u.get("status") == "done" and u.get("engine_version") != version_of(engine):
             stale.setdefault(engine, []).append((key, u.get("engine_version") or "no version recorded"))
-    if stale and not accept:
-        lines = []
-        for engine, items in stale.items():
-            was = sorted({v for _, v in items})
-            lines.append(f"  {engine}: {len(items)} unit(s) measured with version {', '.join(was)}; "
-                         f"versions.json now says {version_of(engine)}")
-        sys.exit("A result set is measured on one version of each engine, and these units were not:\n"
+    if stale:
+        lines = [f"  {engine}: {len(items)} unit(s) measured with version {', '.join(sorted({v for _, v in items}))}; "
+                 f"versions.json says {version_of(engine)}" for engine, items in stale.items()]
+        sys.exit("A run measures every unit on one version of each engine, and these were measured on another:\n"
                  + "\n".join(lines)
-                 + f"\n\nNothing was changed. Pass {flag} to measure every one of them again on the current "
-                   f"version (their records are kept under `superseded` in build/progress.json), or put "
-                   f"versions.json back to the version they were measured with.")
-    return stale
+                 + "\n\nNothing was changed. `make new-run` moves every engine to its newest release and drops the "
+                   "units measured on the old ones, so the run measures them again; or put versions.json back to "
+                   "the versions they were measured with.")
 
 # ---------------------------------------------------------------------- memory ---
 # WSL2 gave this host 15.5 GB and ran out of it. Nothing here was bounded: the loads created a
@@ -219,7 +242,7 @@ def human_mb(mb):
 def duration(v):
     """Seconds as a reader would say them: under a minute in seconds, under an hour in minutes and
     seconds, above that in hours and minutes. 10,000 s is not a quantity anyone can picture."""
-    if v < 10:
+    if round(v, 1) < 10:
         return f"{v:.1f} s"
     r = int(round(v))          # round once, then choose the form, so 59.6 s is "1 min 00 s", not "60 s"
     if r < 60:

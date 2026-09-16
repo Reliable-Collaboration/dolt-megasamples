@@ -51,7 +51,9 @@ def rows_per_database():
         sys.exit("no build/memory.json; it is where the row counts come from")
     data = json.load(open(path, encoding="utf-8"))
     rows = {}
-    for mode in data.values():
+    for key, mode in data.items():
+        if key.startswith("_"):
+            continue
         for db, r in mode.items():
             if r.get("rows"):
                 rows[db] = r["rows"]

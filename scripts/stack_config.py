@@ -180,7 +180,8 @@ def clean_placeholders():
     they outlive the mount and pile up as the served shape changes. Removed only while the stack is
     down, when nothing is mounted over them."""
     up = set(run("docker", "ps", "--format", "{{.Names}}").stdout.split())
-    if up & {"doltsamples-dolt", "doltsamples-doltgres", "doltsamples-doltlite", "doltsamples-workbench"}:
+    if up & {"doltsamples-dolt", "doltsamples-doltgres", "doltsamples-doltlite", "doltsamples-workbench",
+             "doltsamples-memory-probe"} or any(n.startswith("spike-concurrent-") for n in up):
         return
     from pairs import LITE_IMAGE
     run("docker", "run", "--rm", "--label", "doltsamples.transient=true", "-v", f"{DATA}:/data", "--entrypoint", "sh",

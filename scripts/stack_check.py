@@ -49,19 +49,20 @@ def http(url, seconds=90):
     return None, last
 
 
-def probe_table(db):
+def probe_table(db, engine="doltgres"):
     """The largest table of a served database and its row count: from the export's reference when the
     exports are on disk, else from the memory studies, which are committed -- a fresh clone has no
     build/dumps, and the check asked for `sakila.None` there (clean-room run, 2026-09-16)."""
     import json as _json
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(root, "build", "dumps", "postgres", f"{db}.reference.json")
-    if os.path.exists(path):
+    if engine == "doltgres" and os.path.exists(path):   # the PostgreSQL side's export names the tables DoltgreSQL holds
         rows = _json.load(open(path, encoding="utf-8"))["rows"]
         t, n = max(rows.items(), key=lambda kv: kv[1] or 0)
         return t.split(".", 1)[1], n
-    for study, keys in ((os.path.join(root, "build", "memory_pairs.json"), ("doltgres", "oneshot")),
-                        (os.path.join(root, "build", "memory.json"), ("oneshot",))):
+    studies = {"dolt": [(os.path.join(root, "build", "memory.json"), ("oneshot",))],
+               "doltgres": [(os.path.join(root, "build", "memory_pairs.json"), ("doltgres", "oneshot"))]}
+    for study, keys in studies.get(engine, []):
         if not os.path.exists(study):
             continue
         entry = _json.load(open(study, encoding="utf-8"))
@@ -86,7 +87,7 @@ def served(engine):
 def main():
     # Dolt over the MySQL protocol, through the mysql client of the sql-megasamples image
     dolt_db = (served("dolt") or ["sakila"])[0]
-    table, want = probe_table(dolt_db)
+    table, want = probe_table(dolt_db, "dolt")
     for user, pw, want_write in (("demo", PW["demo"], False), ("admin", PW["admin"], True)):
         p = run("docker", "run", "--rm", "--network", NETWORK, "--label", "doltsamples.transient=true", MYSQL_IMAGE,
                 "mysql", "-hdolt", f"-u{user}", f"-p{pw}", "-N", "-e", f"SELECT COUNT(*) FROM {dolt_db}.{table}")
@@ -121,11 +122,12 @@ def main():
                 pg(user, pw, "postgres", "DROP DATABASE probe_stack_check")
             check(f"DoltgreSQL as {user}: may write", rc == 0, out[-100:])
         else:
-            # what DoltgreSQL 1.3.1 (the pinned version) enforces is table privileges; it lets any role create and drop
-            # databases (knowledge/tools/doltgresql-1-3-1.md), so the refusal tested is a table's
+            # what every DoltgreSQL measured enforces is table privileges (1.3.1 let any role create and drop
+            # databases, 1.3.2 refuses that: knowledge/tools/doltgresql-1-3-2.md), so the refusal tested is a table's
             rc, out = pg(user, pw, pg_db, "CREATE TABLE probe_stack_check (id int)")
-            if rc == 0:
-                pg("admin", PW["admin"], pg_db, "DROP TABLE probe_stack_check")
+            if rc == 0:   # the served store now carries a table it should not; say so if it cannot be removed
+                drc, dout = pg("admin", PW["admin"], pg_db, "DROP TABLE probe_stack_check")
+                check(f"DoltgreSQL: the probe table left in {pg_db} was removed", drc == 0, dout[-100:])
             check(f"DoltgreSQL as {user}: may not write into a served database", rc != 0, out[-100:])
     short = []
     for db in dbs:

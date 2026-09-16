@@ -11,6 +11,7 @@
         "commits": 3,
         "disk_bytes": 51633820,
         "disk_bytes_remeasured": 51633820,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 201,
         "indexes_only_dolt": [],
@@ -32,6 +33,7 @@
       "rowcommit": {
         "commits": 759243,
         "disk_bytes": 7688456959,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 201,
         "indexes_only_dolt": [],
@@ -48,6 +50,7 @@
       "rowcommit_inline": {
         "commits": 759243,
         "disk_bytes": 16107907443,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 201,
         "indexes_only_dolt": [],
@@ -64,6 +67,7 @@
       "rowinsert": {
         "commits": 3,
         "disk_bytes": 51606433,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 201,
         "indexes_only_dolt": [],
@@ -80,6 +84,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 51321479,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 201,
         "indexes_only_dolt": [],
@@ -103,6 +108,8 @@
     "mysql_rowwise_seconds_inline": 406.0,
     "mysql_rowwise_spread": {},
     "mysql_rowwise_spread_inline": {},
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         352178176,
@@ -116,6 +123,7 @@
         8.4
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -1069,6 +1077,7 @@
         "commits": 3,
         "disk_bytes": 1056131,
         "disk_bytes_remeasured": 1056131,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 40,
         "indexes_only_dolt": [],
@@ -1097,6 +1106,7 @@
         "commits": 4280,
         "disk_bytes": 21067808,
         "disk_bytes_remeasured": 21198517,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 40,
         "indexes_only_dolt": [],
@@ -1125,6 +1135,7 @@
         "commits": 4280,
         "disk_bytes": 39809550,
         "disk_bytes_remeasured": 39809550,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 40,
         "indexes_only_dolt": [],
@@ -1153,6 +1164,7 @@
         "commits": 3,
         "disk_bytes": 1056152,
         "disk_bytes_remeasured": 1056147,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 40,
         "indexes_only_dolt": [],
@@ -1181,6 +1193,7 @@
         "commits": 3,
         "disk_bytes": 1056127,
         "disk_bytes_remeasured": 1056131,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 40,
         "indexes_only_dolt": [],
@@ -1234,6 +1247,8 @@
         2.8
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         13094912,
@@ -1247,6 +1262,7 @@
         0.5
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -1952,6 +1968,7 @@
         "commits": 3,
         "disk_bytes": 30130073,
         "disk_bytes_remeasured": 30077637,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 8,
         "indexes_only_dolt": [],
@@ -1974,6 +1991,7 @@
       "rowcommit": {
         "commits": 259705,
         "disk_bytes": 2481420207,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 8,
         "indexes_only_dolt": [],
@@ -1990,6 +2008,7 @@
       "rowcommit_inline": {
         "commits": 259705,
         "disk_bytes": 11157471097,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 8,
         "indexes_only_dolt": [],
@@ -2006,6 +2025,7 @@
       "rowinsert": {
         "commits": 3,
         "disk_bytes": 30134641,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 8,
         "indexes_only_dolt": [],
@@ -2022,6 +2042,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 30180406,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 8,
         "indexes_only_dolt": [],
@@ -2065,6 +2086,8 @@
         142.9
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         88231936,
@@ -2078,6 +2101,7 @@
         3.7
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -2638,6 +2662,7 @@
         "commits": 3,
         "disk_bytes": 629747,
         "disk_bytes_remeasured": 629747,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -2666,6 +2691,7 @@
         "commits": 15610,
         "disk_bytes": 81221522,
         "disk_bytes_remeasured": 73451977,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -2694,6 +2720,7 @@
         "commits": 15610,
         "disk_bytes": 119811185,
         "disk_bytes_remeasured": 116750774,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -2722,6 +2749,7 @@
         "commits": 3,
         "disk_bytes": 629745,
         "disk_bytes_remeasured": 629745,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -2750,6 +2778,7 @@
         "commits": 3,
         "disk_bytes": 629746,
         "disk_bytes_remeasured": 629746,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -2803,6 +2832,8 @@
         8.0
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         2838528,
@@ -2816,6 +2847,7 @@
         0.4
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -3376,6 +3408,7 @@
         "commits": 3,
         "disk_bytes": 41222472,
         "disk_bytes_remeasured": 41222472,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 15,
         "indexes_only_dolt": [],
@@ -3398,6 +3431,7 @@
       "rowcommit": {
         "commits": 753470,
         "disk_bytes": 7048592316,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 15,
         "indexes_only_dolt": [],
@@ -3414,6 +3448,7 @@
       "rowcommit_inline": {
         "commits": 753470,
         "disk_bytes": 11954283034,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 15,
         "indexes_only_dolt": [],
@@ -3430,6 +3465,7 @@
       "rowinsert": {
         "commits": 3,
         "disk_bytes": 41309570,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 15,
         "indexes_only_dolt": [],
@@ -3446,6 +3482,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 41176737,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 15,
         "indexes_only_dolt": [],
@@ -3469,6 +3506,8 @@
     "mysql_rowwise_seconds_inline": 379.8,
     "mysql_rowwise_spread": {},
     "mysql_rowwise_spread_inline": {},
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         163844096,
@@ -3482,6 +3521,7 @@
         5.2
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -4042,6 +4082,7 @@
         "commits": 3,
         "disk_bytes": 12484366,
         "disk_bytes_remeasured": 12484366,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 17,
         "indexes_only_dolt": [],
@@ -4064,6 +4105,7 @@
       "rowcommit": {
         "commits": 174719,
         "disk_bytes": 1852330830,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 17,
         "indexes_only_dolt": [],
@@ -4080,6 +4122,7 @@
       "rowcommit_inline": {
         "commits": 174719,
         "disk_bytes": 3585918968,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 17,
         "indexes_only_dolt": [],
@@ -4096,6 +4139,7 @@
       "rowinsert": {
         "commits": 3,
         "disk_bytes": 12976849,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 17,
         "indexes_only_dolt": [],
@@ -4112,6 +4156,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 12489825,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 17,
         "indexes_only_dolt": [],
@@ -4155,6 +4200,8 @@
         85.3
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         62935040,
@@ -4168,6 +4215,7 @@
         1.3
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -4768,6 +4816,7 @@
         "commits": 3,
         "disk_bytes": 44586988,
         "disk_bytes_remeasured": 44526176,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 9,
         "indexes_only_dolt": [],
@@ -4790,6 +4839,7 @@
       "rowcommit": {
         "commits": 3919018,
         "disk_bytes": 67930513872,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 9,
         "indexes_only_dolt": [],
@@ -4806,6 +4856,7 @@
       "rowcommit_inline": {
         "commits": 3919018,
         "disk_bytes": 72728916421,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 9,
         "indexes_only_dolt": [],
@@ -4822,6 +4873,7 @@
       "rowinsert": {
         "commits": 3,
         "disk_bytes": 41840620,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 9,
         "indexes_only_dolt": [],
@@ -4838,6 +4890,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 41196979,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 9,
         "indexes_only_dolt": [],
@@ -4861,6 +4914,8 @@
     "mysql_rowwise_seconds_inline": 1846.2,
     "mysql_rowwise_spread": {},
     "mysql_rowwise_spread_inline": {},
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         186912768,
@@ -4874,6 +4929,7 @@
         10.8
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -5381,6 +5437,7 @@
         "commits": 3,
         "disk_bytes": 35781173,
         "disk_bytes_remeasured": 35781173,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 12,
         "indexes_only_dolt": [],
@@ -5408,6 +5465,7 @@
         "commits": 48781,
         "disk_bytes": 375279571,
         "disk_bytes_remeasured": 363128447,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 12,
         "indexes_only_dolt": [],
@@ -5429,6 +5487,7 @@
       "rowcommit_inline": {
         "commits": 48781,
         "disk_bytes": 6290949145,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 12,
         "indexes_only_dolt": [],
@@ -5450,6 +5509,7 @@
         "commits": 3,
         "disk_bytes": 40424045,
         "disk_bytes_remeasured": 40375045,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 12,
         "indexes_only_dolt": [],
@@ -5471,6 +5531,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 35943201,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 12,
         "indexes_only_dolt": [],
@@ -5518,6 +5579,8 @@
         31.4
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         102993920,
@@ -5531,6 +5594,7 @@
         1.7
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -6123,6 +6187,7 @@
         "commits": 3,
         "disk_bytes": 38591,
         "disk_bytes_remeasured": 38590,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 5,
         "indexes_only_dolt": [],
@@ -6151,6 +6216,7 @@
         "commits": 315,
         "disk_bytes": 673993,
         "disk_bytes_remeasured": 583089,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 5,
         "indexes_only_dolt": [],
@@ -6179,6 +6245,7 @@
         "commits": 315,
         "disk_bytes": 753048,
         "disk_bytes_remeasured": 753048,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 5,
         "indexes_only_dolt": [],
@@ -6207,6 +6274,7 @@
         "commits": 3,
         "disk_bytes": 38590,
         "disk_bytes_remeasured": 38590,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 5,
         "indexes_only_dolt": [],
@@ -6235,6 +6303,7 @@
         "commits": 3,
         "disk_bytes": 38591,
         "disk_bytes_remeasured": 38593,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 5,
         "indexes_only_dolt": [],
@@ -6288,6 +6357,8 @@
         0.3
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         380928,
@@ -6301,6 +6372,7 @@
         0.1
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -6861,6 +6933,7 @@
         "commits": 3,
         "disk_bytes": 27593794,
         "disk_bytes_remeasured": 27569546,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 28,
         "indexes_only_dolt": [],
@@ -6883,6 +6956,7 @@
       "rowcommit": {
         "commits": 706469,
         "disk_bytes": 7006634311,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 28,
         "indexes_only_dolt": [],
@@ -6899,6 +6973,7 @@
       "rowcommit_inline": {
         "commits": 706469,
         "disk_bytes": 9391723677,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 28,
         "indexes_only_dolt": [],
@@ -6915,6 +6990,7 @@
       "rowinsert": {
         "commits": 3,
         "disk_bytes": 27550837,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 28,
         "indexes_only_dolt": [],
@@ -6931,6 +7007,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 27712294,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 28,
         "indexes_only_dolt": [],
@@ -6954,6 +7031,8 @@
     "mysql_rowwise_seconds_inline": 355.3,
     "mysql_rowwise_spread": {},
     "mysql_rowwise_spread_inline": {},
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         201166848,
@@ -6967,6 +7046,7 @@
         6.3
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -7527,6 +7607,7 @@
         "commits": 3,
         "disk_bytes": 530910,
         "disk_bytes_remeasured": 530910,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 43,
         "indexes_only_dolt": [],
@@ -7555,6 +7636,7 @@
         "commits": 3311,
         "disk_bytes": 14539710,
         "disk_bytes_remeasured": 14242524,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 43,
         "indexes_only_dolt": [],
@@ -7583,6 +7665,7 @@
         "commits": 3311,
         "disk_bytes": 28186799,
         "disk_bytes_remeasured": 26888703,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 43,
         "indexes_only_dolt": [],
@@ -7611,6 +7694,7 @@
         "commits": 3,
         "disk_bytes": 530908,
         "disk_bytes_remeasured": 530905,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 43,
         "indexes_only_dolt": [],
@@ -7639,6 +7723,7 @@
         "commits": 3,
         "disk_bytes": 530908,
         "disk_bytes_remeasured": 530908,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 43,
         "indexes_only_dolt": [],
@@ -7692,6 +7777,8 @@
         2.1
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         2756608,
@@ -7705,6 +7792,7 @@
         0.5
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -8265,6 +8353,7 @@
         "commits": 3,
         "disk_bytes": 3149038,
         "disk_bytes_remeasured": 3159617,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 6,
         "indexes_only_dolt": [],
@@ -8292,6 +8381,7 @@
         "commits": 48594,
         "disk_bytes": 347727752,
         "disk_bytes_remeasured": 323410704,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 6,
         "indexes_only_dolt": [],
@@ -8318,6 +8408,7 @@
         "commits": 48594,
         "disk_bytes": 968013372,
         "disk_bytes_remeasured": 968013372,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 6,
         "indexes_only_dolt": [],
@@ -8345,6 +8436,7 @@
         "commits": 3,
         "disk_bytes": 3154161,
         "disk_bytes_remeasured": 3154161,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 6,
         "indexes_only_dolt": [],
@@ -8373,6 +8465,7 @@
         "commits": 3,
         "disk_bytes": 3156581,
         "disk_bytes_remeasured": 3153964,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 6,
         "indexes_only_dolt": [],
@@ -8426,6 +8519,8 @@
         26.4
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         20058112,
@@ -8439,6 +8534,7 @@
         0.7
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -8999,6 +9095,7 @@
         "commits": 3,
         "disk_bytes": 467240,
         "disk_bytes_remeasured": 467240,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 18,
         "indexes_only_dolt": [],
@@ -9027,6 +9124,7 @@
         "commits": 8786,
         "disk_bytes": 41029670,
         "disk_bytes_remeasured": 42985490,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 18,
         "indexes_only_dolt": [],
@@ -9055,6 +9153,7 @@
         "commits": 8786,
         "disk_bytes": 69833216,
         "disk_bytes_remeasured": 72002807,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 18,
         "indexes_only_dolt": [],
@@ -9083,6 +9182,7 @@
         "commits": 3,
         "disk_bytes": 467032,
         "disk_bytes_remeasured": 467032,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 18,
         "indexes_only_dolt": [],
@@ -9111,6 +9211,7 @@
         "commits": 3,
         "disk_bytes": 467242,
         "disk_bytes_remeasured": 467238,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 18,
         "indexes_only_dolt": [],
@@ -9164,6 +9265,8 @@
         4.9
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         1921024,
@@ -9177,6 +9280,7 @@
         0.3
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -9752,6 +9856,7 @@
         "commits": 3,
         "disk_bytes": 64298,
         "disk_bytes_remeasured": 64298,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 27,
         "indexes_only_dolt": [],
@@ -9780,6 +9885,7 @@
         "commits": 219,
         "disk_bytes": 466930,
         "disk_bytes_remeasured": 466930,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 27,
         "indexes_only_dolt": [],
@@ -9808,6 +9914,7 @@
         "commits": 219,
         "disk_bytes": 842877,
         "disk_bytes_remeasured": 876293,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 27,
         "indexes_only_dolt": [],
@@ -9836,6 +9943,7 @@
         "commits": 3,
         "disk_bytes": 63603,
         "disk_bytes_remeasured": 63600,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 27,
         "indexes_only_dolt": [],
@@ -9864,6 +9972,7 @@
         "commits": 3,
         "disk_bytes": 64298,
         "disk_bytes_remeasured": 64297,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 27,
         "indexes_only_dolt": [],
@@ -9917,6 +10026,8 @@
         0.3
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         1134592,
@@ -9930,6 +10041,7 @@
         0.2
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -10490,6 +10602,7 @@
         "commits": 3,
         "disk_bytes": 4548601,
         "disk_bytes_remeasured": 4551416,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 26,
         "indexes_only_dolt": [],
@@ -10518,6 +10631,7 @@
         "commits": 11521,
         "disk_bytes": 73658782,
         "disk_bytes_remeasured": 80869802,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 26,
         "indexes_only_dolt": [],
@@ -10546,6 +10660,7 @@
         "commits": 11521,
         "disk_bytes": 856205328,
         "disk_bytes_remeasured": 856205328,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 26,
         "indexes_only_dolt": [],
@@ -10574,6 +10689,7 @@
         "commits": 3,
         "disk_bytes": 5310932,
         "disk_bytes_remeasured": 5310932,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 26,
         "indexes_only_dolt": [],
@@ -10602,6 +10718,7 @@
         "commits": 3,
         "disk_bytes": 4391740,
         "disk_bytes_remeasured": 4391740,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 26,
         "indexes_only_dolt": [],
@@ -10655,6 +10772,8 @@
         6.9
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         28839936,
@@ -10668,6 +10787,7 @@
         0.6
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -11260,6 +11380,7 @@
         "commits": 3,
         "disk_bytes": 150213979,
         "disk_bytes_remeasured": 150381882,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -11282,6 +11403,7 @@
       "rowcommit": {
         "commits": 1063399,
         "disk_bytes": 15980481707,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -11298,6 +11420,7 @@
       "rowcommit_inline": {
         "commits": 1063399,
         "disk_bytes": 60146868376,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -11314,6 +11437,7 @@
       "rowinsert": {
         "commits": 3,
         "disk_bytes": 150118390,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -11330,6 +11454,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 142104255,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -11353,6 +11478,8 @@
     "mysql_rowwise_seconds_inline": 552.0,
     "mysql_rowwise_spread": {},
     "mysql_rowwise_spread_inline": {},
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         230854656,
@@ -11366,6 +11493,7 @@
         8.6
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -11958,6 +12086,7 @@
         "commits": 3,
         "disk_bytes": 78864,
         "disk_bytes_remeasured": 78864,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 20,
         "indexes_only_dolt": [],
@@ -11986,6 +12115,7 @@
         "commits": 258,
         "disk_bytes": 592396,
         "disk_bytes_remeasured": 592396,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 20,
         "indexes_only_dolt": [],
@@ -12014,6 +12144,7 @@
         "commits": 258,
         "disk_bytes": 813468,
         "disk_bytes_remeasured": 782858,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 20,
         "indexes_only_dolt": [],
@@ -12042,6 +12173,7 @@
         "commits": 3,
         "disk_bytes": 78865,
         "disk_bytes_remeasured": 78865,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 20,
         "indexes_only_dolt": [],
@@ -12070,6 +12202,7 @@
         "commits": 3,
         "disk_bytes": 78864,
         "disk_bytes_remeasured": 78869,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 20,
         "indexes_only_dolt": [],
@@ -12123,6 +12256,8 @@
         0.4
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         1527808,
@@ -12136,6 +12271,7 @@
         0.3
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -12704,6 +12840,7 @@
         "commits": 3,
         "disk_bytes": 2130421,
         "disk_bytes_remeasured": 2192613,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 42,
         "indexes_only_dolt": [],
@@ -12726,6 +12863,7 @@
       "rowcommit": {
         "commits": 47271,
         "disk_bytes": 314909205,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 42,
         "indexes_only_dolt": [],
@@ -12742,6 +12880,7 @@
       "rowcommit_inline": {
         "commits": 47271,
         "disk_bytes": 723973183,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 42,
         "indexes_only_dolt": [],
@@ -12763,6 +12902,7 @@
         "commits": 3,
         "disk_bytes": 2291517,
         "disk_bytes_remeasured": 2291517,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 42,
         "indexes_only_dolt": [],
@@ -12789,6 +12929,7 @@
         "commits": 3,
         "disk_bytes": 2110989,
         "disk_bytes_remeasured": 2110989,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 42,
         "indexes_only_dolt": [],
@@ -12841,6 +12982,8 @@
         24.6
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         25284608,
@@ -12854,6 +12997,7 @@
         1.0
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -13469,6 +13613,7 @@
         "commits": 3,
         "disk_bytes": 168204,
         "disk_bytes_remeasured": 168206,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 4,
         "indexes_only_dolt": [],
@@ -13497,6 +13642,7 @@
         "commits": 2150,
         "disk_bytes": 8793605,
         "disk_bytes_remeasured": 8775978,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 4,
         "indexes_only_dolt": [],
@@ -13525,6 +13671,7 @@
         "commits": 2150,
         "disk_bytes": 8742930,
         "disk_bytes_remeasured": 8496552,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 4,
         "indexes_only_dolt": [],
@@ -13553,6 +13700,7 @@
         "commits": 3,
         "disk_bytes": 168204,
         "disk_bytes_remeasured": 168205,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 4,
         "indexes_only_dolt": [],
@@ -13581,6 +13729,7 @@
         "commits": 3,
         "disk_bytes": 168208,
         "disk_bytes_remeasured": 168212,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 4,
         "indexes_only_dolt": [],
@@ -13634,6 +13783,8 @@
         1.3
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         659456,
@@ -13647,6 +13798,7 @@
         0.2
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -14207,6 +14359,7 @@
         "commits": 3,
         "disk_bytes": 14685142,
         "disk_bytes_remeasured": 14685142,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -14229,6 +14382,7 @@
       "rowcommit": {
         "commits": 62526,
         "disk_bytes": 456923929,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -14245,6 +14399,7 @@
       "rowcommit_inline": {
         "commits": 62526,
         "disk_bytes": 2108491076,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -14266,6 +14421,7 @@
         "commits": 3,
         "disk_bytes": 16908885,
         "disk_bytes_remeasured": 16866360,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -14292,6 +14448,7 @@
         "commits": 3,
         "disk_bytes": 14662325,
         "disk_bytes_remeasured": 14662325,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 22,
         "indexes_only_dolt": [],
@@ -14344,6 +14501,8 @@
         35.6
       ]
     },
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         87707648,
@@ -14357,6 +14516,7 @@
         1.3
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {
@@ -14948,6 +15108,7 @@
         "commits": 3,
         "disk_bytes": 128320160,
         "disk_bytes_remeasured": 127241456,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -14969,6 +15130,7 @@
       "rowcommit": {
         "commits": 1167115,
         "disk_bytes": 13530312504,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -14985,6 +15147,7 @@
       "rowcommit_inline": {
         "commits": 1167115,
         "disk_bytes": 30301122744,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -15001,6 +15164,7 @@
       "rowinsert": {
         "commits": 3,
         "disk_bytes": 129136495,
+        "engine_version": "2.3.2",
         "indexes_deferred": true,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -15017,6 +15181,7 @@
       "rowinsert_inline": {
         "commits": 3,
         "disk_bytes": 119429174,
+        "engine_version": "2.3.2",
         "indexes_deferred": false,
         "indexes_dolt": 24,
         "indexes_only_dolt": [],
@@ -15040,6 +15205,8 @@
     "mysql_rowwise_seconds_inline": 606.3,
     "mysql_rowwise_spread": {},
     "mysql_rowwise_spread_inline": {},
+    "mysql_rowwise_version": "9.7.2",
+    "mysql_rowwise_version_inline": "9.7.2",
     "mysql_spread": {
       "bytes_all": [
         329510912,
@@ -15053,6 +15220,7 @@
         15.4
       ]
     },
+    "mysql_version": "9.7.2",
     "pairs": {
       "lite": {
         "doltlite_oneshot": {

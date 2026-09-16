@@ -25,6 +25,27 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import DUMPS, ROOT, human, load_results, version_of  # noqa: E402
 
 MEMORY = os.path.join(ROOT, "build", "memory.json")
+MEMORY_PAIRS = os.path.join(ROOT, "build", "memory_pairs.json")
+
+
+def versions_are_this_runs(a, results, memory, pairs_study):
+    """Every folded number and every memory study belongs to the versions versions.json names: one
+    version per run, so a moved engine leaves nothing of the old run in the documents."""
+    for db, r in sorted(results.items()):
+        for k, v in r.items():
+            if k.startswith("mysql") and k.endswith(("_version", "_version_inline")) and v is not None:
+                a.check(v == version_of("mysql"), f"{db}.{k} is this run's MySQL", str(v))
+        for mode, m in (r.get("modes") or {}).items():
+            if m.get("engine_version") is not None:
+                a.check(m["engine_version"] == version_of("dolt"), f"{db}.modes.{mode} is this run's Dolt", str(m["engine_version"]))
+        for pair, tests in (r.get("pairs") or {}).items():
+            for test, u in tests.items():
+                if isinstance(u, dict) and u.get("engine_version") is not None and u.get("engine"):
+                    a.check(u["engine_version"] == version_of(u["engine"]), f"{db}.pairs.{pair}.{test} is this run's {u['engine']}",
+                            str(u["engine_version"]))
+    for label, study in (("memory.json", memory), ("memory_pairs.json", pairs_study)):
+        for engine, v in (study.get("_versions") or {}).items():
+            a.check(v == version_of(engine), f"{label}'s {engine} study is this run's", f"measured on {v}, the run is on {version_of(engine)}")
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
 # Commits mysqldump's own scaffolding produces beyond the data: Dolt's initial commit, the schema
 # commit, and the final one this experiment makes.
@@ -70,7 +91,7 @@ def commits_match_rows(a, memory):
 
 def rows_agree_across_modes(a, memory):
     """The same database holds the same rows however it was stored."""
-    modes = [m for m in memory if isinstance(memory[m], dict)]
+    modes = [m for m in memory if isinstance(memory[m], dict) and not m.startswith("_")]
     for db in sorted({d for m in modes for d in memory[m]}):
         seen = {m: memory[m][db].get("rows") for m in modes
                 if db in memory[m] and memory[m][db].get("rows") is not None}
@@ -249,6 +270,9 @@ def main():
     a = Audit()
     results = load_results() if os.path.exists(os.path.join(ROOT, "build", "results.json")) else {}
     memory = json.load(open(MEMORY, encoding="utf-8")) if os.path.exists(MEMORY) else {}
+    pairs_study = json.load(open(MEMORY_PAIRS, encoding="utf-8")) if os.path.exists(MEMORY_PAIRS) else {}
+    versions_are_this_runs(a, results, memory, pairs_study)
+    memory = {k: v for k, v in memory.items() if not k.startswith("_")}   # the stamp is not a mode
 
     if memory:
         commits_match_rows(a, memory)

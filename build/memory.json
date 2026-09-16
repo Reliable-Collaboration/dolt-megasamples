@@ -1,4 +1,7 @@
 {
+ "_versions": {
+  "dolt": "2.3.2"
+ },
  "oneshot": {
   "adventureworks": {
    "commits": 3,

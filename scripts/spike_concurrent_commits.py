@@ -290,6 +290,9 @@ class Sampler(threading.Thread):
 
 
 # -------------------------------------------------------------------------------- workers ---
+STOP = threading.Event()
+
+
 def worker(engine, db, setup, rows, per_row_commit, stats):
     protocol = ENGINES[engine][0]
     conn = connect(engine, db, autocommit=not per_row_commit)
@@ -312,6 +315,8 @@ def worker(engine, db, setup, rows, per_row_commit, stats):
     done = retries = failures = 0
     t0 = time.time()
     for n, insert in rows:
+        if STOP.is_set():
+            return
         for attempt in range(RETRIES + 1):
             try:
                 if per_row_commit:
@@ -385,11 +390,18 @@ def one_run(engine, db, workers, setup, pre, data, post):
         shards[i % workers].append((i + 1, insert))
     stats = {"done": 0, "retries": 0, "failures": 0, "errors": [], "worker_seconds": []}
     t0 = time.time()
-    with ThreadPoolExecutor(max_workers=workers) as ex:
+    ex = ThreadPoolExecutor(max_workers=workers)
+    try:
         list(ex.map(lambda shard: worker(engine, db, setup, shard, versioned, stats), shards))
+    except KeyboardInterrupt:
+        STOP.set()                     # the workers test it per row; the pool is not waited for
+        ex.shutdown(wait=False, cancel_futures=True)
+        raise
+    ex.shutdown(wait=True)
     t1 = time.time()
     res["rows_seconds"] = round(t1 - t0, 1)
-    res["rows_per_second"] = round(len(data) / (t1 - t0), 1) if t1 > t0 else None
+    # throughput counts the rows that landed, not the rows attempted: a failed row is not work done
+    res["rows_per_second"] = round(stats["done"] / (t1 - t0), 1) if t1 > t0 else None
     res["rows_done"] = stats["done"]
     res["retries"] = stats["retries"]
     res["failures"] = stats["failures"]
@@ -462,7 +474,7 @@ def summary(paths):
             base = next((r["rows_per_second"] for r in runs if r["workers"] == 1), None)
             for r in runs:
                 gain = f"{r['rows_per_second'] / base:.2f}x" if base and r["rows_per_second"] else "-"
-                print(f"| {engine} {r['version']} | {r['workers']} | {r['rows_per_second']:,.0f} | {gain} | {r['rows_seconds']:.0f} s "
+                print(f"| {engine} {r['version']} | {r['workers']} | {r['rows_per_second'] or 0:,.0f} | {gain} | {r['rows_seconds']:.0f} s "
                       f"| {r.get('commits', '-')} | {r['retries']} | {r['failures']} | {len(r['rows_short'])} "
                       f"| {human(r['server_peak_bytes'])} | {r['server_cores_rows']} | {human(r['store_bytes']) if r['store_bytes'] else '-'} |")
 
@@ -478,8 +490,14 @@ def main():
     if a.summary:
         summary(sorted(os.path.join(OUT, f) for f in os.listdir(OUT) if f.endswith(".json")))
         return 0
+    from common import lock_held
+    if lock_held():
+        sys.exit("a runner holds build/run.lock: the spike prepares the same dump files the runner reads and starts a "
+                 "server beside its worker; run it between runs")
     engines = a.engines.split(",")
     workers = [int(w) for w in a.workers.split(",")]
+    if any(w < 1 for w in workers):
+        sys.exit("--workers takes counts of one or more")
     path = os.path.join(OUT, f"{a.database}.json")
     results = json.load(open(path)) if os.path.exists(path) else []
     for engine in engines:
@@ -488,7 +506,11 @@ def main():
               f"{len(setup)} session settings", flush=True)
         for w in workers:
             print(f"  . {w:>2} worker(s) ... ", end="", flush=True)
-            res = one_run(engine, a.database, w, setup, pre, data, post)
+            try:
+                res = one_run(engine, a.database, w, setup, pre, data, post)
+            except BaseException:                                  # noqa: BLE001 -- Ctrl-C and errors alike
+                run("docker", "rm", "-f", "-v", f"spike-concurrent-{engine}")
+                raise
             res["measured_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             results = [r for r in results if not (r["engine"] == engine and r["workers"] == w)] + [res]
             json.dump(results, open(path, "w"), indent=2)

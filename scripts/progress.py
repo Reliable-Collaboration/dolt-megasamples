@@ -13,7 +13,7 @@ of magnitude more per row than the others and an average across phases would be 
 import argparse, json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, human, load_results  # noqa: E402
+from common import ROOT, current, human, load_results  # noqa: E402
 
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
 LABEL = {"mysql": "MySQL, extended INSERTs",
@@ -53,13 +53,13 @@ def runner_alive(u):
 
 def pairs_section(p):
     """The two further pairs, by index policy: what is measured, what is left, and a rough estimate
-    from the seconds per row of the units measured so far (or of the superseded ones, before any)."""
+    from the seconds per row of the units measured so far."""
     try:
         from pairs import LABEL as PAIR_LABEL, METHOD, PER_ROW, PHASES, exported, reference
     except Exception as exc:                                        # noqa: BLE001
         print(f"\n  (the pairs cannot be shown: {exc})")
         return
-    units, sup = p["units"], p.get("superseded") or {}
+    units = p["units"]
     for pair in ("pg", "lite"):
         dbs = exported(pair)
         if not dbs:
@@ -77,26 +77,21 @@ def pairs_section(p):
             total = 0.0
             for ph in phases:
                 recs = {db: units.get(f"{ph}/{db}{suffix}", {}) for db in dbs}
-                # measured means measured with the method the documents report
-                fin = [db for db, u in recs.items() if u.get("status") == "done" and u.get("method") == METHOD]
+                # measured means measured the way the documents report it, on this run's versions
+                fin = [db for db, u in recs.items() if current(f"{ph}/{db}{suffix}", u)]
                 left = [db for db in dbs if db not in fin]
                 spent = sum(recs[db].get("wall_seconds") or 0 for db in fin)
-                basis = []
-                for db in dbs:
-                    for u in (recs[db], sup.get(f"{ph}/{db}{suffix}") or {}):
-                        if u.get("status") == "done" and u.get("wall_seconds"):
-                            basis.append((u["wall_seconds"], rows[db]))
-                            break
+                basis = [(recs[db]["wall_seconds"], rows[db]) for db in dbs
+                         if recs[db].get("status") == "done" and recs[db].get("wall_seconds")]
                 secs, done_rows = sum(b[0] for b in basis), sum(b[1] for b in basis)
                 est = secs / done_rows * sum(rows[db] for db in left) if done_rows else 0.0
                 total += est
                 print(f"  {PAIR_LABEL.get(ph, ph):<40}{len(fin):>7}{len(left):>7}{clock(spent):>13}"
                       f"{(clock(est) if left else '—'):>12}")
             print(f"  {'':<40}{'':>7}{'':>7}{'':>13}{clock(total):>12}  (rough)")
-    stale = [k for k, u in units.items() if u.get("pair") and u.get("status") == "done" and u.get("method") != METHOD]
-    if stale or sup:
-        print(f"\n  pair units measured with an older method: {len(stale)} still to be measured again; "
-              f"{len(sup)} first records kept under superseded")
+    stale = [k for k, u in units.items() if u.get("pair") and u.get("status") == "done" and not current(k, u)]
+    if stale:
+        print(f"\n  pair units measured with an older method or on another version: {len(stale)} to be measured again")
 
 
 def main():
@@ -115,19 +110,19 @@ def main():
         units, dbs = p["units"], p.get("databases", [])
         elapsed = time.time() - p.get("started", time.time())
         mine = {k: u for k, u in units.items() if not u.get("pair")}      # the MySQL/Dolt run
-        done = [u for u in mine.values() if u.get("status") == "done"]
+        done = [u for k, u in mine.items() if current(k, u)]
         err = [u for u in units.values() if u.get("status") == "error"]
         running = [u for u in units.values() if u.get("status") == "running"]
 
         print(f"\n  MySQL and Dolt: elapsed {clock(elapsed)}   {len(done)} done, "
               f"{sum(1 for u in mine.values() if u.get('status') == 'error')} failed, "
-              f"of {len(dbs) * len(p.get('phases', []))} units\n")
+              f"of {len(mine)} recorded units (both index policies)\n")
         print(f"  {'phase':<32}{'done':>7}{'left':>7}{'time so far':>13}{'est. left':>12}")
         total_left = 0
         for phase in p.get("phases", []):
             ph = [units.get(f"{phase}/{d}", {}) for d in dbs]
-            fin = [u for u in ph if u.get("status") == "done"]
-            left_dbs = [d for d in dbs if units.get(f"{phase}/{d}", {}).get("status") != "done"]
+            fin = [u for d, u in zip(dbs, ph) if current(f"{phase}/{d}", u)]
+            left_dbs = [d for d in dbs if not current(f"{phase}/{d}", units.get(f"{phase}/{d}", {}))]
             spent = sum(u.get("wall_seconds") or 0 for u in ph)
             rate = (spent / max(1, sum(rows[u["database"]] for u in fin if u.get("database")))
                     if fin else 0)

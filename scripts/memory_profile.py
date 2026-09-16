@@ -29,7 +29,7 @@ ladder above anything the corpus needs.
 import argparse, json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (DOLT_IMAGE, MYSQL_CONTAINER, ROOT, data_dir, databases, human,  # noqa: E402
+from common import (DOLT_IMAGE, DOLT_VERSION, MYSQL_CONTAINER, ROOT, data_dir, databases, human,  # noqa: E402
                     run)
 
 OUT = os.path.join(ROOT, "build", "memory.json")
@@ -198,6 +198,7 @@ def main():
                 "ladder_top_mb": LADDER[-1],
             }
             facts.setdefault(mode, {})[db] = rec
+            facts["_versions"] = {"dolt": DOLT_VERSION}   # the study belongs to this run
             json.dump(facts, open(OUT, "w", encoding="utf-8"), indent=1, sort_keys=True)
             shown = f"{mb} MB" if mb else f"more than {LADDER[-1]} MB ({detail[:40]})"
             print(f"      => {shown}   rows={rec['rows'] or '?'} "
