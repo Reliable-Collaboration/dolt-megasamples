@@ -211,3 +211,40 @@ def versions_table():
         L.append(f"| {label} | **{v['version']}** | {v['since']} | {named} | {answered(observed)} |")
     return "\n".join(L)
 
+
+
+def memory_study_table():
+    """What each engine of the pairs needs to open a stored shape and count its largest table -- the
+    memory study of scripts/memory_profile_pairs.py (build/memory_pairs.json): per engine and shape,
+    the largest and smallest ceiling that worked and which database set the top, and every store
+    the study could not open, with the reason it recorded."""
+    import json, os
+    from common import ROOT
+    path = os.path.join(ROOT, "build", "memory_pairs.json")
+    if not os.path.exists(path):
+        return "*No memory study of the pairs yet (`make memory-pairs`).*"
+    study = json.load(open(path, encoding="utf-8"))
+    names = {"doltgres": "DoltgreSQL", "doltlite": "DoltLite"}
+    shapes = [("oneshot", "one commit per database"), ("rowinsert", "one INSERT per row, one commit"),
+              ("rowinsert_inline", "the same, indexes inline"), ("rowcommit", "one commit per row"),
+              ("rowcommit_inline", "the same, indexes inline")]
+    L = ["| engine | stored shape | opens in | smallest | could not open |", "|---|---|---:|---:|---|"]
+    for engine in ("doltgres", "doltlite"):
+        for mode, label in shapes:
+            dbs = (study.get(engine) or {}).get(mode) or {}
+            if not dbs:
+                continue
+            ok = {db: v for db, v in dbs.items() if v.get("outcome") == "ok" and v.get("megabytes")}
+            bad = {db: v for db, v in dbs.items() if v.get("outcome") != "ok"}
+            top = max(ok.items(), key=lambda kv: kv[1]["megabytes"]) if ok else None
+            opens = f"{top[1]['megabytes']:,} MB (`{top[0]}`)" if top else "—"
+            least = f"{min(v['megabytes'] for v in ok.values()):,} MB" if ok else "—"
+            why = ", ".join(f"`{db}` ({v.get('outcome')})" for db, v in sorted(bad.items())) or "—"
+            L.append(f"| {names[engine]} | {label} | {opens} | {least} | {why} |")
+    tops = sorted({v.get("ladder_top_mb") for e in study.values() for m in e.values() for v in m.values() if v.get("ladder_top_mb")})
+    L.append("")
+    L.append(f"*Ceilings walked up to {', '.join(f'{t:,} MB' for t in tops)}; a query that did not answer at the top is "
+             f"\"could not open\" with what the probe saw. `exited 1` is the image's entrypoint giving up after 300 s of "
+             f"start-up, not the memory ceiling: DoltgreSQL scans every table when it opens a store, and a "
+             f"per-row-commit history of 759,240 commits or more did not finish scanning in time.*")
+    return "\n".join(L)

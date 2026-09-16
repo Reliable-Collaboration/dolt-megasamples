@@ -191,6 +191,388 @@
     "seconds_to_profile": 7.5
    }
   },
+  "rowcommit": {
+   "adventureworks": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 121317,
+    "measured": "2026-09-16T11:22:33Z",
+    "megabytes": null,
+    "outcome": "exited 1",
+    "query_table": "sales_salesorderdetail",
+    "seconds_to_profile": 301.9
+   },
+   "adventureworks_lt": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 847,
+    "measured": "2026-09-16T11:22:39Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "customer",
+    "seconds_to_profile": 5.7
+   },
+   "chicago_crimes": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 259607,
+    "measured": "2026-09-16T11:27:53Z",
+    "megabytes": 192,
+    "outcome": "ok",
+    "query_table": "crimes",
+    "seconds_to_profile": 314.1
+   },
+   "chinook": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8715,
+    "measured": "2026-09-16T11:28:00Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "playlisttrack",
+    "seconds_to_profile": 7.6
+   },
+   "contoso": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 223974,
+    "measured": "2026-09-16T11:36:01Z",
+    "megabytes": 384,
+    "outcome": "ok",
+    "query_table": "orderrows",
+    "seconds_to_profile": 480.6
+   },
+   "dvdstore": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 60350,
+    "measured": "2026-09-16T11:36:45Z",
+    "megabytes": 192,
+    "outcome": "ok",
+    "query_table": "cust_hist",
+    "seconds_to_profile": 44.4
+   },
+   "employees": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2844047,
+    "measured": "2026-09-16T11:41:47Z",
+    "megabytes": null,
+    "outcome": "exited 1",
+    "query_table": "salaries",
+    "seconds_to_profile": 301.9
+   },
+   "enron": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 38832,
+    "measured": "2026-09-16T11:42:13Z",
+    "megabytes": 96,
+    "outcome": "ok",
+    "query_table": "recipient",
+    "seconds_to_profile": 26.0
+   },
+   "jaffle_shop": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 113,
+    "measured": "2026-09-16T11:42:19Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "raw_payments",
+    "seconds_to_profile": 5.4
+   },
+   "lahman": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 174332,
+    "measured": "2026-09-16T11:49:49Z",
+    "megabytes": 384,
+    "outcome": "ok",
+    "query_table": "fielding",
+    "seconds_to_profile": 450.2
+   },
+   "northwind": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2155,
+    "measured": "2026-09-16T11:49:56Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_details",
+    "seconds_to_profile": 7.6
+   },
+   "nyc_taxi": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 48326,
+    "measured": "2026-09-16T11:50:25Z",
+    "megabytes": 96,
+    "outcome": "ok",
+    "query_table": "green_trips",
+    "seconds_to_profile": 28.4
+   },
+   "oracle_co": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 3914,
+    "measured": "2026-09-16T11:50:30Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_items",
+    "seconds_to_profile": 5.6
+   },
+   "oracle_hr": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 107,
+    "measured": "2026-09-16T11:50:36Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "employees",
+    "seconds_to_profile": 5.6
+   },
+   "oracle_oe": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8640,
+    "measured": "2026-09-16T11:50:48Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "product_descriptions",
+    "seconds_to_profile": 11.8
+   },
+   "oracle_sh": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 918843,
+    "measured": "2026-09-16T11:55:24Z",
+    "megabytes": 768,
+    "outcome": "ok",
+    "query_table": "sales",
+    "seconds_to_profile": 276.2
+   },
+   "pubs": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 86,
+    "measured": "2026-09-16T11:55:31Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "roysched",
+    "seconds_to_profile": 7.3
+   },
+   "sakila": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 16044,
+    "measured": "2026-09-16T11:55:53Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "payment",
+    "seconds_to_profile": 22.1
+   },
+   "smallsets": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 1309,
+    "measured": "2026-09-16T11:56:01Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "titanic",
+    "seconds_to_profile": 7.6
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T11:56:36Z",
+    "megabytes": 96,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 34.6
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T12:06:45Z",
+    "megabytes": 768,
+    "outcome": "ok",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 609.1
+   }
+  },
+  "rowcommit_inline": {
+   "adventureworks": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 121317,
+    "measured": "2026-09-16T12:14:20Z",
+    "megabytes": null,
+    "outcome": "exited 1",
+    "query_table": "sales_salesorderdetail",
+    "seconds_to_profile": 301.5
+   },
+   "adventureworks_lt": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 847,
+    "measured": "2026-09-16T12:14:25Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "customer",
+    "seconds_to_profile": 5.5
+   },
+   "chicago_crimes": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 259607,
+    "measured": "2026-09-16T12:21:37Z",
+    "megabytes": 384,
+    "outcome": "ok",
+    "query_table": "crimes",
+    "seconds_to_profile": 432.2
+   },
+   "chinook": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8715,
+    "measured": "2026-09-16T12:21:47Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "playlisttrack",
+    "seconds_to_profile": 9.5
+   },
+   "contoso": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 223974,
+    "measured": "2026-09-16T12:25:18Z",
+    "megabytes": 768,
+    "outcome": "ok",
+    "query_table": "orderrows",
+    "seconds_to_profile": 211.1
+   },
+   "dvdstore": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 60350,
+    "measured": "2026-09-16T12:27:42Z",
+    "megabytes": 192,
+    "outcome": "ok",
+    "query_table": "cust_hist",
+    "seconds_to_profile": 144.4
+   },
+   "employees": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2844047,
+    "measured": "2026-09-16T12:32:44Z",
+    "megabytes": null,
+    "outcome": "exited 1",
+    "query_table": "salaries",
+    "seconds_to_profile": 301.9
+   },
+   "enron": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 38832,
+    "measured": "2026-09-16T12:37:46Z",
+    "megabytes": 96,
+    "outcome": "ok",
+    "query_table": "recipient",
+    "seconds_to_profile": 301.9
+   },
+   "jaffle_shop": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 113,
+    "measured": "2026-09-16T12:37:51Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "raw_payments",
+    "seconds_to_profile": 5.1
+   },
+   "lahman": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 174332,
+    "measured": "2026-09-16T12:46:08Z",
+    "megabytes": 512,
+    "outcome": "ok",
+    "query_table": "fielding",
+    "seconds_to_profile": 496.3
+   },
+   "northwind": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2155,
+    "measured": "2026-09-16T12:46:15Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_details",
+    "seconds_to_profile": 7.4
+   },
+   "nyc_taxi": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 48326,
+    "measured": "2026-09-16T12:47:48Z",
+    "megabytes": 96,
+    "outcome": "ok",
+    "query_table": "green_trips",
+    "seconds_to_profile": 92.8
+   },
+   "oracle_co": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 3914,
+    "measured": "2026-09-16T12:47:53Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_items",
+    "seconds_to_profile": 5.3
+   },
+   "oracle_hr": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 107,
+    "measured": "2026-09-16T12:48:00Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "employees",
+    "seconds_to_profile": 7.4
+   },
+   "oracle_oe": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8640,
+    "measured": "2026-09-16T12:48:14Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "product_descriptions",
+    "seconds_to_profile": 13.8
+   },
+   "oracle_sh": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 918843,
+    "measured": "2026-09-16T12:55:38Z",
+    "megabytes": 1536,
+    "outcome": "ok",
+    "query_table": "sales",
+    "seconds_to_profile": 443.9
+   },
+   "pubs": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 86,
+    "measured": "2026-09-16T12:55:48Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "roysched",
+    "seconds_to_profile": 9.4
+   },
+   "sakila": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 16044,
+    "measured": "2026-09-16T12:57:04Z",
+    "megabytes": 96,
+    "outcome": "ok",
+    "query_table": "payment",
+    "seconds_to_profile": 76.3
+   },
+   "smallsets": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 1309,
+    "measured": "2026-09-16T12:57:09Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "titanic",
+    "seconds_to_profile": 5.2
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T12:59:26Z",
+    "megabytes": 96,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 136.5
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T13:04:27Z",
+    "megabytes": null,
+    "outcome": "exited 1",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 301.5
+   }
+  },
   "rowinsert": {
    "adventureworks": {
     "ladder_top_mb": 12288,
@@ -362,6 +744,1145 @@
     "outcome": "ok",
     "query_table": "titanic",
     "seconds_to_profile": 5.4
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T11:17:24Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 10.3
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T11:17:31Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 7.4
+   }
+  },
+  "rowinsert_inline": {
+   "adventureworks": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 121317,
+    "measured": "2026-09-16T12:06:55Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "sales_salesorderdetail",
+    "seconds_to_profile": 10.0
+   },
+   "adventureworks_lt": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 847,
+    "measured": "2026-09-16T12:07:04Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "customer",
+    "seconds_to_profile": 9.7
+   },
+   "chicago_crimes": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 259607,
+    "measured": "2026-09-16T12:07:10Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "crimes",
+    "seconds_to_profile": 5.5
+   },
+   "chinook": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8715,
+    "measured": "2026-09-16T12:07:15Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "playlisttrack",
+    "seconds_to_profile": 5.5
+   },
+   "contoso": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 223974,
+    "measured": "2026-09-16T12:07:23Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "orderrows",
+    "seconds_to_profile": 7.5
+   },
+   "dvdstore": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 60350,
+    "measured": "2026-09-16T12:07:34Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "cust_hist",
+    "seconds_to_profile": 11.6
+   },
+   "employees": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2844047,
+    "measured": "2026-09-16T12:07:42Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "salaries",
+    "seconds_to_profile": 7.4
+   },
+   "enron": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 38832,
+    "measured": "2026-09-16T12:07:49Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "recipient",
+    "seconds_to_profile": 7.3
+   },
+   "jaffle_shop": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 113,
+    "measured": "2026-09-16T12:07:54Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "raw_payments",
+    "seconds_to_profile": 5.3
+   },
+   "lahman": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 174332,
+    "measured": "2026-09-16T12:08:02Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "fielding",
+    "seconds_to_profile": 7.5
+   },
+   "northwind": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2155,
+    "measured": "2026-09-16T12:08:09Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_details",
+    "seconds_to_profile": 7.5
+   },
+   "nyc_taxi": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 48326,
+    "measured": "2026-09-16T12:08:15Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "green_trips",
+    "seconds_to_profile": 5.4
+   },
+   "oracle_co": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 3914,
+    "measured": "2026-09-16T12:08:24Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_items",
+    "seconds_to_profile": 9.5
+   },
+   "oracle_hr": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 107,
+    "measured": "2026-09-16T12:08:34Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "employees",
+    "seconds_to_profile": 9.5
+   },
+   "oracle_oe": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8640,
+    "measured": "2026-09-16T12:08:41Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "product_descriptions",
+    "seconds_to_profile": 7.5
+   },
+   "oracle_sh": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 918843,
+    "measured": "2026-09-16T12:08:51Z",
+    "megabytes": 192,
+    "outcome": "ok",
+    "query_table": "sales",
+    "seconds_to_profile": 10.3
+   },
+   "pubs": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 86,
+    "measured": "2026-09-16T12:08:55Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "roysched",
+    "seconds_to_profile": 3.3
+   },
+   "sakila": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 16044,
+    "measured": "2026-09-16T12:09:00Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "payment",
+    "seconds_to_profile": 5.2
+   },
+   "smallsets": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 1309,
+    "measured": "2026-09-16T12:09:07Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "titanic",
+    "seconds_to_profile": 7.5
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T12:09:13Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 5.4
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T12:09:18Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 5.3
+   }
+  }
+ },
+ "doltlite": {
+  "oneshot": {
+   "adventureworks": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 121317,
+    "measured": "2026-09-16T13:04:29Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "sales_salesorderdetail",
+    "seconds_to_profile": 2.4
+   },
+   "adventureworks_lt": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 847,
+    "measured": "2026-09-16T13:04:32Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "customer",
+    "seconds_to_profile": 2.4
+   },
+   "chicago_crimes": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 259607,
+    "measured": "2026-09-16T13:04:34Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "crimes",
+    "seconds_to_profile": 2.4
+   },
+   "chinook": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8715,
+    "measured": "2026-09-16T13:04:37Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "playlisttrack",
+    "seconds_to_profile": 2.6
+   },
+   "contoso": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 223974,
+    "measured": "2026-09-16T13:04:39Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "orderrows",
+    "seconds_to_profile": 2.4
+   },
+   "dvdstore": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 60350,
+    "measured": "2026-09-16T13:04:42Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "cust_hist",
+    "seconds_to_profile": 2.2
+   },
+   "employees": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2844047,
+    "measured": "2026-09-16T13:04:44Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "salaries",
+    "seconds_to_profile": 2.3
+   },
+   "enron": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 38832,
+    "measured": "2026-09-16T13:04:46Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "recipient",
+    "seconds_to_profile": 2.3
+   },
+   "jaffle_shop": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 113,
+    "measured": "2026-09-16T13:04:49Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "raw_payments",
+    "seconds_to_profile": 2.4
+   },
+   "lahman": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 174332,
+    "measured": "2026-09-16T13:04:51Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "fielding",
+    "seconds_to_profile": 2.4
+   },
+   "northwind": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2155,
+    "measured": "2026-09-16T13:04:54Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_details",
+    "seconds_to_profile": 2.6
+   },
+   "nyc_taxi": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 48326,
+    "measured": "2026-09-16T13:04:56Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "green_trips",
+    "seconds_to_profile": 2.6
+   },
+   "oracle_co": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 3914,
+    "measured": "2026-09-16T13:04:59Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_items",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_hr": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 107,
+    "measured": "2026-09-16T13:05:01Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "employees",
+    "seconds_to_profile": 2.7
+   },
+   "oracle_oe": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8640,
+    "measured": "2026-09-16T13:05:04Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "product_descriptions",
+    "seconds_to_profile": 2.3
+   },
+   "oracle_sh": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 918843,
+    "measured": "2026-09-16T13:05:06Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "sales",
+    "seconds_to_profile": 2.4
+   },
+   "pubs": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 86,
+    "measured": "2026-09-16T13:05:09Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "roysched",
+    "seconds_to_profile": 2.5
+   },
+   "sakila": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 16044,
+    "measured": "2026-09-16T13:05:11Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "payment",
+    "seconds_to_profile": 2.5
+   },
+   "smallsets": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 1309,
+    "measured": "2026-09-16T13:05:13Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "titanic",
+    "seconds_to_profile": 2.4
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T13:05:16Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 2.4
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T13:05:18Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 2.5
+   }
+  },
+  "rowcommit": {
+   "adventureworks": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 121317,
+    "measured": "2026-09-16T13:06:13Z",
+    "megabytes": 256,
+    "outcome": "ok",
+    "query_table": "sales_salesorderdetail",
+    "seconds_to_profile": 2.6
+   },
+   "adventureworks_lt": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 847,
+    "measured": "2026-09-16T13:06:15Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "customer",
+    "seconds_to_profile": 2.4
+   },
+   "chicago_crimes": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 259607,
+    "measured": "2026-09-16T13:06:18Z",
+    "megabytes": 96,
+    "outcome": "ok",
+    "query_table": "crimes",
+    "seconds_to_profile": 2.7
+   },
+   "chinook": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8715,
+    "measured": "2026-09-16T13:06:21Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "playlisttrack",
+    "seconds_to_profile": 2.7
+   },
+   "contoso": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 223974,
+    "measured": "2026-09-16T13:06:23Z",
+    "megabytes": 256,
+    "outcome": "ok",
+    "query_table": "orderrows",
+    "seconds_to_profile": 2.8
+   },
+   "dvdstore": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 60350,
+    "measured": "2026-09-16T13:06:26Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "cust_hist",
+    "seconds_to_profile": 3.0
+   },
+   "enron": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 38832,
+    "measured": "2026-09-16T13:06:29Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "recipient",
+    "seconds_to_profile": 2.9
+   },
+   "jaffle_shop": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 113,
+    "measured": "2026-09-16T13:06:32Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "raw_payments",
+    "seconds_to_profile": 2.5
+   },
+   "lahman": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 174332,
+    "measured": "2026-09-16T13:06:34Z",
+    "megabytes": 256,
+    "outcome": "ok",
+    "query_table": "fielding",
+    "seconds_to_profile": 2.6
+   },
+   "northwind": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2155,
+    "measured": "2026-09-16T13:06:37Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_details",
+    "seconds_to_profile": 2.5
+   },
+   "nyc_taxi": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 48326,
+    "measured": "2026-09-16T13:06:39Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "green_trips",
+    "seconds_to_profile": 2.6
+   },
+   "oracle_co": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 3914,
+    "measured": "2026-09-16T13:06:42Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_items",
+    "seconds_to_profile": 2.5
+   },
+   "oracle_hr": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 107,
+    "measured": "2026-09-16T13:06:44Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "employees",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_oe": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8640,
+    "measured": "2026-09-16T13:06:47Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "product_descriptions",
+    "seconds_to_profile": 2.5
+   },
+   "oracle_sh": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 918843,
+    "measured": "2026-09-16T13:06:50Z",
+    "megabytes": 384,
+    "outcome": "ok",
+    "query_table": "sales",
+    "seconds_to_profile": 3.6
+   },
+   "pubs": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 86,
+    "measured": "2026-09-16T13:06:53Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "roysched",
+    "seconds_to_profile": 2.5
+   },
+   "sakila": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 16044,
+    "measured": "2026-09-16T13:06:55Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "payment",
+    "seconds_to_profile": 2.5
+   },
+   "smallsets": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 1309,
+    "measured": "2026-09-16T13:06:58Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "titanic",
+    "seconds_to_profile": 2.5
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T13:07:00Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 2.6
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T13:07:04Z",
+    "megabytes": 384,
+    "outcome": "ok",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 3.6
+   }
+  },
+  "rowcommit_inline": {
+   "adventureworks": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 121317,
+    "measured": "2026-09-16T13:07:56Z",
+    "megabytes": 768,
+    "outcome": "ok",
+    "query_table": "sales_salesorderdetail",
+    "seconds_to_profile": 3.8
+   },
+   "adventureworks_lt": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 847,
+    "measured": "2026-09-16T13:07:58Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "customer",
+    "seconds_to_profile": 2.4
+   },
+   "chicago_crimes": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 259607,
+    "measured": "2026-09-16T13:08:02Z",
+    "megabytes": 384,
+    "outcome": "ok",
+    "query_table": "crimes",
+    "seconds_to_profile": 3.7
+   },
+   "chinook": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8715,
+    "measured": "2026-09-16T13:08:04Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "playlisttrack",
+    "seconds_to_profile": 2.4
+   },
+   "contoso": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 223974,
+    "measured": "2026-09-16T13:08:08Z",
+    "megabytes": 512,
+    "outcome": "ok",
+    "query_table": "orderrows",
+    "seconds_to_profile": 3.6
+   },
+   "dvdstore": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 60350,
+    "measured": "2026-09-16T13:08:10Z",
+    "megabytes": 128,
+    "outcome": "ok",
+    "query_table": "cust_hist",
+    "seconds_to_profile": 2.2
+   },
+   "enron": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 38832,
+    "measured": "2026-09-16T13:08:13Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "recipient",
+    "seconds_to_profile": 2.6
+   },
+   "jaffle_shop": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 113,
+    "measured": "2026-09-16T13:08:15Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "raw_payments",
+    "seconds_to_profile": 2.5
+   },
+   "lahman": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 174332,
+    "measured": "2026-09-16T13:08:19Z",
+    "megabytes": 384,
+    "outcome": "ok",
+    "query_table": "fielding",
+    "seconds_to_profile": 3.3
+   },
+   "northwind": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2155,
+    "measured": "2026-09-16T13:08:21Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_details",
+    "seconds_to_profile": 2.3
+   },
+   "nyc_taxi": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 48326,
+    "measured": "2026-09-16T13:08:23Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "green_trips",
+    "seconds_to_profile": 2.5
+   },
+   "oracle_co": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 3914,
+    "measured": "2026-09-16T13:08:26Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_items",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_hr": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 107,
+    "measured": "2026-09-16T13:08:28Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "employees",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_oe": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8640,
+    "measured": "2026-09-16T13:08:31Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "product_descriptions",
+    "seconds_to_profile": 2.5
+   },
+   "oracle_sh": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 918843,
+    "measured": "2026-09-16T13:08:36Z",
+    "megabytes": 1536,
+    "outcome": "ok",
+    "query_table": "sales",
+    "seconds_to_profile": 5.2
+   },
+   "pubs": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 86,
+    "measured": "2026-09-16T13:08:38Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "roysched",
+    "seconds_to_profile": 2.3
+   },
+   "sakila": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 16044,
+    "measured": "2026-09-16T13:08:41Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "payment",
+    "seconds_to_profile": 2.4
+   },
+   "smallsets": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 1309,
+    "measured": "2026-09-16T13:08:43Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "titanic",
+    "seconds_to_profile": 2.4
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T13:08:46Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 2.5
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T13:08:50Z",
+    "megabytes": 1024,
+    "outcome": "ok",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 4.0
+   }
+  },
+  "rowinsert": {
+   "adventureworks": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 121317,
+    "measured": "2026-09-16T13:05:21Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "sales_salesorderdetail",
+    "seconds_to_profile": 2.5
+   },
+   "adventureworks_lt": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 847,
+    "measured": "2026-09-16T13:05:23Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "customer",
+    "seconds_to_profile": 2.4
+   },
+   "chicago_crimes": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 259607,
+    "measured": "2026-09-16T13:05:26Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "crimes",
+    "seconds_to_profile": 2.6
+   },
+   "chinook": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8715,
+    "measured": "2026-09-16T13:05:28Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "playlisttrack",
+    "seconds_to_profile": 2.3
+   },
+   "contoso": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 223974,
+    "measured": "2026-09-16T13:05:30Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "orderrows",
+    "seconds_to_profile": 2.3
+   },
+   "dvdstore": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 60350,
+    "measured": "2026-09-16T13:05:33Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "cust_hist",
+    "seconds_to_profile": 2.5
+   },
+   "employees": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2844047,
+    "measured": "2026-09-16T13:05:35Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "salaries",
+    "seconds_to_profile": 2.4
+   },
+   "enron": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 38832,
+    "measured": "2026-09-16T13:05:38Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "recipient",
+    "seconds_to_profile": 2.4
+   },
+   "jaffle_shop": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 113,
+    "measured": "2026-09-16T13:05:40Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "raw_payments",
+    "seconds_to_profile": 2.4
+   },
+   "lahman": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 174332,
+    "measured": "2026-09-16T13:05:43Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "fielding",
+    "seconds_to_profile": 2.5
+   },
+   "northwind": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2155,
+    "measured": "2026-09-16T13:05:45Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_details",
+    "seconds_to_profile": 2.5
+   },
+   "nyc_taxi": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 48326,
+    "measured": "2026-09-16T13:05:47Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "green_trips",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_co": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 3914,
+    "measured": "2026-09-16T13:05:50Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_items",
+    "seconds_to_profile": 2.5
+   },
+   "oracle_hr": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 107,
+    "measured": "2026-09-16T13:05:52Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "employees",
+    "seconds_to_profile": 2.5
+   },
+   "oracle_oe": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8640,
+    "measured": "2026-09-16T13:05:55Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "product_descriptions",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_sh": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 918843,
+    "measured": "2026-09-16T13:05:58Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "sales",
+    "seconds_to_profile": 2.9
+   },
+   "pubs": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 86,
+    "measured": "2026-09-16T13:06:00Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "roysched",
+    "seconds_to_profile": 2.5
+   },
+   "sakila": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 16044,
+    "measured": "2026-09-16T13:06:03Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "payment",
+    "seconds_to_profile": 2.5
+   },
+   "smallsets": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 1309,
+    "measured": "2026-09-16T13:06:05Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "titanic",
+    "seconds_to_profile": 2.4
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T13:06:08Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 2.5
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T13:06:10Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 2.5
+   }
+  },
+  "rowinsert_inline": {
+   "adventureworks": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 121317,
+    "measured": "2026-09-16T13:07:06Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "sales_salesorderdetail",
+    "seconds_to_profile": 2.4
+   },
+   "adventureworks_lt": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 847,
+    "measured": "2026-09-16T13:07:09Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "customer",
+    "seconds_to_profile": 2.5
+   },
+   "chicago_crimes": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 259607,
+    "measured": "2026-09-16T13:07:11Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "crimes",
+    "seconds_to_profile": 2.7
+   },
+   "chinook": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8715,
+    "measured": "2026-09-16T13:07:14Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "playlisttrack",
+    "seconds_to_profile": 2.4
+   },
+   "contoso": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 223974,
+    "measured": "2026-09-16T13:07:16Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "orderrows",
+    "seconds_to_profile": 2.4
+   },
+   "dvdstore": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 60350,
+    "measured": "2026-09-16T13:07:19Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "cust_hist",
+    "seconds_to_profile": 2.4
+   },
+   "enron": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 38832,
+    "measured": "2026-09-16T13:07:21Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "recipient",
+    "seconds_to_profile": 2.4
+   },
+   "jaffle_shop": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 113,
+    "measured": "2026-09-16T13:07:23Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "raw_payments",
+    "seconds_to_profile": 2.4
+   },
+   "lahman": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 174332,
+    "measured": "2026-09-16T13:07:26Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "fielding",
+    "seconds_to_profile": 2.4
+   },
+   "northwind": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 2155,
+    "measured": "2026-09-16T13:07:28Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_details",
+    "seconds_to_profile": 2.4
+   },
+   "nyc_taxi": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 48326,
+    "measured": "2026-09-16T13:07:31Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "green_trips",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_co": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 3914,
+    "measured": "2026-09-16T13:07:33Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "order_items",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_hr": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 107,
+    "measured": "2026-09-16T13:07:35Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "employees",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_oe": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 8640,
+    "measured": "2026-09-16T13:07:38Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "product_descriptions",
+    "seconds_to_profile": 2.4
+   },
+   "oracle_sh": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 918843,
+    "measured": "2026-09-16T13:07:40Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "sales",
+    "seconds_to_profile": 2.4
+   },
+   "pubs": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 86,
+    "measured": "2026-09-16T13:07:43Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "roysched",
+    "seconds_to_profile": 2.4
+   },
+   "sakila": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 16044,
+    "measured": "2026-09-16T13:07:45Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "payment",
+    "seconds_to_profile": 2.4
+   },
+   "smallsets": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 1309,
+    "measured": "2026-09-16T13:07:47Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "titanic",
+    "seconds_to_profile": 2.4
+   },
+   "stackexchange_beer": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 20765,
+    "measured": "2026-09-16T13:07:50Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "votes",
+    "seconds_to_profile": 2.4
+   },
+   "wikipedia_simple": {
+    "ladder_top_mb": 12288,
+    "largest_table_rows": 769735,
+    "measured": "2026-09-16T13:07:52Z",
+    "megabytes": 64,
+    "outcome": "ok",
+    "query_table": "pagelinks",
+    "seconds_to_profile": 2.3
    }
   }
  }

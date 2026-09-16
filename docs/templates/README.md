@@ -410,10 +410,12 @@ narrows it, `SERVE_DATABASES=all` serves every database the shape holds, and the
 `.env` as `DOLTSAMPLES_SERVE` and `DOLTSAMPLES_SERVE_DATABASES` make the choice stick. One rule
 applies itself: the Dolt server is held to its memory limit (`DOLT_MEM=8g` raises it, default
 1536m) using the memory study below, taking databases smallest need first, because a per-row-commit
-history can need gigabytes to open -- `make up` names what it left out and why. DoltgreSQL and
-DoltLite have no such study yet and serve whatever the shape holds for them; their per-row-commit
-stores of the larger databases are big files, and the ones DoltLite could not collect are the
-working footprint of the load.
+history can need gigabytes to open -- `make up` names what it left out and why. DoltgreSQL is held the same way
+using the pairs' own study below (`make memory-pairs`); DoltLite has no server, so its files are simply
+there, and the one it could not collect is the working footprint of the load. What each engine of the
+pairs needs to open a stored shape and count its largest table:
+
+{{block:pair_memory_study}}
 
 The accounts are the same on both sides and on both servers: `demo` / `demo` reads, `admin` /
 `admin` writes. One exception was measured: DoltgreSQL 1.3.1 did not enforce database privileges,

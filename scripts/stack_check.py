@@ -50,15 +50,27 @@ def http(url, seconds=90):
 
 
 def probe_table(db):
-    """The largest table of a served database and its row count, from the export's reference."""
+    """The largest table of a served database and its row count: from the export's reference when the
+    exports are on disk, else from the memory studies, which are committed -- a fresh clone has no
+    build/dumps, and the check asked for `sakila.None` there (clean-room run, 2026-09-16)."""
     import json as _json
-    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "dumps", "postgres",
-                        f"{db}.reference.json")
-    if not os.path.exists(path):
-        return None, None
-    rows = _json.load(open(path, encoding="utf-8"))["rows"]
-    t, n = max(rows.items(), key=lambda kv: kv[1] or 0)
-    return t.split(".", 1)[1], n
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(root, "build", "dumps", "postgres", f"{db}.reference.json")
+    if os.path.exists(path):
+        rows = _json.load(open(path, encoding="utf-8"))["rows"]
+        t, n = max(rows.items(), key=lambda kv: kv[1] or 0)
+        return t.split(".", 1)[1], n
+    for study, keys in ((os.path.join(root, "build", "memory_pairs.json"), ("doltgres", "oneshot")),
+                        (os.path.join(root, "build", "memory.json"), ("oneshot",))):
+        if not os.path.exists(study):
+            continue
+        entry = _json.load(open(study, encoding="utf-8"))
+        for k in keys:
+            entry = entry.get(k) or {}
+        entry = entry.get(db) or {}
+        if entry.get("query_table"):
+            return entry["query_table"], entry.get("largest_table_rows")
+    return None, None
 
 
 def served(engine):
@@ -78,7 +90,8 @@ def main():
     for user, pw, want_write in (("demo", PW["demo"], False), ("admin", PW["admin"], True)):
         p = run("docker", "run", "--rm", "--network", NETWORK, "--label", "doltsamples.transient=true", MYSQL_IMAGE,
                 "mysql", "-hdolt", f"-u{user}", f"-p{pw}", "-N", "-e", f"SELECT COUNT(*) FROM {dolt_db}.{table}")
-        check(f"Dolt as {user}: {dolt_db}.{table}", p.stdout.strip() == str(want), p.stdout.strip() or p.stderr.strip()[-100:])
+        check(f"Dolt as {user}: {dolt_db}.{table}", p.stdout.strip() == str(want) if want is not None else p.stdout.strip().isdigit(),
+              p.stdout.strip() or p.stderr.strip()[-100:])
         # a scratch database created and dropped: the probe writes nothing into a served store, which
         # is a measured one (the first version created a table inside the store and left a change in
         # its working set)
@@ -97,7 +110,7 @@ def main():
     pg_table, pg_want = probe_table(pg_db)
     for user, pw, want_write in (("demo", PW["demo"], False), ("admin", PW["admin"], True)):
         rc, out = pg(user, pw, pg_db, f'SELECT COUNT(*) FROM "{pg_table}"')
-        check(f"DoltgreSQL as {user}: {pg_db}.{pg_table}", out == str(pg_want), out)
+        check(f"DoltgreSQL as {user}: {pg_db}.{pg_table}", out == str(pg_want) if pg_want is not None else out.isdigit(), out)
         rc, out = pg(user, pw, pg_db, "SELECT COUNT(*) FROM dolt_log")
         check(f"DoltgreSQL as {user}: dolt_log", rc == 0 and out.isdigit(), out)
         if want_write:

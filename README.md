@@ -735,10 +735,25 @@ narrows it, `SERVE_DATABASES=all` serves every database the shape holds, and the
 `.env` as `DOLTSAMPLES_SERVE` and `DOLTSAMPLES_SERVE_DATABASES` make the choice stick. One rule
 applies itself: the Dolt server is held to its memory limit (`DOLT_MEM=8g` raises it, default
 1536m) using the memory study below, taking databases smallest need first, because a per-row-commit
-history can need gigabytes to open -- `make up` names what it left out and why. DoltgreSQL and
-DoltLite have no such study yet and serve whatever the shape holds for them; their per-row-commit
-stores of the larger databases are big files, and the ones DoltLite could not collect are the
-working footprint of the load.
+history can need gigabytes to open -- `make up` names what it left out and why. DoltgreSQL is held the same way
+using the pairs' own study below (`make memory-pairs`); DoltLite has no server, so its files are simply
+there, and the one it could not collect is the working footprint of the load. What each engine of the
+pairs needs to open a stored shape and count its largest table:
+
+| engine | stored shape | opens in | smallest | could not open |
+|---|---|---:|---:|---|
+| DoltgreSQL | one commit per database | 192 MB (`oracle_sh`) | 64 MB | — |
+| DoltgreSQL | one INSERT per row, one commit | 192 MB (`oracle_sh`) | 64 MB | — |
+| DoltgreSQL | the same, indexes inline | 192 MB (`oracle_sh`) | 64 MB | — |
+| DoltgreSQL | one commit per row | 768 MB (`oracle_sh`) | 64 MB | `adventureworks` (exited 1), `employees` (exited 1) |
+| DoltgreSQL | the same, indexes inline | 1,536 MB (`oracle_sh`) | 64 MB | `adventureworks` (exited 1), `employees` (exited 1), `wikipedia_simple` (exited 1) |
+| DoltLite | one commit per database | 64 MB (`adventureworks`) | 64 MB | — |
+| DoltLite | one INSERT per row, one commit | 64 MB (`adventureworks`) | 64 MB | — |
+| DoltLite | the same, indexes inline | 64 MB (`adventureworks`) | 64 MB | — |
+| DoltLite | one commit per row | 384 MB (`oracle_sh`) | 64 MB | — |
+| DoltLite | the same, indexes inline | 1,536 MB (`oracle_sh`) | 64 MB | — |
+
+*Ceilings walked up to 12,288 MB; a query that did not answer at the top is "could not open" with what the probe saw. `exited 1` is the image's entrypoint giving up after 300 s of start-up, not the memory ceiling: DoltgreSQL scans every table when it opens a store, and a per-row-commit history of 759,240 commits or more did not finish scanning in time.*
 
 The accounts are the same on both sides and on both servers: `demo` / `demo` reads, `admin` /
 `admin` writes. One exception was measured: DoltgreSQL 1.3.1 did not enforce database privileges,

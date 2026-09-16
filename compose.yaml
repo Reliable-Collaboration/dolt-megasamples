@@ -86,6 +86,12 @@ services:
     ports: ["127.0.0.1:5433:5432"]
     environment:
       DOLTGRES_PASSWORD: ${DOLTGRES_PASSWORD:-doltsamples}
+      # The image's entrypoint kills a server that is not accepting connections within
+      # DOLTGRES_SERVER_TIMEOUT seconds (default 300). DoltgreSQL scans every table when it opens a
+      # store, and a per-row-commit history of 759,240 commits or more takes longer than that
+      # (measured 2026-09-16), so serving those shapes needs the longer limit; the one-commit
+      # loads open in seconds either way.
+      DOLTGRES_SERVER_TIMEOUT: "1800"
     volumes:
       - ./data/doltgres-oneshot:/var/lib/doltgres
     healthcheck:
@@ -93,6 +99,7 @@ services:
       interval: 5s
       timeout: 10s
       retries: 30
+      start_period: 1800s
     restart: unless-stopped
   doltgres-init:
     image: dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae

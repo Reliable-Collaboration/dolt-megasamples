@@ -71,6 +71,7 @@ def blocks():
         "pair_refusals": guarded(lambda r: report_pairs.refusals(r)),
         "pg_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "pg")),
         "lite_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "lite")),
+        "pair_memory_study": lambda: report_pairs.memory_study_table(),
     }
 
 

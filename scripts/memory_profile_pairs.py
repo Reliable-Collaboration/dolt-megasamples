@@ -69,8 +69,12 @@ def attempt(engine, mode, db, mb, table, timeout):
         return f"exit {p.returncode}: {(p.stderr or p.stdout).strip()[:120]}"
     # DoltgreSQL: the server over the unit's own root (its `postgres` catalog and this one database),
     # in a container under the ceiling. Not while the stack serves the same store.
+    # the image's entrypoint gives the server DOLTGRES_SERVER_TIMEOUT seconds to accept connections (300 by
+    # default) and exits 1 otherwise; a per-row-commit history of 759,240 commits or more takes longer to
+    # open, because the server scans every table first (2026-09-16), so the probe's own deadline is the limit
     p = run("docker", "run", "-d", "--name", PROBE, "--memory", f"{mb}m", "--memory-swap", f"{mb}m",
-            "-e", f"DOLTGRES_PASSWORD={PW}", "-v", f"{store(engine, mode, db)}:/var/lib/doltgres", DOLTGRES_IMAGE)
+            "-e", f"DOLTGRES_PASSWORD={PW}", "-e", f"DOLTGRES_SERVER_TIMEOUT={int(timeout)}",
+            "-v", f"{store(engine, mode, db)}:/var/lib/doltgres", DOLTGRES_IMAGE)
     if p.returncode != 0:
         return f"could not start: {p.stderr.strip()[:120]}"
     deadline = time.time() + timeout
@@ -78,7 +82,9 @@ def attempt(engine, mode, db, mb, table, timeout):
     while time.time() < deadline:
         state = run("docker", "inspect", "-f", "{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}", PROBE).stdout.split()
         if not state or state[0] != "running":
-            result = "oom" if (state and (state[2] == "true" or state[1] == "137")) else f"exited {state[1] if state else '?'}"
+            result = ("oom" if (state and (state[2] == "true" or state[1] == "137"))
+                      else f"exited {state[1] if state else '?'}: the server did not accept connections within "
+                           f"{int(timeout)} s")
             break
         q = run("docker", "exec", "-e", f"PGPASSWORD={PW}", PROBE, "psql", "-X", "-h", "127.0.0.1", "-U", "postgres",
                 "-d", db, "-tA", "-c", f'SELECT COUNT(*) FROM "{table}"')

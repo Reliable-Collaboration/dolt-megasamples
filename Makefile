@@ -136,7 +136,7 @@ check:
 	@$(MAKE) --no-print-directory okf-check
 
 up:
-	@docker image inspect doltsamples-doltlite:0.50.9 >/dev/null 2>&1 || $(MAKE) --no-print-directory lite-image
+	@docker image inspect doltsamples-doltlite:$$($(PY) -c "import json; print(json.load(open('versions.json'))['doltlite']['version'])") >/dev/null 2>&1 || $(MAKE) --no-print-directory lite-image
 	@DOLTSAMPLES_SERVE="$(SERVE)" DOLTSAMPLES_SERVE_DATABASES="$(SERVE_DATABASES)" DOLTSAMPLES_DOLT_MEM="$(DOLT_MEM)" DOLTSAMPLES_DOLTGRES_MEM="$(DOLTGRES_MEM)" $(PY) scripts/stack_config.py
 	@docker compose up -d
 	@$(PY) scripts/console_page.py
