@@ -135,29 +135,47 @@ def attempt(mode, db, mb, query, timeout):
     return f"exit {p.returncode}: {(p.stderr or '').strip()[:120]}"
 
 
+TOO_SMALL = ("oom", "timeout")   # killed at this ceiling, or not answering within the budget at it
+
+
 def smallest_that_works(mode, db, query, timeout, verbose=True):
-    """Bisect the ladder for the lowest ceiling the query survives.
+    """Bisect the ladder for the lowest ceiling the query survives: (megabytes, detail, rungs).
 
     Assumes the ladder is monotonic -- if a ceiling works, every larger one does. That is the
     behaviour of an allocator being capped, and it is checked at the top of the ladder first: a
     database that fails even at the maximum is reported as such rather than bisected pointlessly.
+    Only a memory outcome moves the floor up; a rung that fails for another reason (a store that is
+    not a repository, a daemon fault) is tried once more and then aborts the cell with that reason,
+    so an infrastructure fault is never recorded as a memory need.
     """
-    top = attempt(mode, db, LADDER[-1], query, timeout)
+    rungs = {}
+
+    def probe(mb):
+        r = attempt(mode, db, mb, query, timeout)
+        if r != "ok" and r not in TOO_SMALL:
+            r2 = attempt(mode, db, mb, query, timeout)
+            r = r2 if r2 in ("ok",) + TOO_SMALL else f"aborted at {mb} MB: {r2}"
+        rungs[mb] = r
+        if verbose:
+            print(f"      {mb:>5} MB -> {r[:60]}", flush=True)
+        return r
+
+    top = probe(LADDER[-1])
     if top != "ok":
-        return None, top
+        return None, top, rungs
     lo, hi = 0, len(LADDER) - 1
     detail = "ok"
     while lo < hi:
         mid = (lo + hi) // 2
-        r = attempt(mode, db, LADDER[mid], query, timeout)
-        if verbose:
-            print(f"      {LADDER[mid]:>5} MB -> {r[:40]}", flush=True)
+        r = probe(LADDER[mid])
         if r == "ok":
             hi = mid
-        else:
+        elif r in TOO_SMALL:
             detail = r
             lo = mid + 1
-    return LADDER[lo], detail
+        else:
+            return None, r, rungs
+    return LADDER[lo], detail, rungs
 
 
 def main():
@@ -177,17 +195,24 @@ def main():
     facts = json.load(open(OUT, encoding="utf-8")) if os.path.exists(OUT) else {}
 
     for mode in modes:
-        dbs = a.only or sorted(d for d in databases() if os.path.isdir(repo_path(mode, d)))
+        # only stores that exist and are repositories: a database whose load of this shape has not run
+        # (or failed) has no store to open, and that is not a memory result
+        wanted = a.only or sorted(databases())
+        dbs = [d for d in wanted if os.path.isdir(os.path.join(repo_path(mode, d), ".dolt"))]
+        for d in wanted:
+            if d not in dbs:
+                print(f"    {d}: no {mode} store to open (the load has not run, or failed); skipped", flush=True)
         print(f"\n  {mode}: {len(dbs)} database(s), op={a.op}", flush=True)
         for db in dbs:
             table, table_rows = biggest_table_and_rows(db)
             query = OPS[a.op].format(table=table or "dolt_log")
             print(f"    {db}", flush=True)
             t0 = time.time()
-            mb, detail = smallest_that_works(mode, db, query, a.timeout)
+            mb, detail, rungs = smallest_that_works(mode, db, query, a.timeout)
             rec = {
                 "megabytes": mb,
                 "outcome": detail if mb is None else "ok",
+                "rungs": {str(k): v for k, v in sorted(rungs.items())},
                 "seconds_to_profile": round(time.time() - t0, 1),
                 "rows": total_rows(db),
                 "largest_table_rows": table_rows,
@@ -200,7 +225,8 @@ def main():
             facts.setdefault(mode, {})[db] = rec
             facts["_versions"] = {"dolt": DOLT_VERSION}   # the study belongs to this run
             json.dump(facts, open(OUT, "w", encoding="utf-8"), indent=1, sort_keys=True)
-            shown = f"{mb} MB" if mb else f"more than {LADDER[-1]} MB ({detail[:40]})"
+            shown = (f"{mb} MB" if mb else f"did not open at the ladder's top, {LADDER[-1]} MB ({detail[:40]})"
+                     if detail in TOO_SMALL or detail.startswith(("oom", "timeout")) else f"not measured ({detail[:60]})")
             print(f"      => {shown}   rows={rec['rows'] or '?'} "
                   f"disk={human(rec['disk_bytes']) if rec['disk_bytes'] else '?'} "
                   f"commits={rec['commits'] or '?'}", flush=True)
