@@ -8,13 +8,10 @@ tags:
 - figures
 - readme
 - decision
-status: proposed
-trust: verified
+status: draft
+trust: open
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-16T15:30:00Z"
-verified:
-- by: claude-code/claude-fable-5-1
   at: "2026-09-16T15:30:00Z"
 sources:
 - resource: https://jfly.uni-koeln.de/color/
@@ -58,4 +55,4 @@ The figures drawn on 2026-09-16 from the complete result sets (Dolt 2.3.2, Doltg
 
 # Status
 
-proposed (2026-09-16; a draft for the maintainer's review, built at the maintainer's request after the research; the maintainer has not yet reviewed it).
+pending (2026-09-16; a draft for the maintainer's review, built at the maintainer's request after the research; the maintainer has not yet reviewed it).
