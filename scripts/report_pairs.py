@@ -429,8 +429,8 @@ def size_cell(r, pair, shape):
 # ------------------------------------------------------------------ the served stack, for the README ---
 def databases_table(results):
     """Every database with what it is (build/catalogue.json, copied from the corpus's own records by
-    scripts/catalogue.py), its tables and rows; then, as its own table so that neither squeezes the
-    other, its size on disk in every engine and every run, the served one-commit stores among them."""
+    scripts/catalogue.py), its tables and rows. The sizes are their own block (sizes_all) so that
+    neither table squeezes the other."""
     import json, os
     from common import ROOT
     from loads import PAIR_ORDER, PAIRS, rows_of
@@ -443,19 +443,24 @@ def databases_table(results):
     for db in order:
         r = results[db]
         L.append(f"| `{db}` | {what.get(db, '')} | {r.get('tables') or 0:,} | {rows_of(r):,} |")
-    L += ["", "The same databases on disk, in every engine and every run:", "", sizes_all(results, "bytes")]
-    # the same database with a commit per row, so a reader does not take the served size for the
-    # only size: what a Dolt engine's store tracks is its commits
+    return "\n".join(L)
+
+
+def sizes_note(results):
+    """One sentence under the disk grid: the largest database in the two Dolt shapes, so a reader does
+    not take the served size for the only size."""
+    from loads import PAIR_ORDER, PAIRS, rows_of
+    order = sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
     big = results[order[0]]
     once = [size_cell(big, p, "oneshot") for p in PAIR_ORDER]
     each = [size_cell(big, p, "rowcommit") for p in PAIR_ORDER]
-    if once[0][0] and each[0][0]:
-        others = "; ".join(f"{PAIRS[p]['engine']} {human(v)}{m}" for p, (v, m) in zip(PAIR_ORDER[1:], each[1:]) if v)
-        L += ["", f"*What a Dolt engine's store tracks is its commits, not its rows: `{order[0]}`, {rows_of(big):,} rows, is "
-                  f"{human(once[0][0])} in {PAIRS[PAIR_ORDER[0]]['engine']} with one commit and {human(each[0][0])} with a commit "
-                  f"per row" + (f" ({others})" if others else "") + ". The one-commit stores are what `make up` serves; "
-                  "[choosing what is served](#choosing-what-is-served) says how to serve the others.*"]
-    return "\n".join(L)
+    if not (once[0][0] and each[0][0]):
+        return ""
+    others = "; ".join(f"{PAIRS[p]['engine']} {human(v)}{m}" for p, (v, m) in zip(PAIR_ORDER[1:], each[1:]) if v)
+    return (f"*What a Dolt engine's store tracks is its commits, not its rows: `{order[0]}`, {rows_of(big):,} rows, is "
+            f"{human(once[0][0])} in {PAIRS[PAIR_ORDER[0]]['engine']} with one commit and {human(each[0][0])} with a commit "
+            f"per row" + (f" ({others})" if others else "") + ". The one-commit stores are what `make up` serves; "
+            "[choosing what is served](#choosing-what-is-served) says how to serve the others.*")
 
 
 def connect_table():
@@ -489,3 +494,41 @@ def consoles_table():
     for name, port, cover, note in console_page.CONSOLES:
         L.append(f"| {name} | <http://127.0.0.1:{port}/> | {cover} | {html.escape(note, quote=False)} |")
     return "\n".join(L)
+
+
+def memory_grid(results):
+    """Every database down, the three Dolt engines across, each with the store of one commit and the
+    store of a commit per row: the smallest container memory limit at which the engine opened the
+    stored database and counted its largest table, from the two memory studies (build/memory.json for
+    Dolt, build/memory_pairs.json for DoltgreSQL and DoltLite). A dash is a shape not measured; "did
+    not open" is a store that failed at the top of its ladder."""
+    import json, os
+    from common import ROOT, human_mb
+    from loads import PAIR_ORDER, PAIRS, rows_of
+    studies = {}
+    p = os.path.join(ROOT, "build", "memory.json")
+    if os.path.exists(p):
+        studies["Dolt"] = {k: v for k, v in json.load(open(p, encoding="utf-8")).items() if not k.startswith("_")}
+    p = os.path.join(ROOT, "build", "memory_pairs.json")
+    if os.path.exists(p):
+        pairs = json.load(open(p, encoding="utf-8"))
+        studies["DoltgreSQL"] = pairs.get("doltgres") or {}
+        studies["DoltLite"] = pairs.get("doltlite") or {}
+    engines = [PAIRS[pr]["engine"] for pr in PAIR_ORDER if PAIRS[pr]["engine"] in studies]
+    if not engines:
+        return "*No memory study yet (`make memory-pairs`, `scripts/memory_profile.py`).*"
+
+    def cell(engine, mode, db):
+        c = (studies[engine].get(mode) or {}).get(db)
+        if not c:
+            return "—"
+        if c.get("megabytes"):
+            return human_mb(c["megabytes"])
+        return f"did not open at {human_mb(c['ladder_top_mb'])}" if c.get("ladder_top_mb") else "did not open"
+
+    groups = [(engine, [("one commit", None), ("one commit per row", TINT["history"])], TINT["commit"]) for engine in engines]
+    rows = []
+    for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
+        rows.append([f"`{db}`", f"{rows_of(results[db]):,}"]
+                    + [cell(engine, mode, db) for engine in engines for mode in ("oneshot", "rowcommit")])
+    return grouped_table([("database", "left"), ("rows", "right")], groups, rows)

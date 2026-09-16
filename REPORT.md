@@ -491,7 +491,7 @@ memory studies (`make memory-pairs`, `scripts/memory_profile.py`):
 
 *Ceilings walked up to 12.0 GiB; a query that did not answer at the top is "could not open" with what the probe saw.*
 
-| database | rows | 3 commits | one commit per row | its commits | its size on disk |
+| database | rows | Dolt store with 3 commits:<br>memory to open it | Dolt store with one commit per row:<br>memory to open it | commits in that store | that store on disk |
 |---|---:|---:|---:|---:|---:|
 | `employees` | 3,919,015 | 64.0 MiB | 12.0 GiB | 3,919,018 | 63.3 GiB |
 | `wikipedia_simple` | 1,167,112 | 64.0 MiB | 512.0 MiB | 1,167,115 | 12.6 GiB |

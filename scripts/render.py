@@ -70,7 +70,9 @@ def blocks():
         "pg_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "pg")),
         "lite_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "lite")),
         "pair_memory_study": lambda: report_pairs.memory_study_table(),
+        "memory_grid": guarded(lambda r: report_pairs.memory_grid(r)),
         "databases": guarded(lambda r: report_pairs.databases_table(r)),
+        "sizes_note": guarded(lambda r: report_pairs.sizes_note(r)),
         "connect_table": guarded(lambda r: report_pairs.connect_table()),
         "consoles_table": guarded(lambda r: report_pairs.consoles_table()),
         "findings_disk": guarded(lambda r: report_pairs.findings_totals(r, "bytes")),
@@ -129,7 +131,7 @@ def memory_table(memory):
                  key=lambda d: -((rc.get(d) or one.get(d) or {}).get("rows") or 0))
     if not dbs:
         return "*No memory measurements yet.*"
-    L = ["| database | rows | 3 commits | one commit per row | its commits | its size on disk |",
+    L = ["| database | rows | Dolt store with 3 commits:<br>memory to open it | Dolt store with one commit per row:<br>memory to open it | commits in that store | that store on disk |",
          "|---|---:|---:|---:|---:|---:|"]
     for d in dbs:
         o, r = one.get(d) or {}, rc.get(d) or {}

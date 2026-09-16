@@ -78,15 +78,35 @@ above `sql-megasamples`' ports, so the two stacks run side by side.
 
 ## The databases
 
+### What each database is
+
 Each is the corpus's port of a well-known sample or public dataset, and the description is the one
 its own research record carries; where it came from and what its licence asks is in
 [`sql-megasamples`' catalogue](https://github.com/Reliable-Collaboration/sql-megasamples/blob/main/CATALOGUE.md).
-The second table is every engine and every run of the experiment, grouped by run so the engines of
-the same run sit side by side: the baselines in bulk and one `INSERT` per row, the Dolt engines with
-one commit for the database, one `INSERT` per row with one commit, and one commit per row. A dash is
-a load with no result; † marks a store the engine could not collect, shown at its working footprint.
+The table and row counts are the MySQL port's, which the others match.
 
 {{block:databases}}
+
+### How much disk each one takes, in every engine and every run
+
+Each cell is the size on disk of that database after that load settled: for a baseline its data
+directory or file, for a Dolt engine its store after garbage collection. The columns are grouped by
+run, so the engines of one run sit side by side: the baselines loaded in bulk and with one `INSERT`
+per row; the Dolt engines with one commit for the whole database, with one `INSERT` per row and one
+commit, and with one commit per row. The one-commit stores are what `make up` serves. A dash is a
+load with no result; † marks a store the engine could not collect, shown at its working footprint.
+
+{{block:sizes_all}}
+
+{{block:sizes_note}}
+
+### How long each load took, the same grid
+
+Each cell is the wall-clock time of that load: for a baseline the load itself; for a Dolt engine
+the load plus its settle step, the commit and the garbage collection, which are part of what it
+costs. Every load ran alone on the machine described under [The machine](#the-machine).
+
+{{block:times_all}}
 
 ## The engines
 
@@ -199,11 +219,13 @@ SQLite does. Keeping a commit per row is where both axes turn at once, in every 
 the baseline's disk and hundreds to thousands of times its time, because what disk, time and memory
 track in a Dolt engine is the number of commits (*What memory needs*, below).
 
-**Disk**, totalled over the databases each pair has every load for:
+Each pair of columns is one engine against its baseline: the size on disk of the loaded databases,
+totalled over the databases the pair has every load for, and that total as a multiple of the
+baseline loaded in bulk. A multiple below one is smaller than the baseline.
 
 {{block:findings_disk}}
 
-**Time to load**, the same:
+The same for the time the loads took:
 
 {{block:findings_time}}
 
@@ -246,19 +268,28 @@ are in [REPORT.md](REPORT.md#what-maintaining-the-indexes-costs-database-by-data
 
 ## What memory needs
 
-![The memory a Dolt engine needs to open a store tracks its commits, not its rows, in all three engines](docs/img/memory-by-history.png)
+![What each Dolt engine needs to open a stored database, against its rows and against its commits](docs/img/memory-by-history.png)
 
-Memory is the constraint people meet first, and there are separate answers for loading a database
-and for opening one that is stored. Each is measured rather than estimated: a container gets a hard
-ceiling and the work either finishes or the kernel kills it. What each Dolt engine needs to open a
-stored shape and count its largest table, from three memory studies of the same kind:
+Memory is the constraint people meet first, and there are separate answers for opening a database
+that is stored and for loading one. Each is measured rather than estimated: a container gets a
+hard memory limit and the work either finishes or the kernel kills it.
 
-{{block:pair_memory_study}}
+### To open a stored database
+
+For each database and each Dolt engine, the smallest container memory limit at which the engine
+opened the stored database and counted its largest table, for the store with one commit and for
+the store with one commit per row. The limits go up a ladder of fixed rungs, so each value is an
+upper bound one rung wide. The other stored shapes, and what the loads themselves peaked at, are
+in [REPORT.md](REPORT.md#memory).
+
+{{block:memory_grid}}
+
+### To load one, in Dolt
 
 For Dolt, the engine with the longest record here, there are three separate answers depending on
-what you are doing:
+what you are doing, measured on {{memory.max_open_db}}, the database that needs the most:
 
-| what you are doing | what it costs, on the largest database here |
+| what you are doing, in Dolt | what it costs on {{memory.max_open_db}} |
 |---|---|
 | **opening it and running a query** | {{memory.max_open_gb}} GiB |
 | **loading it**, one commit per row | {{memory.peak_load_gb}} GiB of anonymous memory |
@@ -268,7 +299,10 @@ Those are independent. A database you can build in {{memory.peak_load_gb}} GiB m
 much, and the packing that finishes the load wants more again. Sizing a machine from the load
 figures alone gets you one that loads a database and then cannot store it.
 
-**What memory tracks is commits — not rows, and not bytes on disk.**
+### What memory tracks: commits, not rows and not bytes
+
+Dolt's own memory study, the store with three commits against the store with one commit per row of
+the same database:
 
 * Every one of the {{corpus.databases}} databases opens in {{memory.oneshot_max_mb}} MiB when it
   holds three commits, including the largest at {{memory.oneshot_max_rows}} rows. Row count is not
