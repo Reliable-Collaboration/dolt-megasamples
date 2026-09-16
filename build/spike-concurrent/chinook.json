@@ -1,0 +1,148 @@
+[
+  {
+    "engine": "mysql",
+    "version": "9.7.2",
+    "database": "chinook",
+    "workers": 1,
+    "rows": 15607,
+    "commit_per_row": false,
+    "schema_seconds": 0.2,
+    "schema_errors": [],
+    "rows_seconds": 9.3,
+    "rows_per_second": 1685.9,
+    "rows_done": 15607,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      9.3
+    ],
+    "server_cores_rows": 0.26,
+    "post_errors": [
+      "ERROR 1231 (42000) at line 71: Variable 'sql_log_bin' can't be set to the value of 'NULL'"
+    ],
+    "post_seconds": 1.5,
+    "server_peak_bytes": 789553152,
+    "store_bytes": 675393841,
+    "tables": 11,
+    "rows_short": {},
+    "measured_at": "2026-09-13T00:19:56Z"
+  },
+  {
+    "engine": "postgres",
+    "version": "18.6",
+    "database": "chinook",
+    "workers": 1,
+    "rows": 15607,
+    "commit_per_row": false,
+    "schema_seconds": 0.1,
+    "schema_errors": [],
+    "rows_seconds": 8.7,
+    "rows_per_second": 1796.3,
+    "rows_done": 15607,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      8.7
+    ],
+    "server_cores_rows": 0.15,
+    "post_errors": [
+      "psql:/tmp/post.sql:320: error: \\unrestrict: not currently in restricted mode"
+    ],
+    "post_seconds": 0.3,
+    "server_peak_bytes": 99790848,
+    "store_bytes": 67757197,
+    "tables": 11,
+    "rows_short": {},
+    "measured_at": "2026-09-13T00:20:07Z"
+  },
+  {
+    "engine": "dolt",
+    "version": "2.3.2",
+    "database": "chinook",
+    "workers": 1,
+    "rows": 15607,
+    "commit_per_row": true,
+    "schema_seconds": 0.2,
+    "schema_errors": [],
+    "rows_seconds": 46.3,
+    "rows_per_second": 337.0,
+    "rows_done": 15607,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      46.3
+    ],
+    "server_cores_rows": 0.64,
+    "post_errors": [
+      "ERROR 1105 (HY000) at line 38: Variable 'sql_log_bin' can't be set to the value of '<nil>'"
+    ],
+    "post_seconds": 2.2,
+    "server_peak_bytes": 1105682432,
+    "store_bytes": 81969623,
+    "tables": 11,
+    "rows_short": {},
+    "commits": 15609,
+    "sampled_commit_row_changes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "measured_at": "2026-09-13T00:20:58Z"
+  },
+  {
+    "engine": "doltgres",
+    "version": "1.3.1",
+    "database": "chinook",
+    "workers": 1,
+    "rows": 15607,
+    "commit_per_row": true,
+    "schema_seconds": 0.2,
+    "schema_errors": [],
+    "rows_seconds": 55.7,
+    "rows_per_second": 280.3,
+    "rows_done": 15607,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      55.7
+    ],
+    "server_cores_rows": 0.87,
+    "post_errors": [
+      "psql:/tmp/post.sql:232: error: \\unrestrict: not currently in restricted mode"
+    ],
+    "post_seconds": 2.1,
+    "server_peak_bytes": 1092972544,
+    "store_bytes": 95883203,
+    "tables": 11,
+    "rows_short": {},
+    "commits": 15610,
+    "sampled_commit_row_changes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "measured_at": "2026-09-13T00:21:58Z"
+  }
+]

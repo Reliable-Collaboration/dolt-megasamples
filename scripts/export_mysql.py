@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dump every sample database out of a running mysql-megasamples image.
+"""Dump every sample database out of a running sql-megasamples MySQL image.
 
   python3 scripts/export_mysql.py [--only sakila] [--force]
 

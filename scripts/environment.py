@@ -16,7 +16,8 @@ would produce different numbers, and so would a Dolt with a different chunk stor
 import json, os, platform, shutil, subprocess, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import DOLT_IMAGE, ROOT, human, run  # noqa: E402
+from pairs import DOLTGRES_IMAGE, DOLTGRES_VERSION, LITE_IMAGE, POSTGRES_IMAGE  # noqa: E402
+from common import DOLT_IMAGE, ROOT, VERSIONS, human, run  # noqa: E402
 
 OUT = os.path.join(ROOT, "build", "environment.json")
 
@@ -69,8 +70,21 @@ def main():
             # not untuned is the kind of small contradiction that costs a reader their trust.
             "tuning": "no performance tuning — stock images, stock storage settings; "
                       "MySQL is started with the two flags below",
+            # the two further pairs (scripts/pairs.py): the PostgreSQL image is the base of
+            # sql-megasamples' own; DoltgreSQL is named by digest; DoltLite is built here from
+            # the release's packages, beside Debian's sqlite3, which is the pair's baseline.
+            # Every version comes from versions.json (one version per result set); the
+            # `versions` section below is that file, beside what the images themselves answer
+            "postgres_image": POSTGRES_IMAGE,
+            "postgres_version": image_version(POSTGRES_IMAGE, "postgres", "--version"),
+            "doltgres_image": DOLTGRES_IMAGE,
+            "doltgres_version": DOLTGRES_VERSION,
+            "doltlite_image": LITE_IMAGE,
+            "doltlite_version": image_version(LITE_IMAGE, "doltlite", "-version"),
+            "sqlite3_version": image_version(LITE_IMAGE, "sqlite3", "-version"),
         },
     }
+    env["versions"] = {k: v for k, v in VERSIONS.items() if not k.startswith("_")}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump(env, open(OUT, "w", encoding="utf-8"), indent=2, sort_keys=True)
 

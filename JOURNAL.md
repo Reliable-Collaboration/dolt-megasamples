@@ -7,23 +7,17 @@
 **HUMAN NOTE**: This experiment was heavily AI driven and influenced and has only received "moderate" human oversight, and has not been peer reviewed.
 PLEASE VERIFY THE FINDINGS YOU TAKE AWAY FROM THIS.
 
-The lab notebook: why the experiment is built the way it is, what its numbers do not support, and
-what went wrong getting them. The results themselves are in [`README.md`](README.md) and
-[`REPORT.md`](REPORT.md); this is the reasoning around them.
+The lab notebook: why the experiment is built the way it is, what its numbers do not support, and what went wrong getting them. The results themselves are in [`README.md`](README.md) and [`REPORT.md`](REPORT.md); this is the reasoning around them.
 
-Like those, this file is generated — `docs/templates/JOURNAL.md` holds the prose and every number
-comes from a measurement file.
+Like those, this file is generated — `docs/templates/JOURNAL.md` holds the prose and every number comes from a measurement file.
 
 ## The question
 
-Dolt keeps the history of every change; MySQL keeps the current state. That is not a small
-difference in how bytes land on a disk, and the honest way to find out what it costs is to load the
-same data into both and measure, rather than to reason from the architectures.
+Dolt keeps the history of every change; MySQL keeps the current state. That is not a small difference in how bytes land on a disk, and the honest way to find out what it costs is to load the same data into both and measure, rather than to reason from the architectures.
 
 ## What is being compared
 
-The same 21 sample databases — 9,056,697 rows across 248
-tables — loaded into both engines from the same `mysqldump` files.
+The same 21 sample databases — 9,056,697 rows across 248 tables — loaded into both engines from the same `mysqldump` files.
 
 Three Dolt loads, because "the same data in Dolt" turns out not to be one thing:
 
@@ -33,183 +27,126 @@ Three Dolt loads, because "the same data in Dolt" turns out not to be one thing:
 | `rowinsert` | one `INSERT` statement per row | one per database |
 | `rowcommit` | one `INSERT` statement per row | **one per row** |
 
-The first is how anyone would actually load a database. The second isolates *statement* granularity.
-The third isolates *history* granularity — and it is the one that matters, because a commit is the
-thing Dolt exists to keep.
+The first is how anyone would actually load a database. The second isolates *statement* granularity. The third isolates *history* granularity — and it is the one that matters, because a commit is the thing Dolt exists to keep.
 
 ## Why three, when two would look simpler
 
 Because "one row at a time" is ambiguous, and the ambiguity hides the finding.
 
-In MySQL, one `INSERT` per row versus one big `INSERT` is a difference in parse and transaction
-overhead; the bytes on disk end up the same. It is tempting to assume Dolt behaves likewise. It does
-— but only for the *stored* result. The load itself behaves very differently, and if you stop at
-"one row at a time" without saying whether you mean statements or commits, you cannot tell which of
-those two facts you are looking at.
+In MySQL, one `INSERT` per row versus one big `INSERT` is a difference in parse and transaction overhead; the bytes on disk end up the same. It is tempting to assume Dolt behaves likewise. It does — but only for the *stored* result. The load itself behaves very differently, and if you stop at "one row at a time" without saying whether you mean statements or commits, you cannot tell which of those two facts you are looking at.
 
-Separating them is what makes the third mode interpretable: whatever `rowcommit` costs above
-`rowinsert` is the price of history, not the price of small statements.
+Separating them is what makes the third mode interpretable: whatever `rowcommit` costs above `rowinsert` is the price of history, not the price of small statements.
 
 ## And why each row-by-row load runs twice
 
-The same ambiguity, one level down. A load that writes rows one at a time *and* maintains every
-secondary index while doing it is measuring two things, and the interesting one is underneath.
-Anyone bulk-loading either engine drops the secondary indexes, loads, and rebuilds — so that is what
-these runs do by default, and `--indexes inline` keeps them maintained throughout for comparison.
+The same ambiguity, one level down. A load that writes rows one at a time *and* maintains every secondary index while doing it is measuring two things, and the interesting one is underneath. Anyone bulk-loading either engine drops the secondary indexes, loads, and rebuilds — so that is what these runs do by default, and `--indexes inline` keeps them maintained throughout for comparison.
 
-Two keys are never deferred. The primary key is the row's identity and Dolt keys its prolly tree by
-it. And a key an `AUTO_INCREMENT` column depends on stays inline wherever that column does not lead
-the primary key, because MySQL requires such a column to lead some key — a rule that Dolt does not
-enforce, so deferring it produced a file MySQL refused and Dolt accepted.
+Two keys are never deferred. The primary key is the row's identity and Dolt keys its prolly tree by it. And a key an `AUTO_INCREMENT` column depends on stays inline wherever that column does not lead the primary key, because MySQL requires such a column to lead some key — a rule that Dolt does not enforce, so deferring it produced a file MySQL refused and Dolt accepted.
 
 ## How the comparison is kept fair
 
-A ratio between two databases is worthless if they are not holding the same thing. Six checks, run
-on every database, none of them assumed:
+A ratio between two databases is worthless if they are not holding the same thing. Six checks, run on every database, none of them assumed:
 
-1. **The same rows.** `COUNT(*)` on both sides, per table, before any size is recorded.
-   `information_schema.table_rows` is an InnoDB estimate and is never used.
-2. **The same indexes.** Compared by definition — table, index name, column position, column,
-   uniqueness — not by count, and for every mode rather than only the one-shot load.
-3. **The same measurement.** `du -sb` of the directory each engine keeps the database in, and a
-   `du` that fails raises instead of returning zero.
+1. **The same rows.** `COUNT(*)` on both sides, per table, before any size is recorded. `information_schema.table_rows` is an InnoDB estimate and is never used.
+2. **The same indexes.** Compared by definition — table, index name, column position, column, uniqueness — not by count, and for every mode rather than only the one-shot load.
+3. **The same measurement.** `du -sb` of the directory each engine keeps the database in, and a `du` that fails raises instead of returning zero.
 4. **A packed store, not a journal.** Dolt is garbage-collected before measuring.
-5. **A committed store, not a working set.** Every Dolt load ends with a commit, and `dolt_status`
-   is clean when the size is taken.
+5. **A committed store, not a working set.** Every Dolt load ends with a commit, and `dolt_status` is clean when the size is taken.
 6. **The same file.** Both engines load the identical transformed dump.
 
 Every one of those six is on the list because it was once false.
 
 ## What is deliberately excluded, and why
 
-**The server's statistics.** A running `dolt sql-server` writes a per-database statistics repository
-at `.dolt/stats`, and `dolt gc` does not reclaim it. Every figure is measured with no server
-running, and the server's contribution is measured separately on a copy. The size of that
-contribution is not settled: a controlled pass over every table writes a small, even amount per
-database, while sustained console use drove one database's statistics past the size of the data they
-describe. Both are reported, because quoting only the small one would be misleading and quoting only
-the large one would be unreproducible.
+**The server's statistics.** A running `dolt sql-server` writes a per-database statistics repository at `.dolt/stats`, and `dolt gc` does not reclaim it. Every figure is measured with no server running, and the server's contribution is measured separately on a copy. The size of that contribution is not settled: a controlled pass over every table writes a small, even amount per database, while sustained console use drove one database's statistics past the size of the data they describe. Both are reported, because quoting only the small one would be misleading and quoting only the large one would be unreproducible.
 
 ## What the packing step costs, which the load figures hide
 
-Every Dolt load here ends with a commit and `dolt gc`, and the gc is timed separately and included
-in the totals. That was a bookkeeping decision at first and turned into a finding: on a per-row-
-commit store the packing is 12% of the wall clock across all 42 such loads, and on the largest
-databases it is a fifth of it.
+Every Dolt load here ends with a commit and `dolt gc`, and the gc is timed separately and included in the totals. That was a bookkeeping decision at first and turned into a finding: on a per-row- commit store the packing is 12% of the wall clock across all 42 such loads, and on the largest databases it is a fifth of it.
 
-The memory behaviour is the part worth carrying away. On `employees`, `oracle_sh` and
-`wikipedia_simple` alike, the gc rather than the load was the highest memory the container ever
-held. The load of `employees` with indexes maintained peaked at 12.4 GB of anonymous memory; the gc
-that followed ran at 99.94% of a 16 GiB ceiling with the kernel having already evicted all page
-cache, and completed with nothing to spare. A machine sized from the load curve would have been
-killed during the packing, several hours in, with the data loaded and unusable.
+The memory behaviour is the part worth carrying away. On `employees`, `oracle_sh` and `wikipedia_simple` alike, the gc rather than the load was the highest memory the container ever held. The load of `employees` with indexes maintained peaked at 12.4 GB of anonymous memory; the gc that followed ran at 99.94% of a 16 GiB ceiling with the kernel having already evicted all page cache, and completed with nothing to spare. A machine sized from the load curve would have been killed during the packing, several hours in, with the data loaded and unusable.
 
 ## What the numbers do not mean
 
-* **This is the least history Dolt can hold.** One commit per database. A real repository has
-  branches, merges and a year of changes, and the `rowcommit` results show how quickly that grows.
-* **Nothing here is updated or deleted.** Every database is loaded once and never modified. Dolt's
-  storage is designed around change; a workload that rewrites rows would exercise it very
-  differently.
-* **Neither engine is performance-tuned.** Stock storage settings throughout. MySQL has knobs —
-  `ROW_FORMAT=COMPRESSED`, page size — that would move its numbers, and none were touched.
-* **It is a fixed set of datasets, not a distribution.** They were chosen to be varied and openly
-  licensed, not to be representative of your data. The per-database spread is the reason to measure
-  your own rather than take a headline ratio from anyone, including this.
+* **This is the least history Dolt can hold.** One commit per database. A real repository has branches, merges and a year of changes, and the `rowcommit` results show how quickly that grows.
+* **Nothing here is updated or deleted.** Every database is loaded once and never modified. Dolt's storage is designed around change; a workload that rewrites rows would exercise it very differently.
+* **Neither engine is performance-tuned.** Stock storage settings throughout. MySQL has knobs — `ROW_FORMAT=COMPRESSED`, page size — that would move its numbers, and none were touched.
+* **It is a fixed set of datasets, not a distribution.** They were chosen to be varied and openly licensed, not to be representative of your data. The per-database spread is the reason to measure your own rather than take a headline ratio from anyone, including this.
 
 ## What went wrong along the way
 
-Recorded because a result you cannot see the mistakes in is harder to trust, not easier. Nearly
-every one of these failed the same way: by producing a **plausible value instead of an error**.
+Recorded because a result you cannot see the mistakes in is harder to trust, not easier. Nearly every one of these failed the same way: by producing a **plausible value instead of an error**.
 
-* **The dumps were being corrupted before Dolt ever saw them.** The transform read them as UTF-8
-  text with `errors="replace"`, which turns every byte that is not valid UTF-8 into U+FFFD, growing
-  files that carry binary literals and silently changing rows. The transform works on bytes now and
-  refuses a `str`.
-* **Three loads truncated silently and were recorded as successes**, because the check for "did it
-  work" was whether the output directory existed. The cause was the kernel: one `dolt sql` process
-  building a multi-million-commit history exhausted memory and was killed — exit 137, which nothing
-  was reading. Every load is now verified table by table against MySQL before its size is recorded.
-* **A unit was recorded as done while Docker was not running.** The daemon restarted mid-run; the
-  row-count verifier asked MySQL for its table list, got nothing, and concluded that nothing was
-  short. It refuses to pass a database it could not actually check, and the run stops at the first
-  unit it cannot reach the daemon for.
-* **The deferred indexes were never built.** Rebuilding them at the end of the file put the
-  `ALTER TABLE`s after the routines, and Dolt rejects `CREATE FUNCTION` — one rejected statement
-  aborts the rest of the file, so a database finished with a third of its indexes and nothing said
-  so. Moving them to just after the last row then broke MySQL instead, with
-  `ERROR 1100: ... was not locked with LOCK TABLES`. They go after the last `UNLOCK TABLES` now —
-  and not merely after the last `INSERT`, because a table with no rows contributes a `CREATE TABLE`
-  and no `INSERT`, and one such table sorted last produced
-  `ERROR 1146: Table ... doesn't exist`.
-* **The per-row-commit repositories were measured dirty.** That mode ended with `dolt gc` and no
-  commit, which was true until the index rebuild was deferred into the working set.
-* **The two engines disagreed about a view, and only one of them said so.** MySQL refused a
-  cross-database view with `ERROR 1049`; Dolt accepted it and stored it. The first attempt at
-  detecting those matched `` `x`.`y` `` by shape and dropped every view in the corpus, because a
-  view body is full of table aliases that parse identically.
-* **`SQL SECURITY DEFINER` was surviving the transform.** The pattern removing it expected it to
-  follow `ALGORITHM=`, but mysqldump puts `DEFINER=` between them, so views Dolt could otherwise
-  take were being rejected.
-* **MySQL was declared ready in the middle of initialising itself.** On a fresh data directory the
-  entrypoint runs a temporary server on the socket, and the readiness probe connected to that. The
-  probe uses TCP now, which the temporary server refuses.
-* **Every database in a phase shared one Dolt data directory** — and Dolt opens every database under
-  its data directory at startup. So each load paid to open everything loaded before it: the later
-  loads in every phase were timed doing more work than the earlier ones, and at the size the
-  per-row-commit directory reaches, opening it exhausted the host. Each database has its own
-  directory now.
-* **A row count was silently truncated and then reasoned from.** It was built as one `UNION ALL`
-  over every table using `GROUP_CONCAT`, whose default length limit cut the generated SQL
-  mid-statement, so a database with many tables reported a fraction of its rows. Nothing errored,
-  and the wrong figure was used in an argument about what Dolt's memory scales with. The check that
-  would have caught it was in the same table the whole time: a load that commits once per row must
-  end with as many commits as it has rows.
-* **The figures failed a colour-vision check.** Two Dolt loads drawn as adjacent bars were
-  indistinguishable under protanopia — in exactly the two bars the figure exists to compare. The
-  palette is checked by a script now instead of chosen by eye.
-* **Figures rendered from fabricated data were committed.** A synthetic results file built to check
-  a new chart against full coverage was rendered into `docs/img` and committed. Preview renders go
-  to a different directory now, so it cannot happen again.
+* **The dumps were being corrupted before Dolt ever saw them.** The transform read them as UTF-8 text with `errors="replace"`, which turns every byte that is not valid UTF-8 into U+FFFD, growing files that carry binary literals and silently changing rows. The transform works on bytes now and refuses a `str`.
+* **Three loads truncated silently and were recorded as successes**, because the check for "did it work" was whether the output directory existed. The cause was the kernel: one `dolt sql` process building a multi-million-commit history exhausted memory and was killed — exit 137, which nothing was reading. Every load is now verified table by table against MySQL before its size is recorded.
+* **A unit was recorded as done while Docker was not running.** The daemon restarted mid-run; the row-count verifier asked MySQL for its table list, got nothing, and concluded that nothing was short. It refuses to pass a database it could not actually check, and the run stops at the first unit it cannot reach the daemon for.
+* **The deferred indexes were never built.** Rebuilding them at the end of the file put the `ALTER TABLE`s after the routines, and Dolt rejects `CREATE FUNCTION` — one rejected statement aborts the rest of the file, so a database finished with a third of its indexes and nothing said so. Moving them to just after the last row then broke MySQL instead, with `ERROR 1100: ... was not locked with LOCK TABLES`. They go after the last `UNLOCK TABLES` now — and not merely after the last `INSERT`, because a table with no rows contributes a `CREATE TABLE` and no `INSERT`, and one such table sorted last produced `ERROR 1146: Table ... doesn't exist`.
+* **The per-row-commit repositories were measured dirty.** That mode ended with `dolt gc` and no commit, which was true until the index rebuild was deferred into the working set.
+* **The two engines disagreed about a view, and only one of them said so.** MySQL refused a cross-database view with `ERROR 1049`; Dolt accepted it and stored it. The first attempt at detecting those matched `` `x`.`y` `` by shape and dropped every view in the corpus, because a view body is full of table aliases that parse identically.
+* **`SQL SECURITY DEFINER` was surviving the transform.** The pattern removing it expected it to follow `ALGORITHM=`, but mysqldump puts `DEFINER=` between them, so views Dolt could otherwise take were being rejected.
+* **MySQL was declared ready in the middle of initialising itself.** On a fresh data directory the entrypoint runs a temporary server on the socket, and the readiness probe connected to that. The probe uses TCP now, which the temporary server refuses.
+* **Every database in a phase shared one Dolt data directory** — and Dolt opens every database under its data directory at startup. So each load paid to open everything loaded before it: the later loads in every phase were timed doing more work than the earlier ones, and at the size the per-row-commit directory reaches, opening it exhausted the host. Each database has its own directory now.
+* **A row count was silently truncated and then reasoned from.** It was built as one `UNION ALL` over every table using `GROUP_CONCAT`, whose default length limit cut the generated SQL mid-statement, so a database with many tables reported a fraction of its rows. Nothing errored, and the wrong figure was used in an argument about what Dolt's memory scales with. The check that would have caught it was in the same table the whole time: a load that commits once per row must end with as many commits as it has rows.
+* **The figures failed a colour-vision check.** Two Dolt loads drawn as adjacent bars were indistinguishable under protanopia — in exactly the two bars the figure exists to compare. The palette is checked by a script now instead of chosen by eye.
+* **Figures rendered from fabricated data were committed.** A synthetic results file built to check a new chart against full coverage was rendered into `docs/img` and committed. Preview renders go to a different directory now, so it cannot happen again.
 
-That list is why this repository generates its documents. Two of those faults were invisible
-precisely because a sentence and a measurement had no connection to each other, and the fix for that
-class is structural, not a matter of being more careful: no document holds a typed number, every
-number resolves from a measurement file, and `make check` fails when a document disagrees with the
-evidence. `scripts/audit.py` closes the other half, checking the measurements against invariants
-that a plausible wrong answer cannot satisfy.
+That list is why this repository generates its documents. Two of those faults were invisible precisely because a sentence and a measurement had no connection to each other, and the fix for that class is structural, not a matter of being more careful: no document holds a typed number, every number resolves from a measurement file, and `make check` fails when a document disagrees with the evidence. `scripts/audit.py` closes the other half, checking the measurements against invariants that a plausible wrong answer cannot satisfy.
 
 ## What came out
 
-| database | rows | 1. MySQL | 2. MySQL<br>row-wise | 3. Dolt<br>1 commit/db | 4. Dolt<br>1 INSERT/row | 5. Dolt<br>1 commit/row |
-|---|---:|---:|---:|---:|---:|---:|
-| `employees` | 3,919,015 | 178.3 MiB<br>11s | 176.3 MiB<br>**0.99×**<br>1,850s | 42.5 MiB<br>**0.24×**<br>29s | 39.9 MiB<br>**0.22×**<br>1.4h | 63.3 GiB<br>**363×**<br>3.5h |
-| `wikipedia_simple` | 1,167,112 | 314.2 MiB<br>15s | 235.2 MiB<br>**0.75×**<br>582s | 122.4 MiB<br>**0.39×**<br>92s | 123.2 MiB<br>**0.39×**<br>1,568s | 12.6 GiB<br>**41×**<br>1.0h |
-| `oracle_sh` | 1,063,396 | 220.2 MiB<br>8s | 188.4 MiB<br>**0.86×**<br>510s | 143.3 MiB<br>**0.65×**<br>39s | 143.2 MiB<br>**0.65×**<br>1,475s | 14.9 GiB<br>**69×**<br>3,517s |
-| `adventureworks` | 759,240 | 335.9 MiB<br>8s | 311.0 MiB<br>**0.93×**<br>394s | 49.2 MiB<br>**0.15×**<br>16s | 49.2 MiB<br>**0.15×**<br>1,269s | 7.2 GiB<br>**22×**<br>3,454s |
-| `contoso` | 753,467 | 156.3 MiB<br>5s | 135.3 MiB<br>**0.87×**<br>369s | 39.3 MiB<br>**0.25×**<br>14s | 39.4 MiB<br>**0.25×**<br>926s | 6.6 GiB<br>**43×**<br>2,181s |
-| `lahman` | 706,466 | 191.8 MiB<br>6s | 178.9 MiB<br>**0.93×**<br>347s | 26.3 MiB<br>**0.14×**<br>18s | 26.3 MiB<br>**0.14×**<br>953s | 6.5 GiB<br>**35×**<br>2,257s |
-| `chicago_crimes` | 259,702 | 84.1 MiB<br>4s | 72.1 MiB<br>**0.86×**<br>134s | 28.7 MiB<br>**0.34×**<br>11s | 28.7 MiB<br>**0.34×**<br>359s | 2.3 GiB<br>**28×**<br>768s |
-| `dvdstore` | 174,716 | 60.0 MiB<br>1s | 50.0 MiB<br>**0.83×**<br>84s | 11.9 MiB<br>**0.20×**<br>3s | 12.4 MiB<br>**0.21×**<br>216s | 1.7 GiB<br>**29×**<br>493s |
-| `stackexchange_beer` | 62,523 | 83.6 MiB<br>1s | 73.6 MiB<br>**0.88×**<br>33s | 14.0 MiB<br>**0.17×**<br>8s | 16.1 MiB<br>**0.19×**<br>90s | 435.8 MiB<br>**5.21×**<br>188s |
-| `enron` | 48,778 | 98.2 MiB<br>2s | 66.2 MiB<br>**0.67×**<br>30s | 34.1 MiB<br>**0.35×**<br>30s | 38.6 MiB<br>**0.39×**<br>90s | 357.9 MiB<br>**3.64×**<br>161s |
-| `nyc_taxi` | 48,591 | 19.1 MiB<br>1s | 16.1 MiB<br>**0.84×**<br>25s | 3.0 MiB<br>**0.16×**<br>2s | 3.0 MiB<br>**0.16×**<br>65s | 331.6 MiB<br>**17×**<br>134s |
-| `sakila` | 47,268 | 24.1 MiB<br>1s | 22.3 MiB<br>**0.92×**<br>23s | 2.0 MiB<br>**0.08×**<br>1s | 2.2 MiB<br>**0.09×**<br>68s | 300.3 MiB<br>**12×**<br>156s |
-| `chinook` | 15,607 | 2.7 MiB<br>0s | 2.6 MiB<br>**0.97×**<br>8s | 615.0 KiB<br>**0.22×**<br>0s | 615.0 KiB<br>**0.22×**<br>19s | 77.5 MiB<br>**29×**<br>45s |
-| `oracle_oe` | 11,518 | 27.5 MiB<br>1s | 19.6 MiB<br>**0.71×**<br>7s | 4.3 MiB<br>**0.16×**<br>3s | 5.1 MiB<br>**0.18×**<br>18s | 70.2 MiB<br>**2.55×**<br>36s |
-| `oracle_co` | 8,783 | 1.8 MiB<br>0s | 1.8 MiB<br>**0.97×**<br>5s | 456.3 KiB<br>**0.24×**<br>0s | 456.1 KiB<br>**0.24×**<br>11s | 39.1 MiB<br>**21×**<br>24s |
-| `adventureworks_lt` | 4,277 | 12.5 MiB<br>0s | 11.5 MiB<br>**0.92×**<br>4s | 1.0 MiB<br>**0.08×**<br>0s | 1.0 MiB<br>**0.08×**<br>6s | 20.1 MiB<br>**1.61×**<br>13s |
-| `northwind` | 3,308 | 2.6 MiB<br>0s | 2.7 MiB<br>**1.02×**<br>3s | 518.5 KiB<br>**0.19×**<br>0s | 518.5 KiB<br>**0.19×**<br>5s | 13.9 MiB<br>**5.27×**<br>11s |
-| `smallsets` | 2,147 | 644.0 KiB<br>0s | 644.0 KiB<br>**1.00×**<br>1s | 164.3 KiB<br>**0.26×**<br>0s | 164.3 KiB<br>**0.26×**<br>3s | 8.4 MiB<br>**13×**<br>6s |
-| `jaffle_shop` | 312 | 372.0 KiB<br>0s | 372.0 KiB<br>**1.00×**<br>0s | 37.7 KiB<br>**0.10×**<br>0s | 37.7 KiB<br>**0.10×**<br>1s | 658.2 KiB<br>**1.77×**<br>1s |
-| `pubs` | 255 | 1.5 MiB<br>0s | 1.5 MiB<br>**1.00×**<br>1s | 77.0 KiB<br>**0.05×**<br>0s | 77.0 KiB<br>**0.05×**<br>1s | 578.5 KiB<br>**0.39×**<br>2s |
-| `oracle_hr` | 216 | 1.1 MiB<br>0s | 1.1 MiB<br>**1.00×**<br>1s | 62.8 KiB<br>**0.06×**<br>0s | 62.1 KiB<br>**0.06×**<br>1s | 456.0 KiB<br>**0.41×**<br>1s |
-| **all 21 with every test** | **9,056,697** | **1.8 GiB<br>67s** | **0.86×<br>66× time** | **0.29×<br>4.0× time** | **0.29×<br>182× time** | **66×<br>447× time** |
+<table>
+<thead>
+<tr><th rowspan="2" align="left">database</th><th rowspan="2" align="right" nowrap>rows</th><th colspan="2" align="center">MySQL<br><small>the baseline</small></th><th colspan="3" align="center" style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">Dolt<br><small>the Dolt engine</small></th></tr>
+<tr><th align="right" nowrap>1. extended INSERTs</th><th align="right" nowrap>2. 1 INSERT/row</th><th align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">3. 1 commit/db</th><th align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">4. 1 INSERT/row</th><th align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">5. 1 commit/row</th></tr>
+</thead>
+<tbody>
+<tr><td align="left"><code>employees</code></td><td align="right" nowrap>3,919,015</td><td align="right" nowrap>178.3 MiB<br>11 s</td><td align="right" nowrap>176.3 MiB<br><b>0.99×</b><br>30 min 50 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">42.5 MiB<br><b>0.24×</b><br>29 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">39.9 MiB<br><b>0.22×</b><br>1 h 23 min</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">63.3 GiB<br><b>363×</b><br>3 h 32 min</td></tr>
+<tr><td align="left"><code>wikipedia_simple</code></td><td align="right" nowrap>1,167,112</td><td align="right" nowrap>314.2 MiB<br>15 s</td><td align="right" nowrap>235.2 MiB<br><b>0.75×</b><br>9 min 42 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">122.4 MiB<br><b>0.39×</b><br>1 min 32 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">123.2 MiB<br><b>0.39×</b><br>26 min 08 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">12.6 GiB<br><b>41×</b><br>1 h 00 min</td></tr>
+<tr><td align="left"><code>oracle_sh</code></td><td align="right" nowrap>1,063,396</td><td align="right" nowrap>220.2 MiB<br>8.5 s</td><td align="right" nowrap>188.4 MiB<br><b>0.86×</b><br>8 min 30 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">143.3 MiB<br><b>0.65×</b><br>39 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">143.2 MiB<br><b>0.65×</b><br>24 min 35 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">14.9 GiB<br><b>69×</b><br>58 min 37 s</td></tr>
+<tr><td align="left"><code>adventureworks</code></td><td align="right" nowrap>759,240</td><td align="right" nowrap>335.9 MiB<br>8.2 s</td><td align="right" nowrap>311.0 MiB<br><b>0.93×</b><br>6 min 34 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">49.2 MiB<br><b>0.15×</b><br>16 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">49.2 MiB<br><b>0.15×</b><br>21 min 09 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">7.2 GiB<br><b>22×</b><br>57 min 34 s</td></tr>
+<tr><td align="left"><code>contoso</code></td><td align="right" nowrap>753,467</td><td align="right" nowrap>156.3 MiB<br>5.1 s</td><td align="right" nowrap>135.3 MiB<br><b>0.87×</b><br>6 min 09 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">39.3 MiB<br><b>0.25×</b><br>14 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">39.4 MiB<br><b>0.25×</b><br>15 min 26 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">6.6 GiB<br><b>43×</b><br>36 min 21 s</td></tr>
+<tr><td align="left"><code>lahman</code></td><td align="right" nowrap>706,466</td><td align="right" nowrap>191.8 MiB<br>6.1 s</td><td align="right" nowrap>178.9 MiB<br><b>0.93×</b><br>5 min 47 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">26.3 MiB<br><b>0.14×</b><br>18 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">26.3 MiB<br><b>0.14×</b><br>15 min 53 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">6.5 GiB<br><b>35×</b><br>37 min 37 s</td></tr>
+<tr><td align="left"><code>chicago_crimes</code></td><td align="right" nowrap>259,702</td><td align="right" nowrap>84.1 MiB<br>3.6 s</td><td align="right" nowrap>72.1 MiB<br><b>0.86×</b><br>2 min 14 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">28.7 MiB<br><b>0.34×</b><br>11 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">28.7 MiB<br><b>0.34×</b><br>5 min 59 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">2.3 GiB<br><b>28×</b><br>12 min 48 s</td></tr>
+<tr><td align="left"><code>dvdstore</code></td><td align="right" nowrap>174,716</td><td align="right" nowrap>60.0 MiB<br>1.3 s</td><td align="right" nowrap>50.0 MiB<br><b>0.83×</b><br>1 min 24 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">11.9 MiB<br><b>0.20×</b><br>3.1 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">12.4 MiB<br><b>0.21×</b><br>3 min 36 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">1.7 GiB<br><b>29×</b><br>8 min 13 s</td></tr>
+<tr><td align="left"><code>stackexchange_beer</code></td><td align="right" nowrap>62,523</td><td align="right" nowrap>83.6 MiB<br>1.3 s</td><td align="right" nowrap>73.6 MiB<br><b>0.88×</b><br>33 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">14.0 MiB<br><b>0.17×</b><br>7.8 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">16.1 MiB<br><b>0.19×</b><br>1 min 30 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">435.8 MiB<br><b>5.21×</b><br>3 min 08 s</td></tr>
+<tr><td align="left"><code>enron</code></td><td align="right" nowrap>48,778</td><td align="right" nowrap>98.2 MiB<br>1.7 s</td><td align="right" nowrap>66.2 MiB<br><b>0.67×</b><br>30 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">34.1 MiB<br><b>0.35×</b><br>30 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">38.6 MiB<br><b>0.39×</b><br>1 min 30 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">357.9 MiB<br><b>3.64×</b><br>2 min 41 s</td></tr>
+<tr><td align="left"><code>nyc_taxi</code></td><td align="right" nowrap>48,591</td><td align="right" nowrap>19.1 MiB<br>0.7 s</td><td align="right" nowrap>16.1 MiB<br><b>0.84×</b><br>25 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">3.0 MiB<br><b>0.16×</b><br>2.3 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">3.0 MiB<br><b>0.16×</b><br>1 min 05 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">331.6 MiB<br><b>17×</b><br>2 min 14 s</td></tr>
+<tr><td align="left"><code>sakila</code></td><td align="right" nowrap>47,268</td><td align="right" nowrap>24.1 MiB<br>1.0 s</td><td align="right" nowrap>22.3 MiB<br><b>0.92×</b><br>23 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">2.0 MiB<br><b>0.08×</b><br>1.2 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">2.2 MiB<br><b>0.09×</b><br>1 min 08 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">300.3 MiB<br><b>12×</b><br>2 min 36 s</td></tr>
+<tr><td align="left"><code>chinook</code></td><td align="right" nowrap>15,607</td><td align="right" nowrap>2.7 MiB<br>0.4 s</td><td align="right" nowrap>2.6 MiB<br><b>0.97×</b><br>7.9 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">615.0 KiB<br><b>0.22×</b><br>0.5 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">615.0 KiB<br><b>0.22×</b><br>19 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">77.5 MiB<br><b>29×</b><br>45 s</td></tr>
+<tr><td align="left"><code>oracle_oe</code></td><td align="right" nowrap>11,518</td><td align="right" nowrap>27.5 MiB<br>0.6 s</td><td align="right" nowrap>19.6 MiB<br><b>0.71×</b><br>6.9 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">4.3 MiB<br><b>0.16×</b><br>2.8 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">5.1 MiB<br><b>0.18×</b><br>18 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">70.2 MiB<br><b>2.55×</b><br>36 s</td></tr>
+<tr><td align="left"><code>oracle_co</code></td><td align="right" nowrap>8,783</td><td align="right" nowrap>1.8 MiB<br>0.3 s</td><td align="right" nowrap>1.8 MiB<br><b>0.97×</b><br>4.6 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">456.3 KiB<br><b>0.24×</b><br>0.3 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">456.1 KiB<br><b>0.24×</b><br>11 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">39.1 MiB<br><b>21×</b><br>24 s</td></tr>
+<tr><td align="left"><code>adventureworks_lt</code></td><td align="right" nowrap>4,277</td><td align="right" nowrap>12.5 MiB<br>0.5 s</td><td align="right" nowrap>11.5 MiB<br><b>0.92×</b><br>3.8 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">1.0 MiB<br><b>0.08×</b><br>0.5 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">1.0 MiB<br><b>0.08×</b><br>5.8 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">20.1 MiB<br><b>1.61×</b><br>13 s</td></tr>
+<tr><td align="left"><code>northwind</code></td><td align="right" nowrap>3,308</td><td align="right" nowrap>2.6 MiB<br>0.5 s</td><td align="right" nowrap>2.7 MiB<br><b>1.02×</b><br>2.7 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">518.5 KiB<br><b>0.19×</b><br>0.5 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">518.5 KiB<br><b>0.19×</b><br>4.6 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">13.9 MiB<br><b>5.27×</b><br>11 s</td></tr>
+<tr><td align="left"><code>smallsets</code></td><td align="right" nowrap>2,147</td><td align="right" nowrap>644.0 KiB<br>0.2 s</td><td align="right" nowrap>644.0 KiB<br><b>1.00×</b><br>1.2 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">164.3 KiB<br><b>0.26×</b><br>0.4 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">164.3 KiB<br><b>0.26×</b><br>3.0 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">8.4 MiB<br><b>13×</b><br>6.5 s</td></tr>
+<tr><td align="left"><code>jaffle_shop</code></td><td align="right" nowrap>312</td><td align="right" nowrap>372.0 KiB<br>0.1 s</td><td align="right" nowrap>372.0 KiB<br><b>1.00×</b><br>0.3 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">37.7 KiB<br><b>0.10×</b><br>0.2 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">37.7 KiB<br><b>0.10×</b><br>0.7 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">658.2 KiB<br><b>1.77×</b><br>1.4 s</td></tr>
+<tr><td align="left"><code>pubs</code></td><td align="right" nowrap>255</td><td align="right" nowrap>1.5 MiB<br>0.3 s</td><td align="right" nowrap>1.5 MiB<br><b>1.00×</b><br>0.6 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">77.0 KiB<br><b>0.05×</b><br>0.4 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">77.0 KiB<br><b>0.05×</b><br>0.6 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">578.5 KiB<br><b>0.39×</b><br>1.5 s</td></tr>
+<tr><td align="left"><code>oracle_hr</code></td><td align="right" nowrap>216</td><td align="right" nowrap>1.1 MiB<br>0.2 s</td><td align="right" nowrap>1.1 MiB<br><b>1.00×</b><br>0.6 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">62.8 KiB<br><b>0.06×</b><br>0.3 s</td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8">62.1 KiB<br><b>0.06×</b><br>0.6 s</td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc">456.0 KiB<br><b>0.41×</b><br>1.4 s</td></tr>
+<tr><td align="left"><b>all 21 with every test</b></td><td align="right" nowrap><b>9,056,697</b></td><td align="right" nowrap><b>1.8 GiB<br>1 min 07 s</b></td><td align="right" nowrap><b>0.86×<br>66× time</b></td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8"><b>0.29×<br>4.0× time</b></td><td align="right" nowrap style="background:#eef3f8;color:#24292f" bgcolor="#eef3f8"><b>0.29×<br>182× time</b></td><td align="right" nowrap style="background:#fdf1dc;color:#24292f" bgcolor="#fdf1dc"><b>66×<br>447× time</b></td></tr>
+</tbody>
+</table>
 
 ## Reproducing it
 
-See [`README.md`](README.md) for the full sequence, the budget, and the memory limits. In short:
-`make export`, `make preflight`, `make run`, `make report`, `make docs`, `make check`.
+See [`README.md`](README.md) for the full sequence, the budget, and the memory limits. In short: `make export`, `make preflight`, `make run`, `make report`, `make docs`, `make check`.
 
-Every number in every document is generated from `build/`. Nothing is typed by hand, so a claim that
-disagrees with the measurements cannot survive a regeneration.
+Every number in every document is generated from `build/`. Nothing is typed by hand, so a claim that disagrees with the measurements cannot survive a regeneration.
+
+## The same question, twice more: DoltgreSQL and DoltLite
+
+The corpus runs on PostgreSQL and SQLite as well, and DoltHub ships a versioned engine for each, so the five tests were run again for the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs (21 and 21 databases with the one-commit load on both engines so far). What was learned before a row was loaded is in `knowledge/` -- every fact about the two engines with the source it was read in or the command that produced it -- and the short version is this.
+
+**One version per result set**: DoltgreSQL 1.3.2, named by image digest, and DoltLite v0.50.10, named by the checksums of its packages (`versions.json`). Neither moves on its own; when one does, every unit of that engine is measured again, so everything below describes exactly those versions.
+
+**What the engines refused decided the method.** DoltgreSQL 1.3.2 takes pg_dump's output as its README promises, with four exceptions found by refusal: no GIN index (the full-text index of the port), no `xpath`, no `JSON_TABLE`, and two shapes of stored expression it re-serialises into text it cannot parse back -- a `CHECK` calling `regexp_like` refuses every row from the start, and a table with a `STORED` generated column refuses every row after its first alteration. The first two are recorded as objects not taken; the last two became dialect rules, because the alternative was two databases with no DoltgreSQL number at all. DoltLite v0.50.10 refused nothing of the dump but needed two things reordered: every table before the first row, because it will not commit a table whose foreign key names a table that does not exist yet; and the virtual-table registration `.dump` writes into `sqlite_schema`, which both engines accept only inside the dump's own transaction. Both rules apply to both engines of the pair.
+
+**What "the same file" means for DoltLite** had to be decided rather than assumed: a stock SQLite file opened by DoltLite is not versioned, so the dump is replayed into a DoltLite-format database and the baseline is the same replay by `sqlite3`.
+
+**The settle step is most of the story for both Dolt engines.** Before `dolt_gc()` or `VACUUM`, the working footprint of a load is many times the settled size -- the same statement-by-statement history that the MySQL/Dolt pair paid for, kept until it is collected. Both numbers are recorded on every unit (`bytes_before_settle` and `disk_bytes`), and the tables show the settled one.
+
+**A fresh PostgreSQL database is not empty.** It carries a copy of the template catalog, about 7 MiB, before the first row. The PostgreSQL sizes include it, as the MySQL sizes included whatever an empty schema costs InnoDB; the difference is that here the floor is large next to a small database, so the ratio of a small database is mostly the floor. Each PostgreSQL unit records the floor it measured (`empty_database_bytes`).
+
+**A shared server contaminated the DoltgreSQL memory peaks.** The DoltgreSQL loads first ran in one server per shape, database after database, the way one PostgreSQL server holds many. A Dolt server keeps every database under its data directory open, so each load's memory peak carried every store loaded before it: a 255-row database peaked at 976 MiB after eleven others. The code review found it in the recorded peaks, which rose with run order rather than with size. Every DoltgreSQL load now runs in a server started for it alone, and every DoltgreSQL unit is measured again; the first measurements are gone from `build/progress.json`, and the repository's history keeps them.
+
+**Two more faults, found by the second review pass, changed the method again.** The dumps were read in text mode, which turns a carriage return into a line feed; pg_dump's `--inserts` form keeps the carriage returns inside message bodies as they are, so the row-by-row PostgreSQL and DoltgreSQL loads of enron, stackexchange_beer and adventureworks wrote slightly different text than the source -- and the row-count and index checks could not see it. And the memory sampler read every two seconds and stopped before the settle step, so a load shorter than that was recorded as the idle container, a failed garbage collection was never in the window, and PostgreSQL's shared buffers were not counted at all. Every unit now records the method it was measured with; the reads are byte for byte, memory is anonymous plus shared, read four times a second through the settle step, and every unit measured the old way is measured again.
+
+**Another thing that went wrong.** The first memory sampler for the new pairs ran a shell loop inside the worker container, as the Dolt loads do. Inside a PostgreSQL container that loop is reparented to the postmaster when the `docker exec` that started it returns, and killing it put the server into recovery: twelve units recorded an error in a row. Memory is now read from the host's cgroup files, with no process inside any worker.

@@ -1,0 +1,22 @@
+# DoltgreSQL 1.3.1: a table with a STORED generated column accepts one alteration, then refuses every row
+
+*Found on DoltgreSQL 1.3.1, the version dolt-megasamples measures, named by image digest (`sha256:6c85cb1f35be…`, `versions.json`). It was the newest release on 2026-09-10; v1.3.2 (2026-09-12) has not been tried.*
+
+Record: `knowledge/tools/doltgresql-1-3-1.md`, `knowledge/questions/doltgresql-generated-column-alteration.md`.
+
+Reported upstream: https://github.com/dolthub/doltgresql/issues/3323 (2026-09-11), with the reproduction repository https://github.com/Reliable-Collaboration/repro-doltgresql-bug-1, which runs the failing SQL side by side with the reference engine. As read on 2026-09-16: fixed by pull request 3347, merged 2026-09-16 after v1.3.3, so not yet in a release; the issue is closed.
+
+**Steps** (psql against `dolthub/doltgresql:1.3.1`, digest `sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851`):
+
+```sql
+CREATE TABLE g2 (id int NOT NULL, a numeric(19,4), b smallint,
+                 c numeric(38,6) GENERATED ALWAYS AS (COALESCE(a * (b)::numeric, 0.0)) STORED);
+ALTER TABLE ONLY g2 ADD CONSTRAINT g2_pkey PRIMARY KEY (id);   -- accepted
+INSERT INTO g2 VALUES (1, 2.5, 4, DEFAULT);
+```
+
+**Result:** `ERROR: Invalid default value for '(coalesce("a" * "b"::NUMERIC as a * b::NUMERIC,0.0))': at or near "as": syntax error`. The same error answers any later `CREATE INDEX`, `COPY` or `ALTER TABLE` on the table; adding a foreign key answers `receiveMessage recovered panic: Invalid default value ...`. Without the `ALTER`, the `INSERT` succeeds and the column is computed (10.000000). The order of the two alterations does not matter, nor does the cast (`COALESCE(a * b, 0.0)` fails the same way). Expected: PostgreSQL 18.6 accepts all of it.
+
+**Where it may come from** (a reading of the v1.3.1 source, not run): function arguments are wrapped in go-mysql-server aliases that print as `x as y` (`server/ast/select.go` lines 190-194). `CREATE TABLE` strips them, but after an alteration the generated expression is printed again by `PgCoalesce.String()` (`server/expression/coalesce.go` lines 162-168), which lacks the alias bypass doltgresql's own functions have (`server/functions/framework/compiled_function.go` lines 295-298); the refused expression above contains the alias. Issue #810 looks like the same family.
+
+**Why it matters:** pg_dump writes every primary key as an `ALTER TABLE ... ADD CONSTRAINT` after `CREATE TABLE`, so any dumped table with a stored generated column becomes unwritable after restore.

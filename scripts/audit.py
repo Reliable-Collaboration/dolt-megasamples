@@ -22,9 +22,30 @@ disagrees with which. They are cheap; run them after every run.
 import argparse, json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import DUMPS, ROOT, human, load_results  # noqa: E402
+from common import DUMPS, ROOT, human, load_results, version_of  # noqa: E402
 
 MEMORY = os.path.join(ROOT, "build", "memory.json")
+MEMORY_PAIRS = os.path.join(ROOT, "build", "memory_pairs.json")
+
+
+def versions_are_this_runs(a, results, memory, pairs_study):
+    """Every folded number and every memory study belongs to the versions versions.json names: one
+    version per run, so a moved engine leaves nothing of the old run in the documents."""
+    for db, r in sorted(results.items()):
+        for k, v in r.items():
+            if k.startswith("mysql") and k.endswith(("_version", "_version_inline")) and v is not None:
+                a.check(v == version_of("mysql"), f"{db}.{k} is this run's MySQL", str(v))
+        for mode, m in (r.get("modes") or {}).items():
+            if m.get("engine_version") is not None:
+                a.check(m["engine_version"] == version_of("dolt"), f"{db}.modes.{mode} is this run's Dolt", str(m["engine_version"]))
+        for pair, tests in (r.get("pairs") or {}).items():
+            for test, u in tests.items():
+                if isinstance(u, dict) and u.get("engine_version") is not None and u.get("engine"):
+                    a.check(u["engine_version"] == version_of(u["engine"]), f"{db}.pairs.{pair}.{test} is this run's {u['engine']}",
+                            str(u["engine_version"]))
+    for label, study in (("memory.json", memory), ("memory_pairs.json", pairs_study)):
+        for engine, v in (study.get("_versions") or {}).items():
+            a.check(v == version_of(engine), f"{label}'s {engine} study is this run's", f"measured on {v}, the run is on {version_of(engine)}")
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
 # Commits mysqldump's own scaffolding produces beyond the data: Dolt's initial commit, the schema
 # commit, and the final one this experiment makes.
@@ -70,7 +91,7 @@ def commits_match_rows(a, memory):
 
 def rows_agree_across_modes(a, memory):
     """The same database holds the same rows however it was stored."""
-    modes = [m for m in memory if isinstance(memory[m], dict)]
+    modes = [m for m in memory if isinstance(memory[m], dict) and not m.startswith("_")]
     for db in sorted({d for m in modes for d in memory[m]}):
         seen = {m: memory[m][db].get("rows") for m in modes
                 if db in memory[m] and memory[m][db].get("rows") is not None}
@@ -170,6 +191,76 @@ def progress_is_consistent(a):
         a.check(u.get("bytes"), f"completed unit {key} has a size", str(u.get("bytes")))
 
 
+def pairs_are_consistent(a, results):
+    """The PostgreSQL/DoltgreSQL and SQLite/DoltLite units obey what the method promises.
+
+    A per-row-commit load ends with as many commits as it wrote rows (plus the initial commit and
+    the final one); a Dolt engine's working footprint before the settle step is never smaller than
+    the settled size; every completed unit was checked against the reference (a positive number
+    of indexes compared, or the database has none); and the same reference row count is behind
+    every shape of a database within a pair."""
+    from pairs import ENGINE, PHASES
+    for db in sorted(results):
+        pairs = results[db].get("pairs") or {}
+        for pair, phases in PHASES.items():
+            m = pairs.get(pair) or {}
+            rows = ((pairs.get("source_rows_committed") or {}).get(pair)
+                    or (pairs.get("source_rows") or {}).get(pair))
+            for key, u in sorted(m.items()):
+                # an uncollected store keeps every check except the one about its settled size
+                if not isinstance(u, dict) or not (u.get("disk_bytes") or u.get("footprint_bytes")):
+                    continue
+                phase = key.replace("_inline", "")
+                versioned = ENGINE[phase] in ("doltgres", "doltlite")
+                if versioned and u.get("bytes_before_settle") is not None and u.get("disk_bytes"):
+                    a.check(u["bytes_before_settle"] >= u["disk_bytes"] * 0.9,
+                            f"{db} {key}: the settle step did not grow the store",
+                            f"{human(u['bytes_before_settle'])} before, {human(u['disk_bytes'])} after")
+                if phase.endswith("_rowcommit") and u.get("commits") is not None and rows:
+                    # every row's commit, plus the repository's first commit and the final one (and, on
+                    # DoltgreSQL, the database's creation): two or three more than the rows
+                    a.check(2 <= u["commits"] - rows <= 3, f"{db} {key}: one commit per row",
+                            f"{u['commits']:,} commits for {rows:,} rows")
+                a.check(u.get("indexes_checked") is not None, f"{db} {key}: index parity was checked")
+                a.check(not u.get("indexes_extra"), f"{db} {key}: no index the reference lacks",
+                        ", ".join(u.get("indexes_extra") or [])[:80])
+
+
+def pair_settles_reported(a, results):
+    """A pair unit whose settle step failed is reported unsettled, whichever runner recorded it.
+
+    build/results.json is the snapshot the last `make collect` took; build/progress.json keeps moving
+    while a run goes on. A unit that finished after the newest unit the snapshot holds cannot be in it
+    yet, so it is skipped, by name, rather than failed; every unit that finished before that point
+    must be reported, so a collector that dropped or mis-folded one still fails here."""
+    if not os.path.exists(PROGRESS):
+        return
+    from collect_pairs import settle_failed
+    from pairs import METHOD
+    p = json.load(open(PROGRESS, encoding="utf-8"))
+    folded_until = max((e.get("finished") or 0
+                        for v in results.values() for entries in (v.get("pairs") or {}).values()
+                        if isinstance(entries, dict) for e in entries.values() if isinstance(e, dict)),
+                       default=0)
+    from pairs import ENGINE
+    for key, u in sorted((p.get("units") or {}).items()):
+        # only the units the collector reports: one taken with an older method, or on another version
+        # of its engine, is withdrawn, not shown
+        parts = key.split("/")
+        if (not u.get("pair") or u.get("status") != "done" or u.get("method") != METHOD
+                or parts[0] not in ENGINE or u.get("engine_version") != version_of(ENGINE[parts[0]])
+                or not settle_failed(u)):
+            continue
+        name = parts[0] + ("_inline" if parts[2:] == ["inline"] else "")
+        if (u.get("finished") or 0) > folded_until:
+            a.skip(f"{parts[1]} {name}: its failed settle step is reported as unsettled",
+                   "measured after the last `make collect`, which folds it")
+            continue
+        got = ((((results.get(parts[1]) or {}).get("pairs") or {}).get(u["pair"]) or {}).get(name)) or {}
+        a.check(got.get("settled") is False and not got.get("disk_bytes"),
+                f"{parts[1]} {name}: its failed settle step is reported as unsettled", f"settled={got.get('settled')}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--strict", action="store_true",
@@ -179,6 +270,9 @@ def main():
     a = Audit()
     results = load_results() if os.path.exists(os.path.join(ROOT, "build", "results.json")) else {}
     memory = json.load(open(MEMORY, encoding="utf-8")) if os.path.exists(MEMORY) else {}
+    pairs_study = json.load(open(MEMORY_PAIRS, encoding="utf-8")) if os.path.exists(MEMORY_PAIRS) else {}
+    versions_are_this_runs(a, results, memory, pairs_study)
+    memory = {k: v for k, v in memory.items() if not k.startswith("_")}   # the stamp is not a mode
 
     if memory:
         commits_match_rows(a, memory)
@@ -189,6 +283,8 @@ def main():
     if results:
         sizes_are_positive(a, results)
         dolt_matches_mysql(a, results)
+        pairs_are_consistent(a, results)
+        pair_settles_reported(a, results)
     else:
         a.skip("size and parity invariants", "no build/results.json")
     transform_preserved_the_rows(a)

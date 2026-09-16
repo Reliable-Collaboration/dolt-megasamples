@@ -1,0 +1,26 @@
+# DoltgreSQL 1.3.1: a role without CREATEDB can create and drop any database
+
+*Found on DoltgreSQL 1.3.1, the version dolt-megasamples measures, named by image digest (`sha256:6c85cb1f35be…`, `versions.json`). It was the newest release on 2026-09-10; v1.3.2 (2026-09-12) has not been tried.*
+
+Record: `knowledge/tools/doltgresql-1-3-1.md`.
+
+Not reported publicly: a privilege gap is a security matter, and DoltgreSQL's `SECURITY.md` asks for such reports by email. The maintainer reported it, with the self-granted `CREATEDB` beside it, to security@dolthub.com (by 2026-09-12); the reproduction repository `Reliable-Collaboration/repro-doltgresql-bug-database-privileges` (side by side with PostgreSQL 18.6) stays private. DoltgreSQL 1.3.2 enforces `CREATE DATABASE` and `DROP DATABASE` (pull request 3343; probed 2026-09-16 with the repository's script); a role can still grant itself `CREATEDB`.
+
+**Steps** (psql against `dolthub/doltgresql:1.3.1`, digest `sha256:6c85cb1f35beabf47f094336a420255130b841b1645f36d79ef046276af36851`):
+
+```sql
+-- as postgres
+CREATE DATABASE victim;
+CREATE ROLE demo LOGIN PASSWORD 'demo';
+SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = 'demo';   -- f | f | f
+ALTER ROLE demo NOCREATEDB;
+-- as demo, connected to postgres
+CREATE DATABASE demo_made;   -- CREATE DATABASE
+DROP DATABASE victim;        -- DROP DATABASE
+```
+
+**Result:** both succeed, and `victim`, which `postgres` created, is gone. The same role can call `dolt_branch(...)`. Table privileges are enforced: `demo` is refused `CREATE TABLE` in `public` and `SELECT`, `INSERT` and `DROP TABLE` on a table it has no grant on. Expected, as in PostgreSQL: `CREATE DATABASE` refused without `CREATEDB`, and `DROP DATABASE` refused to anyone but the owner or a superuser.
+
+**Where it comes from** (read in the v1.3.1 source, not patched): `CREATE DATABASE` and `DROP DATABASE` are converted to go-mysql-server `DBDDL` nodes that carry no authorization information (`server/ast/create_database.go` line 103, `server/ast/drop_database.go` line 33), and `HandleAuth` in `server/auth/auth_handler.go` returns without a check when that information is empty (line 86), so neither statement is checked against `rolsuper`, `rolcreatedb` or ownership.
+
+**Why it matters:** a read-only account cannot be offered on a shared DoltgreSQL server, since it can drop every database.

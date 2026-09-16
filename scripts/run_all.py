@@ -34,12 +34,12 @@ import argparse, json, os, re, shutil, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (DOLT_IMAGE, DUMPS, MEM_HELPER, MEM_WORKER, MYSQL_CONTAINER, RESULTS,
                     ROOT, data_dir, databases, mem,  # noqa: E402
-                    dumps_dir, human, run)
+                    dumps_dir, human, run, version_gate, version_of, VERSIONS, current as unit_current)
 from dolt_dialect import defer_indexes, transform  # noqa: E402
 from load_dolt import per_row_commits  # noqa: E402
 
 PROGRESS = os.path.join(ROOT, "build", "progress.json")
-MYSQL_IMAGE = os.environ.get("MYSQL_TIMING_IMAGE", "mysql:9.7.2")
+MYSQL_IMAGE = VERSIONS["mysql"]["image"]   # the baseline the corpus builds, as versions.json records it
 MYSQL_NAME = "doltsamples-mysql-timing"
 MYSQL_DATA = os.path.join(ROOT, "data", "mysql")
 MYSQL_PW = "timing"
@@ -98,6 +98,9 @@ GC_EVERY = 0
 MODE = {"dolt_oneshot": "oneshot", "dolt_rowinsert": "rowinsert", "dolt_rowcommit": "rowcommit"}
 
 
+from common import run_lock  # noqa: E402
+
+
 # ---------------------------------------------------------------- progress ---
 def fingerprint():
     """Enough of the machine to tell one host's run from another's."""
@@ -119,9 +122,13 @@ def load_progress():
     with open(PROGRESS, encoding="utf-8") as fh:
         p = json.load(fh)
     if p.get("host") and p["host"] != fingerprint():
+        # moved aside, never overwritten: the file is the only record of every unit's errors, parity
+        # and timings, and a changed CPU count or hostname is enough to change the fingerprint
+        aside = PROGRESS + time.strftime(".%Y%m%dT%H%M%S.other-host")
+        os.replace(PROGRESS, aside)
         print(f"build/progress.json was recorded on another machine ({p['host']});\n"
-              f"starting a fresh run on this one ({fingerprint()}).\n"
-              f"Pass --resume to continue the recorded run anyway.\n", flush=True)
+              f"starting a fresh run on this one ({fingerprint()}); the recorded run is kept as\n"
+              f"{os.path.relpath(aside, ROOT)}. Pass --resume to continue the recorded run instead.\n", flush=True)
         return {"started": time.time(), "units": {}, "host": fingerprint()}
     p["host"] = fingerprint()
     return p
@@ -575,7 +582,7 @@ def dolt_load(db, phase, indexes="deferred"):
     commit = ('dolt add -A && dolt commit --allow-empty --author '
               '"megasamples <megasamples@localhost>" -m ')
     final = (commit + '"rebuild deferred indexes" ; dolt gc' if phase == "dolt_rowcommit" else
-             commit + '"import from mysql-megasamples" ; dolt gc')
+             commit + '"import from sql-megasamples" ; dolt gc')
     started = time.time()
     run("docker", "exec", "-w", dolt_repo(mode, db), DOLT_HOST, "sh", "-c", final)
     settle_s = time.time() - started
@@ -709,6 +716,9 @@ def main():
     ap.add_argument("--resume", action="store_true",
                     help="continue a run recorded on another machine (normally refused)")
     a = ap.parse_args()
+    lock, holder = run_lock("run_all.py")
+    if lock is None:
+        sys.exit(f"build/run.lock is held by {holder}: one runner at a time")
     globals()["CHUNK_STATEMENTS"] = a.chunk_statements
     globals()["GC_EVERY"] = a.gc_every
 
@@ -718,7 +728,7 @@ def main():
     if busy and not a.allow_busy:
         sys.exit("These containers are running and will compete with the measurements:\n  "
                  + "\n  ".join(busy)
-                 + "\n\nStop them first — `make down` here and in ../mysql-megasamples, keeping\n"
+                 + "\n\nStop them first — `make down` here and in the sql-megasamples checkout, keeping\n"
                    "megasamples-mysql, which is the source of the dumps. --allow-busy overrides.")
 
     ensure_data_root()
@@ -741,13 +751,15 @@ def main():
         # reach -- a report blending two runs, with nothing on its face to say so. Only a full
         # restart does this: `--only` and `--phase` are deliberate partial re-measurements.
         if not a.only and not a.phase and os.path.exists(RESULTS):
-            os.replace(RESULTS, RESULTS + ".superseded")
+            os.replace(RESULTS, RESULTS + ".previous")
             print(f"  . --restart: moved {os.path.relpath(RESULTS, ROOT)} aside to "
-                  f"{os.path.basename(RESULTS)}.superseded; these runs replace it\n", flush=True)
+                  f"{os.path.basename(RESULTS)}.previous; these runs replace it\n", flush=True)
     elif a.resume and os.path.exists(PROGRESS):
         p = json.load(open(PROGRESS, encoding="utf-8"))
     else:
         p = load_progress()
+    # one version per run: refused before anything is written, over every recorded unit of these engines
+    version_gate(p.get("units") or {}, {"mysql" if ph.startswith("mysql") else "dolt" for ph in phases})
     p["databases"] = dbs
     p["phases"] = phases
     save_progress(p)
@@ -766,11 +778,14 @@ def main():
     def key_of(phase, db):
         return f"{phase}/{db}" + ("" if a.indexes == "deferred" else "/inline")
 
+    def engine_of(phase):
+        return "mysql" if phase.startswith("mysql") else "dolt"
+
     units = [(phase, db) for phase in phases for db in order]
-    todo = [(ph, db) for ph, db in units
-            if p["units"].get(key_of(ph, db), {}).get("status") != "done"]
+    todo = [(ph, db) for ph, db in units if not unit_current(key_of(ph, db), p["units"].get(key_of(ph, db), {}))]
     print(f"{len(units)} units, {len(todo)} to do "
-          f"({len(units) - len(todo)} already recorded)\n", flush=True)
+          f"({len(units) - len(todo)} already recorded on "
+          f"{', '.join(sorted({engine_of(ph) + ' ' + version_of(engine_of(ph)) for ph in phases}))})\n", flush=True)
 
     for i, (phase, db) in enumerate(todo, 1):
         # A run outlives most things, including the Docker daemon. A restart mid-run once left a
@@ -789,7 +804,7 @@ def main():
             return 2
         key = key_of(phase, db)
         note(p, key, replace=True, status="running", started=time.time(),
-             phase=phase, database=db, indexes=a.indexes)
+             phase=phase, database=db, indexes=a.indexes, engine_version=version_of(engine_of(phase)))
         started = time.time()
         runs = []
         try:

@@ -1,0 +1,49 @@
+{
+  "_rule": "One version per result set. Every number in this repository belongs to exactly the versions below; nothing is pinned, and nothing moves on its own. `python3 scripts/versions.py --check` says what is newer upstream; `python3 scripts/versions.py --latest <engine>` moves one engine to its newest release, after which every recorded unit of that engine is superseded and the runners measure them all again (pass --accept-version-change). The maintainer's rule, 2026-09-12: knowledge/decisions/engine-versions-one-per-result-set.md.",
+  "dolt": {
+    "version": "2.3.2",
+    "image": "dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6",
+    "named_by": "image digest",
+    "since": "2026-09-08"
+  },
+  "mysql": {
+    "version": "9.7.2",
+    "image": "mysql:9.7.2",
+    "named_by": "image tag",
+    "since": "2026-09-08"
+  },
+  "doltgres": {
+    "version": "1.3.2",
+    "image": "dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae",
+    "named_by": "image digest",
+    "since": "2026-09-14"
+  },
+  "postgres": {
+    "version": "18.6",
+    "image": "postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+    "named_by": "image digest",
+    "since": "2026-09-10"
+  },
+  "doltlite": {
+    "version": "0.50.10",
+    "named_by": "the SHA-256 of the release's two Debian packages, checked before the image is built",
+    "since": "2026-09-12",
+    "packages": [
+      {
+        "name": "libdoltlite0_0.50.10_amd64.deb",
+        "url": "https://github.com/dolthub/doltlite/releases/download/v0.50.10/libdoltlite0_0.50.10_amd64.deb",
+        "sha256": "09f2e13df763560712769a2d4c08175445f3b11e249a9efd6aa0f25769547582"
+      },
+      {
+        "name": "doltlite_0.50.10_amd64.deb",
+        "url": "https://github.com/dolthub/doltlite/releases/download/v0.50.10/doltlite_0.50.10_amd64.deb",
+        "sha256": "3a832d5580cf8860e9d07a1c3d2dbe1e66d1e83c586913b81bc1f36a5119029e"
+      }
+    ]
+  },
+  "sqlite": {
+    "version": "3.46.1",
+    "named_by": "Debian 13's sqlite3 package inside the DoltLite image, whose base image is named by digest in docker/doltlite/Dockerfile",
+    "since": "2026-09-10"
+  }
+}

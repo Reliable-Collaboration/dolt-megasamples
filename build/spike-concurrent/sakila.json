@@ -1,0 +1,683 @@
+[
+  {
+    "engine": "dolt",
+    "version": "2.3.2",
+    "database": "sakila",
+    "workers": 1,
+    "rows": 47270,
+    "commit_per_row": true,
+    "schema_seconds": 0.3,
+    "schema_errors": [
+      "ERROR 1146 (HY000) at line 286: table not found: tmpcustomer"
+    ],
+    "rows_seconds": 304.4,
+    "rows_per_second": 155.3,
+    "rows_done": 46809,
+    "retries": 3688,
+    "failures": 461,
+    "errors": [
+      "row 201: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 202: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 203: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 204: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 205: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 206: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 207: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 208: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 209: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 210: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')"
+    ],
+    "worker_seconds": [
+      304.4
+    ],
+    "server_cores_rows": 0.34,
+    "post_errors": [
+      "ERROR 1105 (HY000) at line 44: syntax error at position 83 near 'VALUES'"
+    ],
+    "post_seconds": 6.1,
+    "server_peak_bytes": 2073825280,
+    "store_bytes": 321846597,
+    "tables": 17,
+    "rows_short": {
+      "address": {
+        "expected": 603,
+        "got": 145
+      },
+      "film_text": {
+        "expected": 1001,
+        "got": 1000
+      },
+      "staff": {
+        "expected": 2,
+        "got": 1
+      },
+      "tmpCustomer": {
+        "expected": 1,
+        "got": "error: (1146, 'table not found: tmpcustomer')"
+      }
+    },
+    "commits": 46811,
+    "sampled_commit_row_changes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "measured_at": "2026-09-13T00:28:03Z"
+  },
+  {
+    "engine": "dolt",
+    "version": "2.3.2",
+    "database": "sakila",
+    "workers": 4,
+    "rows": 47270,
+    "commit_per_row": true,
+    "schema_seconds": 0.3,
+    "schema_errors": [
+      "ERROR 1146 (HY000) at line 286: table not found: tmpcustomer"
+    ],
+    "rows_seconds": 231.8,
+    "rows_per_second": 203.9,
+    "rows_done": 46809,
+    "retries": 3688,
+    "failures": 461,
+    "errors": [
+      "row 202: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 204: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 201: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 203: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 206: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 208: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 207: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 205: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 212: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 210: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')"
+    ],
+    "worker_seconds": [
+      229.1,
+      229.9,
+      231.6,
+      231.8
+    ],
+    "server_cores_rows": 1.16,
+    "post_errors": [
+      "ERROR 1105 (HY000) at line 44: syntax error at position 83 near 'VALUES'"
+    ],
+    "post_seconds": 6.4,
+    "server_peak_bytes": 2296213504,
+    "store_bytes": 336622205,
+    "tables": 17,
+    "rows_short": {
+      "address": {
+        "expected": 603,
+        "got": 145
+      },
+      "film_text": {
+        "expected": 1001,
+        "got": 1000
+      },
+      "staff": {
+        "expected": 2,
+        "got": 1
+      },
+      "tmpCustomer": {
+        "expected": 1,
+        "got": "error: (1146, 'table not found: tmpcustomer')"
+      }
+    },
+    "commits": 46811,
+    "sampled_commit_row_changes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "measured_at": "2026-09-13T00:32:04Z"
+  },
+  {
+    "engine": "dolt",
+    "version": "2.3.2",
+    "database": "sakila",
+    "workers": 16,
+    "rows": 47270,
+    "commit_per_row": true,
+    "schema_seconds": 0.3,
+    "schema_errors": [
+      "ERROR 1146 (HY000) at line 286: table not found: tmpcustomer"
+    ],
+    "rows_seconds": 201.2,
+    "rows_per_second": 234.9,
+    "rows_done": 46809,
+    "retries": 3688,
+    "failures": 461,
+    "errors": [
+      "row 212: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 213: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 209: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 210: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 215: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 208: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 203: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 204: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 207: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')",
+      "row 201: OperationalError: (1105, 'invalid GIS data provided to function DeserializePoint')"
+    ],
+    "worker_seconds": [
+      194.6,
+      194.8,
+      197.4,
+      199.8,
+      200.3,
+      200.4,
+      200.8,
+      200.8,
+      200.8,
+      200.9,
+      201.0,
+      201.0,
+      201.1,
+      201.1,
+      201.1,
+      201.2
+    ],
+    "server_cores_rows": 1.32,
+    "post_errors": [
+      "ERROR 1105 (HY000) at line 44: syntax error at position 83 near 'VALUES'"
+    ],
+    "post_seconds": 6.6,
+    "server_peak_bytes": 2481000448,
+    "store_bytes": 364392819,
+    "tables": 17,
+    "rows_short": {
+      "address": {
+        "expected": 603,
+        "got": 145
+      },
+      "film_text": {
+        "expected": 1001,
+        "got": 1000
+      },
+      "staff": {
+        "expected": 2,
+        "got": 1
+      },
+      "tmpCustomer": {
+        "expected": 1,
+        "got": "error: (1146, 'table not found: tmpcustomer')"
+      }
+    },
+    "commits": 46811,
+    "sampled_commit_row_changes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "measured_at": "2026-09-13T00:35:35Z"
+  },
+  {
+    "engine": "doltgres",
+    "version": "1.3.1",
+    "database": "sakila",
+    "workers": 1,
+    "rows": 47268,
+    "commit_per_row": true,
+    "schema_seconds": 0.3,
+    "schema_errors": [],
+    "rows_seconds": 288.0,
+    "rows_per_second": 164.1,
+    "rows_done": 47268,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      288.0
+    ],
+    "server_cores_rows": 1.1,
+    "post_errors": [],
+    "post_seconds": 7.2,
+    "server_peak_bytes": 2064764928,
+    "store_bytes": 327550865,
+    "tables": 16,
+    "rows_short": {},
+    "commits": 47271,
+    "sampled_commit_row_changes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "measured_at": "2026-09-13T00:40:33Z"
+  },
+  {
+    "engine": "doltgres",
+    "version": "1.3.1",
+    "database": "sakila",
+    "workers": 4,
+    "rows": 47268,
+    "commit_per_row": true,
+    "schema_seconds": 0.3,
+    "schema_errors": [],
+    "rows_seconds": 871.4,
+    "rows_per_second": 54.2,
+    "rows_done": 47268,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      871.3,
+      871.4,
+      871.4,
+      871.4
+    ],
+    "server_cores_rows": 1.88,
+    "post_errors": [],
+    "post_seconds": 7.3,
+    "server_peak_bytes": 2364329984,
+    "store_bytes": 334894016,
+    "tables": 16,
+    "rows_short": {},
+    "commits": 47271,
+    "sampled_commit_row_changes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "measured_at": "2026-09-13T00:55:15Z"
+  },
+  {
+    "engine": "doltgres",
+    "version": "1.3.1",
+    "database": "sakila",
+    "workers": 16,
+    "rows": 47268,
+    "commit_per_row": true,
+    "schema_seconds": 0.3,
+    "schema_errors": [],
+    "rows_seconds": 884.3,
+    "rows_per_second": 53.5,
+    "rows_done": 47268,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      883.9,
+      883.9,
+      884.0,
+      884.0,
+      884.0,
+      884.0,
+      884.0,
+      884.1,
+      884.1,
+      884.1,
+      884.1,
+      884.1,
+      884.1,
+      884.2,
+      884.2,
+      884.2
+    ],
+    "server_cores_rows": 2.0,
+    "post_errors": [],
+    "post_seconds": 7.4,
+    "server_peak_bytes": 2595368960,
+    "store_bytes": 344654888,
+    "tables": 16,
+    "rows_short": {},
+    "commits": 47271,
+    "sampled_commit_row_changes": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "measured_at": "2026-09-13T01:10:10Z"
+  },
+  {
+    "engine": "mysql",
+    "version": "9.7.2",
+    "database": "sakila",
+    "workers": 1,
+    "rows": 47270,
+    "commit_per_row": false,
+    "schema_seconds": 0.2,
+    "schema_errors": [
+      "ERROR 1051 (42S02) at line 196: Unknown table 'sakila.tmpCustomer'"
+    ],
+    "rows_seconds": 200.0,
+    "rows_per_second": 236.4,
+    "rows_done": 46809,
+    "retries": 3688,
+    "failures": 461,
+    "errors": [
+      "row 201: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 202: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 203: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 204: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 205: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 206: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 207: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 208: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 209: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 210: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')"
+    ],
+    "worker_seconds": [
+      200.0
+    ],
+    "server_cores_rows": 0.06,
+    "post_errors": [
+      "ERROR 1064 (42000) at line 72: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '(new.film_id, new.title, new.description);",
+      "  END */' at line 2"
+    ],
+    "post_seconds": 0.1,
+    "server_peak_bytes": 748457984,
+    "store_bytes": 693760284,
+    "tables": 17,
+    "rows_short": {
+      "address": {
+        "expected": 603,
+        "got": 145
+      },
+      "film_text": {
+        "expected": 1001,
+        "got": 1000
+      },
+      "staff": {
+        "expected": 2,
+        "got": 1
+      },
+      "tmpCustomer": {
+        "expected": 1,
+        "got": "error: (1146, \"Table 'sakila.tmpCustomer' doesn't exist\")"
+      }
+    },
+    "measured_at": "2026-09-13T01:13:38Z"
+  },
+  {
+    "engine": "mysql",
+    "version": "9.7.2",
+    "database": "sakila",
+    "workers": 4,
+    "rows": 47270,
+    "commit_per_row": false,
+    "schema_seconds": 0.2,
+    "schema_errors": [
+      "ERROR 1051 (42S02) at line 196: Unknown table 'sakila.tmpCustomer'"
+    ],
+    "rows_seconds": 54.2,
+    "rows_per_second": 872.7,
+    "rows_done": 46809,
+    "retries": 3688,
+    "failures": 461,
+    "errors": [
+      "row 204: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 202: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 201: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 203: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 205: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 208: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 206: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 207: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 215: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 209: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')"
+    ],
+    "worker_seconds": [
+      51.3,
+      52.0,
+      53.4,
+      54.2
+    ],
+    "server_cores_rows": 0.16,
+    "post_errors": [
+      "ERROR 1064 (42000) at line 72: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '(new.film_id, new.title, new.description);",
+      "  END */' at line 2"
+    ],
+    "post_seconds": 0.1,
+    "server_peak_bytes": 753479680,
+    "store_bytes": 693956906,
+    "tables": 17,
+    "rows_short": {
+      "address": {
+        "expected": 603,
+        "got": 145
+      },
+      "film_text": {
+        "expected": 1001,
+        "got": 1000
+      },
+      "staff": {
+        "expected": 2,
+        "got": 1
+      },
+      "tmpCustomer": {
+        "expected": 1,
+        "got": "error: (1146, \"Table 'sakila.tmpCustomer' doesn't exist\")"
+      }
+    },
+    "measured_at": "2026-09-13T01:14:40Z"
+  },
+  {
+    "engine": "mysql",
+    "version": "9.7.2",
+    "database": "sakila",
+    "workers": 16,
+    "rows": 47270,
+    "commit_per_row": false,
+    "schema_seconds": 0.2,
+    "schema_errors": [
+      "ERROR 1051 (42S02) at line 196: Unknown table 'sakila.tmpCustomer'"
+    ],
+    "rows_seconds": 15.5,
+    "rows_per_second": 3044.7,
+    "rows_done": 46809,
+    "retries": 3688,
+    "failures": 461,
+    "errors": [
+      "row 202: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 204: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 210: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 201: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 214: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 212: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 213: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 215: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 209: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')",
+      "row 203: OperationalError: (1416, 'Cannot get geometry object from data you send to the GEOMETRY field')"
+    ],
+    "worker_seconds": [
+      12.6,
+      13.0,
+      13.2,
+      14.3,
+      14.5,
+      14.6,
+      15.0,
+      15.0,
+      15.0,
+      15.3,
+      15.3,
+      15.3,
+      15.3,
+      15.5,
+      15.5,
+      15.5
+    ],
+    "server_cores_rows": 0.44,
+    "post_errors": [
+      "ERROR 1064 (42000) at line 72: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '(new.film_id, new.title, new.description);",
+      "  END */' at line 2"
+    ],
+    "post_seconds": 0.1,
+    "server_peak_bytes": 795500544,
+    "store_bytes": 693891355,
+    "tables": 17,
+    "rows_short": {
+      "address": {
+        "expected": 603,
+        "got": 145
+      },
+      "film_text": {
+        "expected": 1001,
+        "got": 1000
+      },
+      "staff": {
+        "expected": 2,
+        "got": 1
+      },
+      "tmpCustomer": {
+        "expected": 1,
+        "got": "error: (1146, \"Table 'sakila.tmpCustomer' doesn't exist\")"
+      }
+    },
+    "measured_at": "2026-09-13T01:15:04Z"
+  },
+  {
+    "engine": "postgres",
+    "version": "18.6",
+    "database": "sakila",
+    "workers": 1,
+    "rows": 47268,
+    "commit_per_row": false,
+    "schema_seconds": 0.1,
+    "schema_errors": [],
+    "rows_seconds": 25.5,
+    "rows_per_second": 1850.3,
+    "rows_done": 47268,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      25.5
+    ],
+    "server_cores_rows": 0.18,
+    "post_errors": [],
+    "post_seconds": 0.3,
+    "server_peak_bytes": 123879424,
+    "store_bytes": 73680013,
+    "tables": 16,
+    "rows_short": {},
+    "measured_at": "2026-09-13T01:15:32Z"
+  },
+  {
+    "engine": "postgres",
+    "version": "18.6",
+    "database": "sakila",
+    "workers": 4,
+    "rows": 47268,
+    "commit_per_row": false,
+    "schema_seconds": 0.1,
+    "schema_errors": [],
+    "rows_seconds": 9.4,
+    "rows_per_second": 5018.4,
+    "rows_done": 47268,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      9.4,
+      9.4,
+      9.4,
+      9.4
+    ],
+    "server_cores_rows": 0.43,
+    "post_errors": [],
+    "post_seconds": 0.3,
+    "server_peak_bytes": 129241088,
+    "store_bytes": 73917581,
+    "tables": 16,
+    "rows_short": {},
+    "measured_at": "2026-09-13T01:15:44Z"
+  },
+  {
+    "engine": "postgres",
+    "version": "18.6",
+    "database": "sakila",
+    "workers": 16,
+    "rows": 47268,
+    "commit_per_row": false,
+    "schema_seconds": 0.1,
+    "schema_errors": [],
+    "rows_seconds": 8.0,
+    "rows_per_second": 5891.3,
+    "rows_done": 47268,
+    "retries": 0,
+    "failures": 0,
+    "errors": [],
+    "worker_seconds": [
+      7.9,
+      7.9,
+      7.9,
+      7.9,
+      7.9,
+      7.9,
+      8.0,
+      8.0,
+      8.0,
+      8.0,
+      8.0,
+      8.0,
+      8.0,
+      8.0,
+      8.0,
+      8.0
+    ],
+    "server_cores_rows": 0.51,
+    "post_errors": [],
+    "post_seconds": 0.3,
+    "server_peak_bytes": 153440256,
+    "store_bytes": 74417293,
+    "tables": 16,
+    "rows_short": {},
+    "measured_at": "2026-09-13T01:15:54Z"
+  }
+]

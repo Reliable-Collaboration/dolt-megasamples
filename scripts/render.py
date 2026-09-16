@@ -36,7 +36,7 @@ def blocks():
 
     Kept in one registry so a template can only reach content that some script produces. Tables come
     from report.py, which already knows how to lay the measurements out."""
-    import report
+    import report, report_pairs
 
     def guarded(fn, need="results"):
         def run():
@@ -52,17 +52,75 @@ def blocks():
 
     return {
         "summary_table": guarded(lambda r: report.summary_table(report.rows(r))),
-        "per_database": guarded(lambda r: report.detail_table(report.rows(r))
-                                if hasattr(report, "detail_table") else
-                                report.summary_table(report.rows(r))),
-        "index_policy": guarded(lambda r: report.policy_section(report.rows(r))
-                                or "*Neither index policy has been measured yet.*"),
+        "dolt_report": guarded(lambda r: embed_report(r)),
+        "index_policy": guarded(lambda r: demote(report.policy_section(report.rows(r))
+                                                 or "*Neither index policy has been measured yet.*")),
         "index_parity": guarded(lambda r: "\n".join(report.index_parity_table(report.rows(r)))
                                 or "*No mode has been measured for index parity yet.*"),
         "environment": guarded(lambda r: report.environment_table(), need="environment"),
         "memory_table": guarded(lambda m: memory_table(m), need="memory"),
         "missing_facts": lambda: missing_list(),
+        # the two further pairs (scripts/report_pairs.py)
+        "versions": lambda: report_pairs.versions_table(),
+        "pg_pair_table": guarded(lambda r: report_pairs.pair_table(r, "pg")),
+        "lite_pair_table": guarded(lambda r: report_pairs.pair_table(r, "lite")),
+        "pg_pair_inline": guarded(lambda r: report_pairs.inline_table(r, "pg")),
+        "lite_pair_inline": guarded(lambda r: report_pairs.inline_table(r, "lite")),
+        "pair_refusals": guarded(lambda r: report_pairs.refusals(r)),
+        "pg_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "pg")),
+        "lite_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "lite")),
+        "pair_memory_study": lambda: report_pairs.memory_study_table(),
+        "memory_grid": guarded(lambda r: report_pairs.memory_grid(r)),
+        "databases": guarded(lambda r: report_pairs.databases_table(r)),
+        "sizes_note": guarded(lambda r: report_pairs.sizes_note(r)),
+        "connect_table": guarded(lambda r: report_pairs.connect_table()),
+        "consoles_table": guarded(lambda r: report_pairs.consoles_table()),
+        "findings_disk": guarded(lambda r: report_pairs.findings_totals(r, "bytes")),
+        "findings_time": guarded(lambda r: report_pairs.findings_totals(r, "seconds")),
+        "sizes_all": guarded(lambda r: report_pairs.sizes_all(r, "bytes")),
+        "times_all": guarded(lambda r: report_pairs.sizes_all(r, "seconds")),
+        "refusals_summary": guarded(lambda r: report_pairs.refusals_summary(r)),
     }
+
+
+def embed_report(r):
+    """The MySQL/Dolt report, generated as it always was, placed under a heading of REPORT.md's own:
+    its file header, human note, machine table and index-policy section go, since REPORT.md carries
+    each once already."""
+    import report
+    report.RAW = r
+    text = report.report(report.rows(r))
+    text = text.replace(report.GENERATED, "").replace(report.HUMAN_NOTE, "")
+    for heading in ("## The machine\n", "## What maintaining the indexes costs\n"):   # each carried once already
+        a = text.find(heading)
+        if a < 0:          # the report writes the index section only once a policy has been measured
+            continue
+        b = text.find("\n## ", a + 1)
+        text = text[:a] + (text[b + 1:] if b >= 0 else "")
+    return demote_all(text)
+
+
+def demote_all(text):
+    """A whole generated document placed under a heading of the template's own: its H1 goes, every
+    H2 becomes an H3 and every H3 an H4."""
+    out = []
+    for l in text.split("\n"):
+        if l.startswith("# "):
+            continue
+        out.append("#" + l if l.startswith("## ") or l.startswith("### ") else l)
+    return "\n".join(out).strip("\n")
+
+
+def demote(text):
+    """A block that carries its own top-level heading, placed under a heading of the README's own:
+    the block's H2 goes, and its H3s become H4s, so the README's structure is the template's."""
+    lines = [l for l in text.split("\n")]
+    out = []
+    for k, l in enumerate(lines):
+        if k < 2 and l.startswith("## "):
+            continue
+        out.append("#" + l if l.startswith("### ") else l)
+    return "\n".join(out).lstrip("\n")
 
 
 def memory_table(memory):
@@ -73,7 +131,7 @@ def memory_table(memory):
                  key=lambda d: -((rc.get(d) or one.get(d) or {}).get("rows") or 0))
     if not dbs:
         return "*No memory measurements yet.*"
-    L = ["| database | rows | 3 commits | one commit per row | its commits | its size on disk |",
+    L = ["| database | rows | Dolt store with 3 commits:<br>memory to open it | Dolt store with one commit per row:<br>memory to open it | commits in that store | that store on disk |",
          "|---|---:|---:|---:|---:|---:|"]
     for d in dbs:
         o, r = one.get(d) or {}, rc.get(d) or {}
@@ -90,7 +148,8 @@ def memory_table(memory):
 
 
 def fmt_mb(v):
-    return f"{v} MB" if v else "over the ladder"
+    from common import human_mb
+    return human_mb(v) if v else "over the ladder"
 
 
 def missing_list():

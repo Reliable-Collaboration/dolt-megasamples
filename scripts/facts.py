@@ -122,7 +122,9 @@ def build():                                                    # noqa: C901 - a
               "results.json:*.tables", commas)
     else:
         per_db = {}
-        for mode in (memory or {}).values():
+        for key, mode in (memory or {}).items():
+            if key.startswith("_"):
+                continue
             for db, r in mode.items():
                 if r.get("rows") is not None:
                     per_db[db] = r["rows"]
@@ -133,6 +135,7 @@ def build():                                                    # noqa: C901 - a
         f.put("corpus.tables", None, "results.json:*.tables")
 
     _size_facts(f, results)
+    _pair_facts(f, results)
     _memory_facts(f, memory)
     _method_facts(f, method)
     _run_facts(f, progress)
@@ -322,8 +325,11 @@ def _method_facts(f, method):
 
 
 def _run_facts(f, progress):
-    units = (progress or {}).get("units") or {}
-    done = [u for u in units.values() if u.get("status") == "done"]
+    # the MySQL/Dolt run's units: the pairs share build/progress.json, are measured once each, and are
+    # described by their own section, so counting them here changed a sentence about the first run
+    from common import current
+    units = {k: u for k, u in ((progress or {}).get("units") or {}).items() if not u.get("pair")}
+    done = [u for k, u in units.items() if current(k, u)]
     f.put("run.units_done", len(done) or None, "progress.json: units with status done", commas)
     f.put("run.units_total", len(units) or None, "progress.json: units recorded", commas)
     f.put("run.hours", sum((u.get("wall_seconds") or 0) for u in done) / 3600 or None,
@@ -346,5 +352,35 @@ def main():
     return 0
 
 
+
+def _pair_facts(f, results):
+    """The PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs, folded in by scripts/collect_pairs.py."""
+    from pairs import DOLTGRES_VERSION, LITE_VERSION, PHASES
+    f.put("pairs.doltgres_version", DOLTGRES_VERSION, "versions.json:doltgres.version (this run's, named by image digest)")
+    f.put("pairs.doltlite_version", LITE_VERSION, "versions.json:doltlite.version (this run's, named by package checksums)")
+    for pair, phases in PHASES.items():
+        base, one, rc = phases[0], phases[2], phases[4]
+        data = {db: (r.get("pairs") or {}).get(pair) or {} for db, r in (results or {}).items()}
+        with_one = [db for db, m in data.items() if (m.get(base) or {}).get("disk_bytes") and (m.get(one) or {}).get("disk_bytes")]
+        with_rc = [db for db in with_one if (data[db].get(rc) or {}).get("disk_bytes")]
+        every = [db for db in with_one if all((data[db].get(ph) or {}).get("disk_bytes") for ph in phases)]
+        f.put(f"pairs.{pair}.databases", len(with_one) or None, f"results.json:*.pairs.{pair}.{one}", commas)
+        f.put(f"pairs.{pair}.databases_every_test", len(every) or None, f"results.json:*.pairs.{pair}", commas)
+        f.put(f"pairs.{pair}.oneshot_ratio",
+              (sum(data[d][one]["disk_bytes"] for d in with_one) / sum(data[d][base]["disk_bytes"] for d in with_one))
+              if with_one else None, f"results.json:*.pairs.{pair}.{one}.disk_bytes over {base}", ratio)
+        f.put(f"pairs.{pair}.rowcommit_ratio",
+              (sum(data[d][rc]["disk_bytes"] for d in with_rc) / sum(data[d][base]["disk_bytes"] for d in with_rc))
+              if with_rc else None, f"results.json:*.pairs.{pair}.{rc}.disk_bytes over {base}", ratio)
+        t_base = sum((data[d][base].get("load_seconds") or 0) for d in with_one)
+        t_one = sum((data[d][one].get("total_seconds") or 0) for d in with_one)
+        f.put(f"pairs.{pair}.oneshot_time_ratio", (t_one / t_base) if with_one and t_base else None,
+              f"results.json:*.pairs.{pair}.{one}.total_seconds over {base}.load_seconds", lambda x: f"{x:.1f}×")
+        refused = [db for db, m in data.items()
+                   if any(isinstance(u, dict) and (u.get("refused_objects") or u.get("indexes_refused")) for u in m.values())]
+        f.put(f"pairs.{pair}.databases_with_refusals", len(refused), f"results.json:*.pairs.{pair}.*.refused_objects", commas)
+
+
 if __name__ == "__main__":
     sys.exit(main())
+

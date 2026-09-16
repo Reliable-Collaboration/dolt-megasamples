@@ -5,7 +5,7 @@ The experiment has one question: for the same data, how much disk does Dolt use 
 MySQL? Everything here exists to make that comparison honest -- the same rows, loaded the same way,
 measured the same way, with the engines' own storage left to do whatever it does.
 """
-import json, os, subprocess, sys
+import json, os, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DUMPS = os.path.join(ROOT, "build", "dumps")
@@ -38,10 +38,75 @@ def dumps_dir(per_row=False):
 RESULTS = os.environ.get("DOLTSAMPLES_RESULTS") or os.path.join(ROOT, "build", "results.json")
 
 MYSQL_CONTAINER = os.environ.get("MEGASAMPLES_CONTAINER", "megasamples-mysql")
-MYSQL_IMAGE = os.environ.get("MEGASAMPLES_IMAGE", "mysql-megasamples:dev")
-DOLT_IMAGE = os.environ.get(
-    "DOLT_IMAGE",
-    "dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6")
+# the MySQL image sql-megasamples builds; MEGASAMPLES_DIR is that repository's checkout
+MYSQL_IMAGE = os.environ.get("MEGASAMPLES_MYSQL_IMAGE", "sql-megasamples-mysql:dev")
+MEGASAMPLES_DIR = os.environ.get("MEGASAMPLES_DIR", os.path.join(os.path.dirname(ROOT), "sql-megasamples"))
+# ------------------------------------------------------------- engine versions ---
+# One version per run, and no pins (the maintainer's rule, 2026-09-12, revised 2026-09-16). A run
+# starts on the newest release of every Dolt engine (`make new-run`: scripts/versions.py resolves
+# them and writes versions.json) and keeps those versions until it is complete: nothing switches in
+# the middle. versions.json is therefore a record of what the current result set was measured on,
+# not a choice anyone maintains by hand. The baselines are the corpus's own -- MySQL and PostgreSQL
+# as sql-megasamples builds them, the sqlite3 shell as Debian ships it in the DoltLite image -- and
+# are recorded, not chosen. A new run drops every unit measured on another version; git history is
+# the archive of earlier runs, this repository presents the current one.
+# The decision: knowledge/decisions/engine-versions-one-per-result-set.md.
+VERSIONS_PATH = os.path.join(ROOT, "versions.json")
+VERSIONS = json.load(open(VERSIONS_PATH, encoding="utf-8"))
+DOLT_VERSION = VERSIONS["dolt"]["version"]
+DOLT_IMAGE = VERSIONS["dolt"]["image"]
+# the seconds the DoltgreSQL image's entrypoint gives the server to accept connections; a per-row-commit
+# store of hundreds of thousands of commits takes minutes to open (the server scans every table first),
+# so the served stack (compose.yaml) and the memory study's probe both allow this much
+DOLTGRES_START_LIMIT = 1800
+
+
+def version_of(engine):
+    """The version of the result set for an engine: mysql, dolt, postgres, doltgres, sqlite, doltlite."""
+    return VERSIONS[engine]["version"]
+
+
+def engine_of_unit(key, u):
+    """Which engine a recorded unit measured: the pairs' units say; the MySQL/Dolt run's are named by key."""
+    if u.get("engine"):
+        return u["engine"]
+    return "mysql" if (u.get("phase") or key).startswith("mysql") else "dolt"
+
+
+def current(key, u):
+    """Whether a recorded unit belongs to the current result set: done, measured the way the pairs'
+    collector reports (their method), on the version of its engine that versions.json names. Every
+    reader of build/progress.json -- runners, collectors, progress, facts, the audit -- uses this one
+    test, so nothing can count a unit that another reader withdraws."""
+    if u.get("status") != "done":
+        return False
+    if u.get("pair"):
+        from pairs import METHOD   # pairs imports this module; resolved lazily
+        if u.get("method") != METHOD:
+            return False
+    return u.get("engine_version") == version_of(engine_of_unit(key, u))
+
+
+def version_gate(units, engines):
+    """Refuse to measure while the result set holds units of these engines on another version.
+
+    The check is over every recorded unit of the engines this run touches, not only the units in the
+    run's scope, so a narrow run cannot slip new-version units in beside old ones. Nothing is written
+    before it; the way forward is `make new-run`, which moves every engine to its newest release and
+    drops the units measured on the old ones."""
+    stale = {}
+    for key, u in units.items():
+        engine = engine_of_unit(key, u)
+        if engine in engines and u.get("status") == "done" and u.get("engine_version") != version_of(engine):
+            stale.setdefault(engine, []).append((key, u.get("engine_version") or "no version recorded"))
+    if stale:
+        lines = [f"  {engine}: {len(items)} unit(s) measured with version {', '.join(sorted({v for _, v in items}))}; "
+                 f"versions.json says {version_of(engine)}" for engine, items in stale.items()]
+        sys.exit("A run measures every unit on one version of each engine, and these were measured on another:\n"
+                 + "\n".join(lines)
+                 + "\n\nNothing was changed. `make new-run` moves every engine to its newest release and drops the "
+                   "units measured on the old ones, so the run measures them again; or put versions.json back to "
+                   "the versions they were measured with.")
 
 # ---------------------------------------------------------------------- memory ---
 # WSL2 gave this host 15.5 GB and ran out of it. Nothing here was bounded: the loads created a
@@ -112,7 +177,7 @@ def mysql(sql, container=None):
             "-N", "--batch", "-e", sql)
     if p.returncode != 0:
         sys.exit(f"could not query {container or MYSQL_CONTAINER}: {p.stderr.strip()[:200]}\n"
-                 f"Is mysql-megasamples running? `cd ../mysql-megasamples && make up`")
+                 f"Is sql-megasamples running? `cd {MEGASAMPLES_DIR} && make up`")
     return [line.split("\t") for line in p.stdout.splitlines() if line.strip()]
 
 
@@ -159,7 +224,68 @@ def human(n):
     when it is 67.9 GB decimal, or 63.3 GiB. The division was never the problem; the label was.
     Binary is the right choice here because it is what `docker stats` and `du -h` report, and those
     are the numbers a reader will be comparing against."""
-    for unit in ("B", "KiB", "MiB", "GiB"):
-        if abs(n) < 1024 or unit == "GiB":
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        # a unit changes at 1,000 as printed, so 1,020.7 MiB reads as 1.0 GiB and 999.96 MiB does not
+        # print as 1,000.0 MiB: the test is on the rounded value the reader would see
+        shown = round(abs(n)) if unit == "B" else round(abs(n), 1)
+        if shown < 1000 or unit == "TiB":
             return f"{n:,.0f} {unit}" if unit == "B" else f"{n:,.1f} {unit}"
         n /= 1024
+
+
+def human_mb(mb):
+    """A memory ceiling given in mebibytes (what `docker --memory 64m` means), in the same units as
+    every size here: 64 MiB, 2.0 GiB, 12.0 GiB."""
+    return human(mb * 1024 * 1024)
+
+
+def duration(v):
+    """Seconds as a reader would say them: under a minute in seconds, under an hour in minutes and
+    seconds, above that in hours and minutes. 10,000 s is not a quantity anyone can picture."""
+    if round(v, 1) < 10:
+        return f"{v:.1f} s"
+    r = int(round(v))          # round once, then choose the form, so 59.6 s is "1 min 00 s", not "60 s"
+    if r < 60:
+        return f"{r} s"
+    if r < 3600:
+        m, s = divmod(r, 60)
+        return f"{m} min {s:02d} s"
+    h, rem = divmod(r, 3600)
+    return f"{h} h {rem // 60:02d} min"
+
+
+LOCK_PATH = os.path.join(ROOT, "build", "run.lock")
+
+
+def run_lock(what):
+    """Hold build/run.lock for the life of the process: (file, None), or (None, who holds it).
+
+    Every writer of build/progress.json and of the stores takes it -- run_all.py, run_pairs.py,
+    clean_pairs.py and the memory study -- and `make up` refuses while it is held. The first versions
+    guarded with process-name matching, which let two runners stop each other's workers and write
+    over each other's records, and which matched any command line that merely named a runner's file
+    (2026-09-10 review). The kernel drops the lock when the process ends, however it ends."""
+    import fcntl
+    os.makedirs(os.path.dirname(LOCK_PATH), exist_ok=True)
+    fh = open(LOCK_PATH, "a+")
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fh.seek(0)
+        holder = fh.read().strip() or "another process"
+        fh.close()
+        return None, holder
+    fh.seek(0)
+    fh.truncate()
+    fh.write(f"{what}, pid {os.getpid()}, since {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n")
+    fh.flush()
+    return fh, None
+
+
+def lock_held():
+    """Who holds build/run.lock, or None; takes it only for the length of the test."""
+    fh, holder = run_lock("a check")
+    if fh is None:
+        return holder
+    fh.close()
+    return None

@@ -11,13 +11,15 @@
 #   docker compose down            all of it down again
 #   docker compose up -d dolt      just the database
 #
-# Ports are deliberately one range above mysql-megasamples, which uses 3306 and 8080-8084:
+# Ports are deliberately one range above sql-megasamples, which uses 3306 and 8080-8084:
 #
 #   3307  Dolt (MySQL wire protocol)        8090  landing page
 #   8091  phpMyAdmin   8092  Adminer        8093  DbGate      8094  CloudBeaver
 #   8095  Dolt Workbench (+ 9002, its GraphQL API, which the browser calls directly)
 #
-# Everything binds to 127.0.0.1. Images are pinned by digest.
+# Everything binds to 127.0.0.1. Images are named by digest; the three engines' images come from
+# versions.json (one version per result set): scripts/stack_config.py writes them into
+# compose.override.yaml on every `make up`, so the defaults below only document the current ones.
 #
 # `data/dolt` is written by scripts/load_dolt.py before this stack ever starts, so the image's
 # /docker-entrypoint-initdb.d hook -- which only fires on an empty data directory -- never runs.
@@ -34,6 +36,10 @@ services:
     environment:
       DOLT_ROOT_PASSWORD: ${DOLT_ROOT_PASSWORD:-root}
       DOLT_ROOT_HOST: "%"
+    # compose.override.yaml, written by scripts/stack_config.py on every `make up`, mounts each
+    # repository of the chosen load shape (make up SERVE=rowcommit) at /var/lib/dolt/<db>: the timed
+    # runner keeps them one level deeper than the server looks, and Dolt 2.3's config cannot name
+    # paths. Without the override, the one-commit loads below are served as they are.
     volumes:
       - ./data/dolt:/var/lib/dolt
     # No `command:`. The image's entrypoint already starts `dolt sql-server` with its own --host,
@@ -52,19 +58,78 @@ services:
   # One-shot: creates `demo` and `admin` once the server answers, then exits. Uses the MySQL client
   # from the megasamples image because Dolt's own image ships no client.
   dolt-init:
-    image: ${MEGASAMPLES_IMAGE:-mysql-megasamples:dev}
+    image: ${MEGASAMPLES_MYSQL_IMAGE:-sql-megasamples-mysql:dev}
     mem_limit: 512m
     container_name: doltsamples-init
     depends_on: { dolt: { condition: service_healthy } }
     volumes:
-      - ./docker/dolt/init.sql:/init.sql:ro
-    entrypoint: ["sh", "-c"]
-    command:
-      - 'for i in $$(seq 30); do mysql -hdolt -P3306 -uroot -p"$$DOLT_ROOT_PASSWORD" < /init.sql && exit 0; sleep 2; done; echo "could not apply the accounts"; exit 1'
+      - ./docker/dolt/init.sh:/init.sh:ro
+    entrypoint: ["sh", "/init.sh"]
     environment:
       DOLT_ROOT_PASSWORD: ${DOLT_ROOT_PASSWORD:-root}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
     restart: "no"
 
+  # ============================================================================================
+  # DoltgreSQL, the build every DoltgreSQL number was measured against: versions.json names it by
+  # digest and compose.override.yaml (written by `make up`) sets it here, so the image line below
+  # is the documented default, not the source. Moving the version (`python3 scripts/versions.py
+  # --latest doltgres`) means every DoltgreSQL unit is measured again: one version per result set
+  # (knowledge/decisions/engine-versions-one-per-result-set.md). Serves the one-shot loads
+  # (data/doltgres-oneshot, one repository per database) on 5433, one above sql-megasamples' 5432.
+  # ============================================================================================
+  doltgres:
+    image: dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae
+    mem_limit: 1536m
+    container_name: doltsamples-doltgres
+    ports: ["127.0.0.1:5433:5432"]
+    environment:
+      DOLTGRES_PASSWORD: ${DOLTGRES_PASSWORD:-doltsamples}
+      # The image's entrypoint kills a server that is not accepting connections within
+      # DOLTGRES_SERVER_TIMEOUT seconds (default 300). DoltgreSQL scans every table when it opens a
+      # store, and a per-row-commit history of 759,240 commits or more takes longer than that
+      # (measured 2026-09-16), so serving those shapes needs the longer limit; the one-commit
+      # loads open in seconds either way.
+      DOLTGRES_SERVER_TIMEOUT: "1800"
+    volumes:
+      - ./data/doltgres-oneshot:/var/lib/doltgres
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=$$DOLTGRES_PASSWORD psql -X -h 127.0.0.1 -U postgres -d postgres -tAc 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 1800s
+    restart: unless-stopped
+  doltgres-init:
+    image: dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae
+    mem_limit: 256m
+    container_name: doltsamples-doltgres-init
+    depends_on: { doltgres: { condition: service_healthy } }
+    volumes:
+      - ./docker/doltgres/init.sh:/init.sh:ro
+      - ./docker/doltgres/init.sql:/init.sql:ro
+    entrypoint: ["sh", "/init.sh"]
+    environment:
+      DOLTGRES_PASSWORD: ${DOLTGRES_PASSWORD:-doltsamples}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+    restart: "no"
+  # DoltLite, the version every DoltLite number was measured with: versions.json names it, `make
+  # lite-image` builds the image from its checksummed packages, and compose.override.yaml sets the
+  # tag here on every `make up` (the line below is the documented default). Moving the version means
+  # every DoltLite unit is measured again: one version per result set.
+  # DoltLite has no server: the files of the one-shot loads (data/doltlite-oneshot/<db>.doltlite)
+  # and the doltlite shell, in the image `make lite-image` builds.
+  # Use it with `docker exec -it doltsamples-doltlite doltlite /data/sakila.doltlite`, or copy a
+  # file out; no web console reads a DoltLite file, since it is not SQLite pages.
+  doltlite:
+    image: doltsamples-doltlite:0.50.10
+    mem_limit: 512m
+    container_name: doltsamples-doltlite
+    volumes:
+      - ./data/doltlite-oneshot:/data
+    restart: unless-stopped
   console:
     image: nginx@sha256:3bcf852aed06467cf075c6105892e4d5a6ebbbafa0ce22d35062db9e90ddef4c
     mem_limit: 32m
@@ -107,7 +172,7 @@ services:
     container_name: doltsamples-dbgate
     ports: ["127.0.0.1:8093:3000"]
     environment:
-      CONNECTIONS: demo,admin
+      CONNECTIONS: demo,admin,pgdemo,pgadmin
       LABEL_demo: dolt-megasamples (read-only)
       SERVER_demo: dolt
       PORT_demo: "3306"
@@ -120,7 +185,19 @@ services:
       USER_admin: admin
       PASSWORD_admin: ${ADMIN_PASSWORD:-admin}
       ENGINE_admin: mysql@dbgate-plugin-mysql
-    depends_on: { dolt: { condition: service_healthy } }
+      LABEL_pgdemo: DoltgreSQL (read-only)
+      SERVER_pgdemo: doltgres
+      PORT_pgdemo: "5432"
+      USER_pgdemo: demo
+      PASSWORD_pgdemo: ${DEMO_PASSWORD:-demo}
+      ENGINE_pgdemo: postgres@dbgate-plugin-postgres
+      LABEL_pgadmin: DoltgreSQL (full access)
+      SERVER_pgadmin: doltgres
+      PORT_pgadmin: "5432"
+      USER_pgadmin: admin
+      PASSWORD_pgadmin: ${ADMIN_PASSWORD:-admin}
+      ENGINE_pgadmin: postgres@dbgate-plugin-postgres
+    depends_on: { dolt: { condition: service_healthy }, doltgres: { condition: service_healthy } }
     restart: unless-stopped
 
   # Dolt's own browsing product. The other four consoles see Dolt as a MySQL server and so cannot
@@ -141,7 +218,14 @@ services:
       - "127.0.0.1:9002:9002"
     environment:
       GRAPHQLAPI_URL: http://127.0.0.1:9002/graphql
-    depends_on: { dolt: { condition: service_healthy } }
+    volumes:
+      # the saved connections (both accounts on Dolt and on DoltgreSQL, one per served DoltLite
+      # file), written by scripts/stack_config.py on every `make up`; the Workbench adds to the same file
+      - ./docker/workbench/store:/app/graphql-server/store
+      # the DoltLite files, one saved connection each: the Workbench's bundled DoltLite opens
+      # them in its own process (several processes may share a file; one writer at a time)
+      - ./data/doltlite-oneshot:/data/doltlite
+    depends_on: { dolt: { condition: service_healthy }, doltgres: { condition: service_healthy } }
     restart: unless-stopped
 
   cloudbeaver:

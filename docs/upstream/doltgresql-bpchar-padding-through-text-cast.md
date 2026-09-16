@@ -1,0 +1,22 @@
+# DoltgreSQL 1.3.1: a character(n) value keeps its padding through a cast to text
+
+*Found on DoltgreSQL 1.3.1, the version dolt-megasamples measures, named by image digest (`sha256:6c85cb1f35be…`, `versions.json`). It was the newest release on 2026-09-10; v1.3.2 (2026-09-12) has not been tried.*
+
+Record: `knowledge/tools/doltgresql-1-3-1.md`.
+
+Reported upstream: https://github.com/dolthub/doltgresql/issues/3325 (2026-09-11), with the reproduction repository https://github.com/Reliable-Collaboration/repro-doltgresql-bug-bpchar-padding, which runs the failing SQL side by side with the reference engine. As read on 2026-09-16: fixed by pull request 3349, merged 2026-09-16 after v1.3.3, so not yet in a release; the issue is closed.
+
+**Steps:**
+
+```sql
+CREATE TABLE c1 (id int NOT NULL, class character(2),
+  CONSTRAINT c1_ck CHECK (((upper((class)::text) = ANY (ARRAY['L'::text, 'M'::text, 'H'::text])) OR (class IS NULL))));
+INSERT INTO c1 VALUES (1, 'L ');
+SELECT '[' || (class)::text || ']' FROM c1;
+```
+
+**Result:** the `INSERT` answers `Check constraint "c1_ck" violated`; with the check removed, the `SELECT` answers `[L ]`. PostgreSQL answers `[L]` (the cast from bpchar to text strips the padding) and accepts the row; `COPY` behaves the same way on both. `rtrim((class)::text)` restores PostgreSQL's behaviour on DoltgreSQL.
+
+**Where it comes from** (read in the v1.3.1 source, not patched): the implicit cast from `bpchar` to `text` in `server/cast/char.go` (lines 98-104) returns the value unchanged, where PostgreSQL strips the trailing blanks.
+
+**Why it matters:** pg_dump writes `character(n)` values padded, and the AdventureWorks sample's `CHECK` constraints over `class`, `productline` and `style` refuse every row of `production_product` on restore.
