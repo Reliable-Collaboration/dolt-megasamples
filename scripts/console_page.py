@@ -11,22 +11,13 @@ it shows what was measured and cannot drift from the report.
 import html, json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import ROOT, human, load_results  # noqa: E402
+from common import DOLT_VERSION, ROOT, human, load_results  # noqa: E402
 from pairs import DOLTGRES_VERSION, LITE_VERSION  # noqa: E402
 import stack_settings  # noqa: E402
 
 OUT = os.path.join(ROOT, "docker", "console", "index.html")
 # ports, passwords and container names as the last `make up` resolved them (scripts/stack_settings.py)
 S = stack_settings.load()
-def _dolt_version():
-    import json, re
-    try:
-        v = (json.load(open(os.path.join(ROOT, "build", "environment.json"), encoding="utf-8")).get("engines") or {}).get("dolt_version", "")
-    except (OSError, ValueError):
-        v = ""
-    m = re.search(r"\d+\.\d+(?:\.\d+)?", v)
-    return m.group(0) if m else ""
-DOLT_VERSION = _dolt_version()
 P, PW, C = S["ports"], S["passwords"], S["containers"]
 # a password set in .env is named, not printed: this page is committed to the repository
 SHOWN = {k: (v if v == stack_settings.DEFAULTS["passwords"][k] else f"${stack_settings.PASSWORD_VARS[k]}")
@@ -43,8 +34,8 @@ CONSOLES = [("CloudBeaver", P["cloudbeaver"], "Dolt and DoltgreSQL",
              "with either account."),
             ("phpMyAdmin", P["phpmyadmin"], "Dolt only", "Signed in already; the server menu switches account.")]
 # Adminer answers 403 to a login URL that names a username (its permanent-login guard, measured
-# on the 1.3.1 image on 2026-09-10), so the links name the server only and the page above says
-# which account to type.
+# on 2026-09-10 with the stack on DoltgreSQL 1.3.1), so the links name the server only and the
+# page above says which account to type.
 DEEP = (("Adminer", "A", f"http://127.0.0.1:{P['adminer']}/?server=dolt&db={{db}}"),
         ("Adminer on DoltgreSQL", "Aᴘ", f"http://127.0.0.1:{P['adminer']}/?pgsql=doltgres&db={{db}}"),
         ("phpMyAdmin", "P", f"http://127.0.0.1:{P['phpmyadmin']}/index.php?route=/database/structure&db={{db}}&server=1"))
@@ -118,8 +109,6 @@ def main():
     if not items:
         sys.exit("no measurements yet; run `make measure`")
     base = [(db, r, s) for db, r, s in items if s["mysql"] and s["dolt"]]
-    my = sum(s["mysql"] for _, _, s in base)
-    do = sum(s["dolt"] for _, _, s in base)
     rc = [(s["dolt"], (r.get("modes", {}).get("rowcommit") or {}).get("disk_bytes")) for _, r, s in base]
     rc = [(a, b) for a, b in rc if a and b]
     granularity = ""
@@ -130,12 +119,20 @@ def main():
     have_pg = any(s["postgres"] or s["doltgres"] for _, _, s in items)
     have_lite = any(s["sqlite"] or s["doltlite"] for _, _, s in items)
     served_pg = set(((serve.get("engines") or {}).get("doltgres") or {}).get("databases") or [])
-    def pair_ratio(a, b):
-        both = [(s[a], s[b]) for _, _, s in items if s[a] and s[b]]
-        return (sum(y for _, y in both) / sum(x for x, _ in both), len(both)) if both else (None, 0)
-    ratios = [(name, *pair_ratio(a, b)) for name, a, b in (("MySQL", "mysql", "dolt"), ("PostgreSQL", "postgres", "doltgres"),
-                                                          ("SQLite", "sqlite", "doltlite"))]
-    ratio_line = ", ".join(f"<b>{r:.2f}×</b> {name}'s" for name, r, n in ratios if r)
+    # the same totals the README's finding gives: over the databases each pair has every load for, so
+    # the page and the README cannot say two different multiples for the same sentence
+    from loads import PAIR_ORDER, PAIRS, complete, measure, test_of
+    ratios, fewer = [], []
+    for pair in PAIR_ORDER:
+        dbs = complete(results, pair)
+        base = sum(measure(results[d], pair, test_of(pair, "bulk"), "bytes") or 0 for d in dbs)
+        once = sum(measure(results[d], pair, test_of(pair, "oneshot"), "bytes") or 0 for d in dbs)
+        if base and once:
+            ratios.append((PAIRS[pair]["baseline"], once / base))
+            if len(dbs) < len(items):
+                fewer.append(f"{PAIRS[pair]['engine']} {len(dbs)}")
+    ratio_line = ", ".join(f"<b>{r:.2f}×</b> {name}'s" for name, r in ratios)
+    ratio_line += (f" (over the databases each pair has every load for: {', '.join(fewer)} of {len(items)})" if fewer else "")
     catalogue = {}
     try:
         catalogue = json.load(open(os.path.join(ROOT, "build", "catalogue.json"), encoding="utf-8"))
@@ -171,7 +168,7 @@ def main():
 
     for db, r, s in sorted(items, key=lambda x: -(x[2]["mysql"] or x[2]["postgres"] or x[2]["sqlite"] or 0)):
         opens = "".join(
-            f'<a class="go" title="Open {db} in {n}" href="{html.escape(u.format(db=db))}">{c}</a>'
+            f'<a class="go" title="Open {html.escape(db)} in {n}" href="{html.escape(u.format(db=db))}">{c}</a>'
             for n, c, u in DEEP if ("DoltgreSQL" not in n or db in served_pg))
         row = (f'      <tr><td><code>{html.escape(db)}</code><span class="opens">{opens}</span></td>'
                + (f'<td class="what">{html.escape(catalogue.get(db, ""))}</td>' if catalogue else '')
@@ -254,7 +251,7 @@ stores are {ratio_line}; a commit per row costs far more.{granularity} <code>REA
 {chr(10).join(cards)}
 </table>
 <footer>Sizes are the settled one-commit loads (after garbage collection or VACUUM), the shape served by default; the README's table gives every run.
-A = open in Adminer, Aᴘ = in Adminer on DoltgreSQL, P = in phpMyAdmin. Every number was measured on exactly these engine versions; a moved version means every unit of that engine is measured again: see Versions in README.md. Generated by scripts/console_page.py.</footer>
+A = open in Adminer, Aᴘ = in Adminer on DoltgreSQL, P = in phpMyAdmin. Every number was measured on exactly these engine versions; a moved version means every unit of that engine is measured again: see The engines in README.md. Generated by scripts/console_page.py.</footer>
 """
     with open(OUT, "w", encoding="utf-8") as fh:
         fh.write(page)

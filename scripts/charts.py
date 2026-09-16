@@ -35,24 +35,13 @@ import json, os, sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt   # noqa: E402
-from matplotlib.ticker import FuncFormatter, LogLocator   # noqa: E402
+from matplotlib.ticker import FuncFormatter   # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG = os.path.join(ROOT, "docs", "img")
 MB = 1024 * 1024
 
 INK, GRID = "#22252a", "#cfd4dc"
-
-
-def bar_label(v):
-    """A value written beside its bar: compact enough to fit, exact enough to be worth reading."""
-    if v >= 1000:
-        return f"{v:,.0f}"
-    if v >= 10:
-        return f"{v:.0f}"
-    if v >= 1:
-        return f"{v:.1f}"
-    return f"{v:.2f}".rstrip("0").rstrip(".")
 
 
 def plain_number(v, _=None):
@@ -66,7 +55,7 @@ def plain_number(v, _=None):
         return ""
     if v >= 1:
         return f"{v:,.0f}"
-    return f"{v:g}".rstrip("0").rstrip(".") if v < 1 else f"{v:g}"
+    return f"{v:g}".rstrip("0").rstrip(".")
 
 
 def log_axis(ax, which="x"):
@@ -108,14 +97,13 @@ def load(path=None):
 # One colour code for the whole document: hue is the engine family, on the Okabe-Ito palette, which
 # stays distinguishable under the three common colour-vision deficiencies. A load shape is never a
 # hue: it is the panel a figure puts it in, or the marker.
-from loads import PAIRS, PAIR_ORDER, SHAPES, SHAPE_LABELS, TESTS, PAIR_TESTS, complete, measure, rows_of, spread, test_of  # noqa: E402
+from loads import PAIRS, PAIR_ORDER, SHAPES, SHAPE_LABELS, complete, measure, rows_of, test_of  # noqa: E402
 
 ENGINE = {"MySQL": "#0072B2", "PostgreSQL": "#56B4E9", "SQLite": "#E69F00",
           "Dolt": "#009E73", "DoltgreSQL": "#D55E00", "DoltLite": "#CC79A7"}
 BASELINE_OF = {p: PAIRS[p]["baseline"] for p in PAIR_ORDER}
 DOLT_OF = {p: PAIRS[p]["engine"] for p in PAIR_ORDER}
 MARKER = {"bulk": "o", "rowwise": "o", "oneshot": "o", "rowinsert": "D", "rowcommit": "s"}
-MB = 1024 * 1024
 
 
 def engine_of(pair, shape):
@@ -163,6 +151,13 @@ def unit_ticks(ax, unit, which="x"):
     axis = ax.xaxis if which == "x" else ax.yaxis
     lo, hi = (ax.get_xlim() if which == "x" else ax.get_ylim())
     chosen = [(v, l) for v, l in ticks if lo <= v <= hi]
+    if len(chosen) < 2:  # a narrow axis (a preview of one database) takes the nearest tick either side
+        below = [(v, l) for v, l in ticks if v < lo]
+        above = [(v, l) for v, l in ticks if v > hi]
+        chosen = below[-1:] + chosen + above[:1]
+        if len(chosen) < 2:
+            return           # the decade labels stay
+        (ax.set_xlim if which == "x" else ax.set_ylim)(min(lo, chosen[0][0]), max(hi, chosen[-1][0]))
     if len(chosen) > 7:  # a wide axis keeps every other tick, so the labels stay evenly spaced
         chosen = chosen[1::2] if len(chosen) % 2 == 0 else chosen[::2]
     axis.set_major_locator(plt.FixedLocator([v for v, _ in chosen]))
@@ -175,7 +170,7 @@ def name_extremes(ax, points, fmt, k=2, fontsize=7):
     if not points:
         return
     ranked = sorted(points, key=lambda p: p[0])
-    for x, y, name in ranked[:k] + ranked[-k:]:
+    for x, y, name in dict.fromkeys(ranked[:k] + ranked[-k:]):   # a short series is not named twice
         ax.annotate(f"{name} {fmt(x)}", (x, y), textcoords="offset points", xytext=(6, 0), va="center",
                     ha="left", fontsize=fontsize, color=INK, alpha=.9)
 
@@ -210,20 +205,24 @@ def fig_headline(results):
                  "as a multiple of the same engine's baseline loaded in bulk (log scale; 1 = the baseline)")
         lo, hi = ax.get_xlim()
         ax.set_xlim(lo, hi * 3)
-    rc = [ratio.get(("bytes", p, "rowcommit")) for p in PAIR_ORDER if ("bytes", p, "rowcommit") in ratio]
-    rt = [ratio.get(("seconds", p, "rowcommit")) for p in PAIR_ORDER if ("seconds", p, "rowcommit") in ratio]
+    drawn = [p for p in PAIR_ORDER if ("bytes", p, "rowcommit") in ratio]
+    rc = [ratio[("bytes", p, "rowcommit")] for p in drawn]
+    rt = [ratio[("seconds", p, "rowcommit")] for p in drawn if ("seconds", p, "rowcommit") in ratio]
+    where = "in every engine" if len(drawn) == len(PAIR_ORDER) else f"in {len(drawn)} of the {len(PAIR_ORDER)} engines"
     title = (f"A commit per row costs {min(rc):.0f} to {max(rc):.0f} times the baseline's disk and "
-             f"{min(rt):,.0f} to {max(rt):,.0f} times its time, in every engine") if rc and rt else "What each Dolt engine costs"
+             f"{min(rt):,.0f} to {max(rt):,.0f} times its time, {where}") if rc and rt else "What each Dolt engine costs"
     fig.suptitle(title, fontsize=12.5, fontweight="bold", color=INK, x=.01, ha="left", y=1.04)
-    handles = [plt.Line2D([], [], marker="o", linestyle="", color=ENGINE[e], markersize=8) for e in
-               ("Dolt", "DoltgreSQL", "DoltLite", "MySQL", "PostgreSQL", "SQLite")]
-    fig.legend(handles, ["Dolt against MySQL", "DoltgreSQL against PostgreSQL", "DoltLite against SQLite",
-                         "MySQL itself", "PostgreSQL itself", "SQLite itself"],
+    handles = [plt.Line2D([], [], marker="o", linestyle="", color=ENGINE[e], markersize=8)
+               for e in [DOLT_OF[p] for p in drawn] + [BASELINE_OF[p] for p in drawn]]
+    fig.legend(handles, [f"{DOLT_OF[p]} against {BASELINE_OF[p]}" for p in drawn] + [f"{BASELINE_OF[p]} itself" for p in drawn],
                fontsize=8, frameon=False, ncol=6, loc="lower center", bbox_to_anchor=(0.5, -0.06))
     cov = "; ".join(f"{DOLT_OF[p]}: {len(complete(results, p))} of {len(results)} databases" for p in PAIR_ORDER)
+    once = ", ".join(f"{times(ratio[('bytes', p, 'oneshot')])} {BASELINE_OF[p]}'s" for p in drawn if ("bytes", p, "oneshot") in ratio)
+    rw = [ratio[("seconds", p, "rowwise")] for p in drawn if ("seconds", p, "rowwise") in ratio]
     fig.text(.01, -0.14, f"Totals over the databases each pair has every load for ({cov}). "
-             "Loaded once and committed once, a Dolt engine's store is a fraction of MySQL's or PostgreSQL's and near SQLite's; "
-             "writing one row at a time is expensive before any Dolt engine is involved.",
+             + (f"Loaded once and committed once, a Dolt engine's store is {once}; " if once else "")
+             + (f"writing one row at a time costs a baseline {times(min(rw))} to {times(max(rw))} its bulk load in time "
+                "before any Dolt engine is involved." if rw else ""),
              fontsize=7.5, color=INK, alpha=.85, wrap=True)
     fig.tight_layout()
     save(fig, "headline.png")
@@ -256,12 +255,16 @@ def fig_sizes_by_engine(results):
         dot_axes(ax, title, "on disk (log scale)", pad=34, unit="bytes")
         ax.legend(fontsize=7.5, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0))
     axes[0].set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=7.5)
-    sub = ", ".join(f"{times(totals(results, p, 'bytes')[0]['oneshot'] / (totals(results, p, 'bytes')[0]['bulk'] or 1))} "
-                    f"{BASELINE_OF[p]}'s" for p in PAIR_ORDER)
-    fig.suptitle(f"Loaded once and committed once, a Dolt engine's store is {sub}, in total",
+    tot = {p: totals(results, p, "bytes") for p in PAIR_ORDER}
+    sub = ", ".join(f"{times(tot[p][0]['oneshot'] / tot[p][0]['bulk'])} {BASELINE_OF[p]}'s" for p in PAIR_ORDER if tot[p][0]["bulk"])
+    cov = "; ".join(f"{DOLT_OF[p]}: {len(tot[p][1])} of {len(results)}" for p in PAIR_ORDER if tot[p][0]["bulk"])
+    fig.suptitle(f"Loaded once and committed once, a Dolt engine's store is {sub}, in total" if sub
+                 else "Every database in every engine, one panel per run",
                  fontsize=12.5, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
     fig.text(.01, -0.01, "Databases in order of rows. A missing dot is a load with no result; DoltLite's uncollected store "
-             "is absent here and shown at its working footprint in the tables.", fontsize=7.5, color=INK, alpha=.8)
+             "is absent here and shown at its working footprint in the tables."
+             + (f" The title's totals are over the databases each pair has every load for ({cov})." if cov else ""),
+             fontsize=7.5, color=INK, alpha=.8)
     fig.tight_layout()
     save(fig, "sizes-by-engine.png")
 
@@ -271,6 +274,10 @@ def fig_history_cost(results):
     """Each database's commit-per-row store and load against its baseline in bulk, three engines on a
     row, the reference line at 1, the extremes named: a deviation figure, which is what a ratio is."""
     dbs = order(results)
+    if not any(measure(results[d], p, test_of(p, "rowcommit"), "bytes") and measure(results[d], p, test_of(p, "bulk"), "bytes")
+               for d in dbs for p in PAIR_ORDER):
+        print("  ! history-cost skipped: no commit-per-row load has been measured beside its baseline")
+        return
     fig, axes = plt.subplots(1, 2, figsize=(14, 0.42 * len(dbs) + 2.4), sharey=True)
     span = {}
     for ax, axis in zip(axes, ("bytes", "seconds")):
@@ -298,11 +305,13 @@ def fig_history_cost(results):
         lo, hi = ax.get_xlim()
         ax.set_xlim(lo, hi * 4)
     axes[0].set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=7.5)
-    fig.suptitle(f"Keeping a commit per row costs from {times(span['bytes'][0])} to {times(span['bytes'][1])} the disk of the "
-                 f"same database loaded in bulk, and {times(span['seconds'][0])} to {times(span['seconds'][1])} the time",
+    fig.suptitle((f"Keeping a commit per row costs from {times(span['bytes'][0])} to {times(span['bytes'][1])} the disk of the "
+                  f"same database loaded in bulk" + (f", and {times(span['seconds'][0])} to {times(span['seconds'][1])} the time"
+                                                     if span["seconds"][1] else ""))
+                 if span["bytes"][1] else "What a commit per row costs against the bulk load",
                  fontsize=12, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
-    fig.text(.01, -0.01, "Databases in order of rows; the extremes are named. What the ratio tracks is the number of commits, "
-             "not the rows: the database with the most rows is the outlier in every engine.", fontsize=7.5, color=INK, alpha=.8)
+    fig.text(.01, -0.01, "Databases in order of rows; the largest and the smallest ratio in each panel are named. DoltLite's "
+             "uncollected store is absent here and shown at its working footprint in the tables.", fontsize=7.5, color=INK, alpha=.8)
     fig.tight_layout()
     save(fig, "history-cost.png")
 
@@ -323,7 +332,7 @@ def fig_index_policy_summary(results):
     import statistics
     shapes = ["rowwise", "rowinsert", "rowcommit"]
     fig, axes = plt.subplots(1, 2, figsize=(12.5, 4.2), sharey=True)
-    worst = {}
+    median = {}
     for ax, axis in zip(axes, ("bytes", "seconds")):
         for k, pair in enumerate(PAIR_ORDER):
             for i, sh in enumerate(shapes):
@@ -332,7 +341,7 @@ def fig_index_policy_summary(results):
                 if not vals:
                     continue
                 med = statistics.median(vals)
-                worst[(axis, pair, sh)] = (med, min(vals), max(vals), len(vals))
+                median[(axis, pair, sh)] = med
                 y = len(shapes) - 1 - i + (1 - k) * 0.22
                 ax.plot([min(vals), max(vals)], [y, y], color=colour(pair, sh), linewidth=1.2, alpha=.45, zorder=2)
                 ax.scatter([med], [y], s=64, color=colour(pair, sh), marker=MARKER[sh], zorder=3, edgecolor="white", linewidth=.8)
@@ -344,9 +353,11 @@ def fig_index_policy_summary(results):
         ax.grid(axis="y", visible=False)
     handles = [plt.Line2D([], [], marker="o", linestyle="", color=ENGINE[e], markersize=8) for e in ENGINE]
     fig.legend(handles, list(ENGINE), fontsize=8, frameon=False, ncol=6, loc="lower center", bbox_to_anchor=(0.5, -0.05))
-    rcs = [worst[(axis, p, "rowcommit")][0] for axis in ("bytes",) for p in PAIR_ORDER if (axis, p, "rowcommit") in worst]
-    fig.suptitle(f"Maintaining the indexes on a commit-per-row load costs {min(rcs):.0f}% to {max(rcs):.0f}% more disk at the median "
-                 f"database; on the baselines it barely matters" if rcs else "What maintaining the indexes costs",
+    rcs = [median[("bytes", p, "rowcommit")] for p in PAIR_ORDER if ("bytes", p, "rowcommit") in median]
+    bls = [median[("bytes", p, "rowwise")] for p in PAIR_ORDER if ("bytes", p, "rowwise") in median]
+    fig.suptitle((f"Maintaining the indexes on a commit-per-row load costs {min(rcs):.0f}% to {max(rcs):.0f}% more disk at the median "
+                  f"database" + (f"; on the baselines' row-by-row load, {min(bls):+.0f}% to {max(bls):+.0f}%" if bls else ""))
+                 if rcs else "What maintaining the indexes costs",
                  fontsize=12, fontweight="bold", color=INK, x=.01, ha="left", y=1.04)
     fig.tight_layout()
     save(fig, "index-policy-summary.png")
@@ -406,12 +417,12 @@ MEMORY_PAIRS_JSON = os.path.join(ROOT, "build", "memory_pairs.json")
 
 
 def memory_points(results):
-    """{(engine, mode): [(rows, commits, megabytes or None, db)]} from the three memory studies."""
+    """{(engine, mode): [(rows, commits, megabytes or None, db, ladder top)]} from the three memory studies."""
     pts = {}
     if os.path.exists(MEMORY_JSON):
         data = json.load(open(MEMORY_JSON, encoding="utf-8"))
         for mode in ("oneshot", "rowcommit"):
-            pts[("Dolt", mode)] = [(r.get("rows"), r.get("commits"), r.get("megabytes"), db)
+            pts[("Dolt", mode)] = [(r.get("rows"), r.get("commits"), r.get("megabytes"), db, r.get("ladder_top_mb") or 16384)
                                    for db, r in (data.get(mode) or {}).items() if r.get("rows")]
     if os.path.exists(MEMORY_PAIRS_JSON):
         data = json.load(open(MEMORY_PAIRS_JSON, encoding="utf-8"))
@@ -422,7 +433,7 @@ def memory_points(results):
                     unit = ((results.get(db, {}).get("pairs") or {}).get(pair) or {}).get(f"{test}_{mode}") or {}
                     rows = rows_of(results.get(db, {}), pair)
                     if rows:
-                        out.append((rows, unit.get("commits"), r.get("megabytes"), db))
+                        out.append((rows, unit.get("commits"), r.get("megabytes"), db, r.get("ladder_top_mb") or 16384))
                 pts[(engine, mode)] = out
     return pts
 
@@ -435,20 +446,21 @@ def fig_memory(results):
     pts = memory_points(results)
     if not pts:
         return
-    top = 16384
     fig, axes = plt.subplots(1, 2, figsize=(12.5, 5.2), sharey=True)
+    unopened = False
     for ax, xi, xlabel in ((axes[0], 0, "rows in the database"), (axes[1], 1, "commits in the store")):
         for (engine, mode), series in pts.items():
-            xs = [(p[xi], p[2], p[3]) for p in series if p[xi]]
-            ax.scatter([x for x, y, _ in xs if y], [y for x, y, _ in xs if y], s=40, color=ENGINE[engine],
+            xs = [(p[xi], p[2], p[3], p[4]) for p in series if p[xi]]
+            ax.scatter([x for x, y, _, _ in xs if y], [y for x, y, _, _ in xs if y], s=40, color=ENGINE[engine],
                        marker=MARKER["oneshot" if mode == "oneshot" else "rowcommit"],
                        label=f"{engine}, {'one commit per database' if mode == 'oneshot' else 'one commit per row'}",
                        zorder=3, edgecolor="white", linewidth=.6, alpha=.9)
-            for x, _, name in [(x, y, n) for x, y, n in xs if not y]:
+            for x, _, name, top in [p for p in xs if not p[1]]:   # drawn at the top of the ladder it failed on
+                unopened = True
                 ax.scatter([x], [top], s=52, facecolors="none", edgecolors=ENGINE[engine], marker="s", linewidth=1.4, zorder=3)
                 ax.annotate("", xy=(x, top * 1.9), xytext=(x, top * 1.05), arrowprops=dict(arrowstyle="-|>", color=ENGINE[engine], linewidth=1.2))
             if xi == 1 and mode == "rowcommit":
-                for x, y, name in sorted([p for p in xs if p[1]], key=lambda p: -p[1])[:1]:
+                for x, y, name, _ in sorted([p for p in xs if p[1]], key=lambda p: -p[1])[:1]:
                     ax.annotate(f"{name}", (x, y), textcoords="offset points", xytext=(-8, -10), ha="right", fontsize=7.5, color=ENGINE[engine])
         ax.set_xscale("log")
         ax.set_yscale("log")
@@ -459,12 +471,26 @@ def fig_memory(results):
         ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
     axes[0].set_ylabel("memory the store needed to open and count (log scale)", color=INK, fontsize=9)
     axes[0].legend(fontsize=7.5, frameon=False, loc="upper left", ncol=2)
-    fig.suptitle("The memory a Dolt engine needs to open a store tracks its commits, not its rows, in all three engines",
+    # the title is what the study measured: the same database, the same rows, opened with one commit and
+    # with a commit per row -- the largest ratio between the two, and in how many engines it exceeds one
+    ratios = []
+    for engine in {e for e, _ in pts}:
+        once = {p[3]: p[2] for p in pts.get((engine, "oneshot"), []) if p[2]}
+        each = {p[3]: p[2] for p in pts.get((engine, "rowcommit"), []) if p[2]}
+        ratios += [(each[d] / once[d], engine) for d in once if d in each]
+    engines_up, n_engines = len({e for r, e in ratios if r > 1}), len({e for e, _ in pts})
+    words = {1: "one", 2: "two", 3: "three"}
+    where = (f"in all {words.get(n_engines, n_engines)} engines" if engines_up == n_engines and n_engines > 1
+             else f"in {words.get(engines_up, engines_up)} of the {words.get(n_engines, n_engines)} engines")
+    fig.suptitle(f"Opening a commit-per-row store needs up to {max(r for r, _ in ratios):.0f}× the memory of the same "
+                 f"database with one commit, {where}"
+                 if ratios else "What each Dolt engine needs to open a store",
                  fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.02)
     fig.text(.02, -0.08,
              "Left: at the same row count the one-commit and the one-commit-per-row stores of the same database need very different\n"
              "memory. Right: against commits the two forms fall on one rising relationship within each engine. A point is the\n"
-             "smallest container memory limit a query survived, an upper bound at the ladder's granularity.",
+             "smallest container memory limit a query survived, an upper bound at the ladder's granularity."
+             + ("\nAn open square with an arrow is a store the study could not open at the top of its ladder, drawn at that top." if unopened else ""),
              fontsize=8, color=INK, alpha=.85, linespacing=1.5)
     fig.tight_layout()
     save(fig, "memory-by-history.png")

@@ -196,8 +196,8 @@ run-lite:
 # the README's screenshots, taken by docs/screenshots/capture.py in the Playwright image on the host's
 # network, because the Workbench's page calls its API at the address the host publishes
 screenshots:
-	@docker run --rm --network host -v "$(CURDIR)/docs/screenshots:/out" \
-	  mcr.microsoft.com/playwright/python:v1.49.1-noble sh -c "pip install -q --break-system-packages playwright==1.49.1 && python3 /out/capture.py"
+	@docker run --rm --network host --user "$$(id -u):$$(id -g)" -e HOME=/tmp -e STACK_HOST -v "$(CURDIR)/docs/screenshots:/out" \
+	  mcr.microsoft.com/playwright/python:v1.49.1-noble sh -c "pip install -q --user playwright==1.49.1 && python3 /out/capture.py"
 
 # what each database is, in the corpus's own words; needs the sql-megasamples checkout (MEGASAMPLES_DIR)
 catalogue:

@@ -202,7 +202,10 @@ def human(n):
     Binary is the right choice here because it is what `docker stats` and `du -h` report, and those
     are the numbers a reader will be comparing against."""
     for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
-        if abs(n) < 1000 or unit == "TiB":  # a unit changes at 1,000, so 1,020.7 MiB reads as 1.0 GiB
+        # a unit changes at 1,000 as printed, so 1,020.7 MiB reads as 1.0 GiB and 999.96 MiB does not
+        # print as 1,000.0 MiB: the test is on the rounded value the reader would see
+        shown = round(abs(n)) if unit == "B" else round(abs(n), 1)
+        if shown < 1000 or unit == "TiB":
             return f"{n:,.0f} {unit}" if unit == "B" else f"{n:,.1f} {unit}"
         n /= 1024
 
@@ -218,12 +221,13 @@ def duration(v):
     seconds, above that in hours and minutes. 10,000 s is not a quantity anyone can picture."""
     if v < 10:
         return f"{v:.1f} s"
-    if v < 60:
-        return f"{v:.0f} s"
-    if v < 3600:
-        m, s = divmod(int(round(v)), 60)
+    r = int(round(v))          # round once, then choose the form, so 59.6 s is "1 min 00 s", not "60 s"
+    if r < 60:
+        return f"{r} s"
+    if r < 3600:
+        m, s = divmod(r, 60)
         return f"{m} min {s:02d} s"
-    h, rem = divmod(int(round(v)), 3600)
+    h, rem = divmod(r, 3600)
     return f"{h} h {rem // 60:02d} min"
 
 

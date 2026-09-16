@@ -190,8 +190,8 @@ ways, and sized, timed and profiled the same way on both.
 ![A commit per row costs tens of times the baseline's disk and hundreds to thousands of times its time, in every engine](docs/img/headline.png)
 
 Three things hold across the three pairs, as the figure and the tables below it show. Loaded once and committed once, a
-Dolt engine's store is a fraction of its baseline's for MySQL and for PostgreSQL, and a little
-larger than its baseline's for SQLite, which starts compact. Writing one row at a time costs every
+Dolt engine's store is a fraction of its baseline's for MySQL and for PostgreSQL, and larger than
+its baseline's for SQLite, which starts compact. Writing one row at a time costs every
 baseline tens to hundreds of times its bulk load in time before any Dolt engine is involved; for
 the same rows Dolt and DoltgreSQL take longer again than their baselines do, DoltLite less than
 SQLite does. Keeping a commit per row is where both axes turn at once, in every pair: tens of times
@@ -218,17 +218,18 @@ how, and what would make a reviewer hesitate. Every table and figure of the full
 
 The table is at the top of this file, under [The databases](#the-databases): every database down,
 every engine and every run across, grouped by run so that the engines of the same run sit side by
-side. The same table in time to load, and every run under both index policies, are in
-[REPORT.md](REPORT.md#every-engine-side-by-side).
+side. The same table in time to load is in [REPORT.md](REPORT.md#every-engine-side-by-side), and
+every run under both index policies in
+[REPORT.md](REPORT.md#what-maintaining-the-indexes-costs-database-by-database).
 
 ## What history costs
 
 ![Keeping a commit per row costs tens to hundreds of times the disk of the same database loaded in bulk, and hundreds to thousands of times the time](docs/img/history-cost.png)
 
 One commit per row is the load that keeps every change, which is what a Dolt engine exists to do,
-and it is the one case where both axes turn at once. The ratio tracks the number of commits, not
-the rows: the database with the most rows is the outlier in every engine. The sizes are the last
-three columns of the table above; the times, database by database, are in
+and it is the one case where both axes turn at once. The figure names the largest and the smallest
+ratio in each engine. The sizes are the last three columns of the table at the top; the times,
+database by database, are in
 [REPORT.md](REPORT.md#every-engine-side-by-side).
 
 ## What keeping the indexes costs
@@ -293,9 +294,8 @@ number. For MySQL and Dolt:
 
 {{block:index_parity}}
 
-What DoltgreSQL and DoltLite refused -- a view over `xpath`, a view over `JSON_TABLE`, four views
-over `convert_from` -- is recorded on each unit and listed in
-[REPORT.md](REPORT.md#what-each-engine-refused); nothing else differs.
+What an engine refused is recorded on each unit and listed in
+[REPORT.md](REPORT.md#what-each-engine-refused): {{block:refusals_summary}} Nothing else differs.
 
 ## What was measured
 

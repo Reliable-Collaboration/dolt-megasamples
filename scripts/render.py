@@ -52,9 +52,6 @@ def blocks():
 
     return {
         "summary_table": guarded(lambda r: report.summary_table(report.rows(r))),
-        "per_database": guarded(lambda r: report.detail_table(report.rows(r))
-                                if hasattr(report, "detail_table") else
-                                report.summary_table(report.rows(r))),
         "dolt_report": guarded(lambda r: embed_report(r)),
         "index_policy": guarded(lambda r: demote(report.policy_section(report.rows(r))
                                                  or "*Neither index policy has been measured yet.*")),
@@ -78,27 +75,25 @@ def blocks():
         "consoles_table": guarded(lambda r: report_pairs.consoles_table()),
         "findings_disk": guarded(lambda r: report_pairs.findings_totals(r, "bytes")),
         "findings_time": guarded(lambda r: report_pairs.findings_totals(r, "seconds")),
-        "findings_by_database": guarded(lambda r: report_pairs.findings_by_database(r)),
-        "sizes_all": guarded(lambda r: report_pairs.findings_sizes(r, "all")),
-        "times_all": guarded(lambda r: report_pairs.findings_sizes(r, "all", "seconds")),
-        "sizes_oneshot": guarded(lambda r: report_pairs.findings_sizes(r, "oneshot")),
-        "sizes_rowinsert": guarded(lambda r: report_pairs.findings_sizes(r, "rowinsert")),
-        "sizes_rowcommit": guarded(lambda r: report_pairs.findings_sizes(r, "rowcommit")),
-        "times_oneshot": guarded(lambda r: report_pairs.findings_sizes(r, "oneshot", "seconds")),
-        "times_rowcommit": guarded(lambda r: report_pairs.findings_sizes(r, "rowcommit", "seconds")),
+        "sizes_all": guarded(lambda r: report_pairs.sizes_all(r, "bytes")),
+        "times_all": guarded(lambda r: report_pairs.sizes_all(r, "seconds")),
+        "refusals_summary": guarded(lambda r: report_pairs.refusals_summary(r)),
     }
 
 
 def embed_report(r):
     """The MySQL/Dolt report, generated as it always was, placed under a heading of REPORT.md's own:
-    its file header, human note and machine table go, since REPORT.md carries each once already."""
+    its file header, human note, machine table and index-policy section go, since REPORT.md carries
+    each once already."""
     import report
     report.RAW = r
     text = report.report(report.rows(r))
     text = text.replace(report.GENERATED, "").replace(report.HUMAN_NOTE, "")
-    a = text.index("## The machine\n")
-    b = text.index("## The short answer")
-    return demote_all(text[:a] + text[b:])
+    for heading in ("## The machine\n", "## What maintaining the indexes costs\n"):   # each carried once already
+        a = text.index(heading)
+        b = text.find("\n## ", a + 1)
+        text = text[:a] + (text[b + 1:] if b >= 0 else "")
+    return demote_all(text)
 
 
 def demote_all(text):

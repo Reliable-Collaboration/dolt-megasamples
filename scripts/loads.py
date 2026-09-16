@@ -69,19 +69,8 @@ def value(r, test, axis, policy="deferred"):
     return m.get("disk_bytes") if axis == "bytes" else m.get("total_seconds")
 
 
-def samples(r, test, axis, policy="deferred"):
-    """Every repeat of a MySQL/Dolt measurement, or None when it was measured once."""
-    sfx = "_inline" if policy == "inline" else ""
-    key = "bytes_all" if axis == "bytes" else "seconds_all"
-    if test.startswith("dolt_"):
-        got = ((r.get("modes", {}) or {}).get(test.replace("dolt_", "") + sfx, {}) or {}).get(key)
-    else:
-        got = (r.get("mysql_spread" if test == "mysql" else f"mysql_rowwise_spread{sfx}") or {}).get(key)
-    return got if got and len(got) > 1 else None
-
-
 def measure(r, pair, test, axis, policy="deferred"):
-    """One measurement of any pair, or None: the settled size, or the load plus its settle step."""
+    """One measurement of any pair, or None: the settled size, or the time (see below)."""
     if pair == "dolt":
         return value(r, test, axis, policy)
     per_row = test != PAIRS[pair]["baseline_test"] and "oneshot" not in test
@@ -91,15 +80,12 @@ def measure(r, pair, test, axis, policy="deferred"):
         return None
     if axis == "bytes":
         return u.get("disk_bytes")
-    return u.get("load_seconds") if test in ("postgres", "sqlite") else u.get("total_seconds")
+    # one rule, the MySQL/Dolt pair's: a baseline load is its load time, a Dolt engine's load is the
+    # load plus the settle step (the commit and the garbage collection are part of what it costs)
+    return u.get("load_seconds") if test in PAIRS[pair]["tests"][:2] else u.get("total_seconds")
 
 
-def spread(r, pair, test, axis, policy="deferred"):
-    """Every repeat, or None; the pairs' units are single samples."""
-    return samples(r, test, axis, policy) if pair == "dolt" else None
-
-
-def complete(results, pair, axis="bytes"):
+def complete(results, pair):
     """The databases where every load of the pair has a result, so totals stand for one population."""
     return [d for d, r in results.items()
             if all(measure(r, pair, t, "bytes") and measure(r, pair, t, "seconds") is not None

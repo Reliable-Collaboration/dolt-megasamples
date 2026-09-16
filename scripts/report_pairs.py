@@ -52,16 +52,20 @@ def shown(u):
     return human(u["disk_bytes"]) if u.get("disk_bytes") else "—"
 
 
-def size_time(u, base):
+def size_time(u, base, baseline=False):
+    """A cell: the size, as a multiple of the bulk baseline where that is not the cell itself, then
+    the time. A baseline load's time is its load time; a Dolt engine's is the load plus its settle
+    step, the rule scripts/loads.py states."""
+    t = u.get("load_seconds" if baseline else "total_seconds") if u else None
     if u and u.get("settled") is False and u.get("footprint_bytes"):
-        return f"{shown(u)}<br>{seconds(u.get('total_seconds'))}"
+        return f"{shown(u)}<br>{seconds(t)}"
     if not u or not u.get("disk_bytes"):
         return "—"
     b = u["disk_bytes"]
     mark = UNSETTLED if u.get("settled") is False else ""
     if base and base.get("disk_bytes") and u is not base:
-        return f"{cell(b, base['disk_bytes'])}{mark}<br>{seconds(u.get('total_seconds'))}"
-    return f"{human(b)}{mark}<br>{seconds(u.get('total_seconds') if u is not base else u.get('load_seconds'))}"
+        return f"{cell(b, base['disk_bytes'])}{mark}<br>{seconds(t)}"
+    return f"{human(b)}{mark}<br>{seconds(t)}"
 
 
 def pair_table(results, pair, suffix=""):
@@ -74,22 +78,25 @@ def pair_table(results, pair, suffix=""):
     for db in sorted(data, key=lambda d: -data[d]["__rows"]):
         m = data[db]
         base = m.get(phases[0]) or {}
-        rows.append([f"`{db}`", f"{m['__rows']:,}"] + [size_time(m.get(k), base) for k in keys])
+        rows.append([f"`{db}`", f"{m['__rows']:,}"] + [size_time(m.get(k), base, baseline=k in phases[:2]) for k in keys])
     L = []
     full = [db for db in data if all((data[db].get(k) or {}).get("disk_bytes") for k in keys)
             and not any((data[db].get(k) or {}).get("settled") is False for k in keys)]
     if full:
         b = {k: sum(data[db][k]["disk_bytes"] for db in full) for k in keys}
-        t = {k: sum((data[db][k].get("total_seconds" if k != phases[0] else "load_seconds") or 0) for db in full)
+        t = {k: sum((data[db][k].get("load_seconds" if k in phases[:2] else "total_seconds") or 0) for db in full)
              for k in keys}
         b0, t0 = b[keys[0]], max(t[keys[0]], 0.1)
         cells = [f"**{human(b0)}<br>{seconds(t0)}**"] + [
             f"**{b[k] / b0:.2f}×<br>{t[k] / t0:.0f}× time**" for k in keys[1:]]
         rows.append([f"**all {len(full)} with every test**", f"**{sum(data[db]['__rows'] for db in full):,}**"] + cells)
     baseline, engine = TITLES[pair]
-    groups = [(f"{baseline}<br><small>the baseline</small>", [(SHORT[ph].split("<br>")[1], None) for ph in phases[:2]], None),
+    def sub(ph):   # "3. DoltgreSQL<br>1 commit/db" -> "3. 1 commit/db": the test number stays, the engine is the group
+        num, rest = SHORT[ph].split("<br>")[0].split(". ", 1)[0], SHORT[ph].split("<br>")[1]
+        return f"{num}. {rest}"
+    groups = [(f"{baseline}<br><small>the baseline</small>", [(sub(ph), None) for ph in phases[:2]], None),
               (f"{engine}<br><small>the Dolt engine</small>",
-               [(SHORT[ph].split("<br>")[1], TINT["history"] if ph.endswith("rowcommit") else None) for ph in phases[2:]], TINT["commit"])]
+               [(sub(ph), TINT["history"] if ph.endswith("rowcommit") else None) for ph in phases[2:]], TINT["commit"])]
     L.append(grouped_table([("database", "left"), ("rows", "right")], groups, rows))
     if len(full) < len(data):
         missing = sorted(db for db in data if db not in full)
@@ -139,12 +146,10 @@ def refusals(results):
         data = units(results, pair)
         for db in sorted(data):
             groups = {}
-            loads = 0
             for ph in PHASES[pair] + [x + "_inline" for x in PHASES[pair]]:
                 u = data[db].get(ph)
                 if not u:
                     continue
-                loads += 1
                 items = list(u.get("refused_objects") or [])
                 if u.get("indexes_refused"):
                     items.append(f"{len(u['indexes_refused'])} index(es) refused: " + ", ".join(u["indexes_refused"]))
@@ -174,6 +179,48 @@ def refusals(results):
                  "indexes of the generated-column tables): "
                  + "; ".join(f"`{db}`: {', '.join(v)}" for db, v in sorted(dropped.items())) + ".")
     return "\n".join(L) if L else "*No unit has recorded a refusal.*"
+
+
+def refusals_summary(results):
+    """One sentence for the README: how many views each engine refused, in how many databases, and
+    why, counted from the units rather than typed. A refusal names its object ("VIEW: name: reason");
+    a missing function is named by the engine ("function: 'x' not found"), anything else is counted
+    as "other"."""
+    import re
+    counts = {}
+    for pair in PHASES:
+        data = units(results, pair)
+        for db, m in data.items():
+            seen = set()
+            for ph, u in m.items():
+                if not isinstance(u, dict):
+                    continue
+                for item in u.get("refused_objects") or []:
+                    kind = item.split(":", 1)[0].strip().lower()
+                    fn = re.search(r"function: '([^']+)' not found", item)
+                    seen.add((kind, fn.group(1) if fn else "other", item))
+            engine = TITLES[pair][1]
+            c = counts.setdefault(engine, {"dbs": set(), "kinds": {}})
+            for kind, why, _ in seen:
+                c["dbs"].add(db)
+                c["kinds"].setdefault(kind, {}).setdefault(why, 0)
+                c["kinds"][kind][why] += 1
+    parts = []
+    for engine in [TITLES[p][1] for p in PHASES]:
+        c = counts.get(engine)
+        if not c or not c["dbs"]:
+            parts.append(f"{engine} refused nothing")
+            continue
+        kinds = []
+        for kind, whys in sorted(c["kinds"].items()):
+            n = sum(whys.values())
+            reasons = [f"{k} over `{why}`" for why, k in sorted(whys.items()) if why != "other"]
+            if whys.get("other"):
+                reasons.append(f"{whys['other']} for another reason")
+            kinds.append(f"{n} {kind}{'s' if n != 1 else ''} in {len(c['dbs'])} database{'s' if len(c['dbs']) != 1 else ''}"
+                         f" ({', '.join(reasons)})")
+        parts.append(f"{engine} refused " + "; ".join(kinds))
+    return "; ".join(parts) + "."
 
 
 def memory_table(results, pair):
@@ -281,7 +328,7 @@ def findings_totals(results, axis):
     """Every engine side by side: each pair's five loads totalled over the databases where the pair
     has every load, as a size or a time and as a multiple of that pair's own baseline in bulk. The
     populations differ where a pair lacks a load of a database, so each column names its count."""
-    from loads import PAIRS, PAIR_ORDER, SHAPES, SHAPE_LABELS, complete, rows_of, test_of
+    from loads import PAIRS, PAIR_ORDER, SHAPES, SHAPE_LABELS, complete, rows_of
     cols, totals = [], {}
     for pair in PAIR_ORDER:
         dbs = complete(results, pair)
@@ -295,7 +342,10 @@ def findings_totals(results, axis):
         who = "baseline" if shape in ("bulk", "rowwise") else "Dolt engine"
         row = [f"{SHAPE_LABELS[shape]} ({who})"]
         for pair in PAIR_ORDER:
-            v, base = totals[pair][shape], totals[pair]["bulk"] or 1
+            v, base = totals[pair][shape], totals[pair]["bulk"]
+            if not base:            # a pair with no database complete: nothing to total, nothing to compare
+                row += ["—", "—"]
+                continue
             row.append(human(v) if axis == "bytes" else seconds(v))
             row.append("—" if shape == "bulk" else f"**{v / base:.2f}×**" if v / base < 10 else f"**{v / base:,.0f}×**")
         rows.append(row)
@@ -305,41 +355,6 @@ def findings_totals(results, axis):
 def measure_of(r, pair, shape, axis):
     from loads import measure, test_of
     return measure(r, pair, test_of(pair, shape), axis)
-
-
-def findings_by_database(results):
-    """Every database down, every engine across, for the two loads that answer the question: the
-    standard one-commit load (test 3 against test 1) and the commit-per-row load (test 5 against
-    test 1), each as the size and as a multiple of that pair's baseline. † marks a store that could
-    not be collected and is shown at its working footprint."""
-    from loads import PAIRS, PAIR_ORDER, rows_of, test_of
-    heads = []
-    for pair in PAIR_ORDER:
-        heads += [f"{PAIRS[pair]['baseline']}<br>bulk", f"{PAIRS[pair]['engine']}<br>1 commit/db", "×",
-                  f"{PAIRS[pair]['engine']}<br>1 commit/row", "×"]
-    L = ["| database | rows | " + " | ".join(heads) + " |", "|---|---:|" + "---:|" * len(heads)]
-    for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
-        r = results[db]
-        cells = []
-        for pair in PAIR_ORDER:
-            base = measure_of(r, pair, "bulk", "bytes")
-            for shape in ("oneshot", "rowcommit"):
-                v = measure_of(r, pair, shape, "bytes")
-                mark = ""
-                if pair != "dolt":
-                    u = ((r.get("pairs") or {}).get(pair) or {}).get(test_of(pair, shape)) or {}
-                    if u.get("settled") is False and u.get("footprint_bytes"):
-                        v, mark = u["footprint_bytes"], UNSETTLED
-                if shape == "oneshot":
-                    cells.append(human(base) if base else "—")
-                cells.append((human(v) + mark) if v else "—")
-                cells.append(f"{v / base:.2f}×" if (v and base and v / base < 10) else (f"{v / base:,.0f}×" if v and base else "—"))
-        L.append(f"| `{db}` | {rows_of(r):,} | " + " | ".join(cells) + " |")
-    return "\n".join(L)
-
-
-ENGINE_COLUMNS = [("dolt", "bulk", "MySQL"), ("pg", "bulk", "PostgreSQL"), ("lite", "bulk", "SQLite"),
-                  ("dolt", "oneshot", "Dolt"), ("pg", "oneshot", "DoltgreSQL"), ("lite", "oneshot", "DoltLite")]
 
 
 def sizes_all(results, axis="bytes"):
@@ -357,8 +372,10 @@ def sizes_all(results, axis="bytes"):
         row = [f"`{db}`", f"{rows_of(r):,}"]
         for sh, _, _, _ in runs:
             for p in PAIR_ORDER:
-                v, mark = size_cell(r, p, sh) if axis == "bytes" else (measure_of(r, p, sh, axis), "")
-                row.append(((human(v) if axis == "bytes" else seconds(v)) + mark) if v else "—")
+                v, mark = size_cell(r, p, sh)
+                if axis == "seconds":
+                    v = measure_of(r, p, sh, axis)
+                row.append(((human(v) if axis == "bytes" else seconds(v)) + mark) if v is not None else "—")
         rows.append(row)
     return grouped_table([("database", "left"), ("rows", "right")], groups, rows)
 
@@ -373,39 +390,6 @@ def size_cell(r, pair, shape):
         if u.get("settled") is False and u.get("footprint_bytes"):
             v, mark = u["footprint_bytes"], UNSETTLED
     return v, mark
-
-
-def findings_sizes(results, shape, axis="bytes"):
-    """Every database down and every engine across, for one way of writing the rows: the size (or
-    the time) each engine ended with, so a database can be compared across all six engines at once.
-    `shape` is 'oneshot' (the standard load: the baselines in bulk, the Dolt engines with one commit),
-    'rowinsert' (one INSERT per row everywhere, one commit on the Dolt side), 'rowcommit' (one
-    commit per row, which only the Dolt engines have) or 'all' (every engine and every run, fifteen
-    columns grouped by run). † marks a store that could not be collected, shown at its working
-    footprint."""
-    from loads import PAIRS, PAIR_ORDER, rows_of, test_of
-    if shape == "oneshot":
-        cols = [(pair, "bulk", PAIRS[pair]["baseline"]) for pair in PAIR_ORDER] + \
-               [(pair, "oneshot", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
-    elif shape == "rowinsert":
-        cols = [(pair, "rowwise", PAIRS[pair]["baseline"]) for pair in PAIR_ORDER] + \
-               [(pair, "rowinsert", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
-    elif shape == "rowcommit":
-        cols = [(pair, "rowcommit", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
-    else:  # every engine and every run, grouped by run so the same run's engines sit side by side
-        return sizes_all(results, axis)
-    L = ["| database | rows | " + " | ".join(name for _, _, name in cols) + " |", "|---|---:|" + "---:|" * len(cols)]
-    for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
-        r = results[db]
-        cells = []
-        for pair, sh, _ in cols:
-            if axis == "bytes":
-                v, mark = size_cell(r, pair, sh)
-            else:
-                v, mark = measure_of(r, pair, sh, axis), ""
-            cells.append(((human(v) if axis == "bytes" else seconds(v)) + mark) if v else "—")
-        L.append(f"| `{db}` | {rows_of(r):,} | " + " | ".join(cells) + " |")
-    return "\n".join(L)
 
 
 # ------------------------------------------------------------------ the served stack, for the README ---
@@ -445,6 +429,7 @@ def connect_table():
     so the README and the page cannot disagree about a port, an account or a client line."""
     import console_page
     code = {"client", "URL", "JDBC", "open", "copy one out"}
+    import html
     engines = [(title.split(" (")[0], dict(rows)) for title, rows in console_page.CONNECT]
     keys = []
     for _, rows in engines:
@@ -454,19 +439,19 @@ def connect_table():
         cells = []
         for _, rows in engines:
             v = rows.get(k)
-            cells.append(("`" + v + "`" if k in code else v) if v else "—")
+            cells.append(("`" + v + "`" if k in code else html.escape(v, quote=False)) if v else "—")
         L.append(f"| {k} | " + " | ".join(cells) + " |")
     return "\n".join(L)
 
 
 def consoles_table():
     """The consoles as the landing page lists them, most coverage first, with the index page on top."""
-    import console_page
+    import console_page, html
     P = console_page.P
     L = ["| | address | browses | notes |", "|---|---|---|---|",
          f"| **console index** | **<http://127.0.0.1:{P['console']}/>** | every engine | **start here**: how to connect your own "
          "tool, the consoles by what each can open, and every database with what it is and its size in each engine, "
          "generated from the measurements and the running stack |"]
     for name, port, cover, note in console_page.CONSOLES:
-        L.append(f"| {name} | <http://127.0.0.1:{port}/> | {cover} | {note} |")
+        L.append(f"| {name} | <http://127.0.0.1:{port}/> | {cover} | {html.escape(note, quote=False)} |")
     return "\n".join(L)
