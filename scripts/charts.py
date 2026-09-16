@@ -533,6 +533,101 @@ def fig_memory(results):
     save(fig, "memory-by-history.png")
 
 
+ENGINE_COLOURS = {"dolt": "#1baf7a", "pg": "#5b6ee1", "lite": "#c0392b"}
+
+
+def fig_headline(results):
+    """The finding in one picture: for each way of writing the rows, what each Dolt engine costs as a
+    multiple of its own baseline loaded in bulk, in disk and in time, totalled over the databases
+    the pair has every load for. The three engines stand side by side, which the per-pair figures
+    cannot show. The baseline's own row-by-row load is drawn too, as the grey bar, because writing
+    one row at a time is expensive before any Dolt engine is involved."""
+    from loads import PAIR_ORDER as order_, PAIRS as pairs_, SHAPES, complete, measure, test_of
+    shapes = ["rowwise", "oneshot", "rowinsert", "rowcommit"]
+    names = {"rowwise": "the baseline,\none INSERT per row", "oneshot": "one commit\nper database",
+             "rowinsert": "one INSERT per row,\none commit", "rowcommit": "one commit\nper row"}
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5.4))
+    w = 0.26
+    for ax, axis in zip(axes, ("bytes", "seconds")):
+        for k, pair in enumerate(order_):
+            dbs = complete(results, pair)
+            if not dbs:
+                continue
+            base = sum(measure(results[d], pair, test_of(pair, "bulk"), axis) or 0 for d in dbs) or 1
+            xs, ys, cols = [], [], []
+            for i, shape in enumerate(shapes):
+                v = sum(measure(results[d], pair, test_of(pair, shape), axis) or 0 for d in dbs) / base
+                xs.append(i + (k - 1) * w)
+                ys.append(v)
+                cols.append("#b8bcc4" if shape == "rowwise" else ENGINE_COLOURS[pair])
+            bars = ax.bar(xs, ys, w, color=cols, label=f"{pairs_[pair]['engine']} ({len(dbs)} of {len(results)} databases)")
+            for b, v in zip(bars, ys):
+                ax.text(b.get_x() + b.get_width() / 2, v * 1.12, f"{v:.2f}×" if v < 10 else f"{v:,.0f}×", ha="center",
+                        fontsize=7, color=INK, fontweight="bold")
+        ax.axhline(1.0, color=INK, linewidth=1, linestyle="--")
+        ax.text(len(shapes) - 0.55, 1.12, "the baseline, loaded in bulk", fontsize=7.5, color=INK, ha="right")
+        ax.set_yscale("log")
+        log_axis(ax, "y")
+        ax.set_xticks(range(len(shapes)), [names[sh] for sh in shapes], fontsize=8)
+        ax.set_ylabel(("disk" if axis == "bytes" else "time to load") + ", as a multiple of the baseline in bulk (log scale)",
+                      color=INK, fontsize=8.5)
+        style(ax, "Disk" if axis == "bytes" else "Time", "")
+        ax.grid(axis="x", visible=False)
+        ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
+        ax.set_ylim(top=max(ax.get_ylim()[1], 1) * 4)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=ENGINE_COLOURS[p]) for p in order_] + [plt.Rectangle((0, 0), 1, 1, color="#b8bcc4")]
+    labels = [f"{pairs_[p]['engine']} against {pairs_[p]['baseline']}" for p in order_] + ["the baseline itself, one INSERT per row"]
+    axes[0].legend(handles, labels, fontsize=8, frameon=False, loc="upper left")
+    fig.suptitle("What a Dolt engine costs against the database it stands in for, every engine side by side",
+                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.02)
+    fig.text(.02, -0.06, "Totals over the databases each pair has every load for; the grey bar is the baseline's own row-by-row "
+             "load, the cost of writing one row at a time before any Dolt engine is involved.",
+             fontsize=7.5, color=INK, alpha=.8)
+    fig.tight_layout()
+    save(fig, "headline.png")
+
+
+SIX = [("dolt", "bulk", "MySQL", "#2a78d6"), ("pg", "bulk", "PostgreSQL", "#6aa6e8"), ("lite", "bulk", "SQLite", "#a9cbf2"),
+       ("dolt", "oneshot", "Dolt", "#1baf7a"), ("pg", "oneshot", "DoltgreSQL", "#5b6ee1"), ("lite", "oneshot", "DoltLite", "#c0392b")]
+
+
+def fig_sizes_by_engine(results):
+    """Every database down, every engine across, in two panels: the standard load in all six engines
+    (the baselines in bulk, the Dolt engines with one commit), and the commit-per-row load in the
+    three Dolt engines. The place to compare one database's size across engines, which the per-pair
+    figures cannot show."""
+    from loads import PAIR_ORDER as order_, PAIRS as pairs_, measure, test_of
+    dbs = order(results)
+    fig, axes = plt.subplots(1, 2, figsize=(15, 0.62 * len(dbs) + 2.6), sharey=True)
+    panels = [(axes[0], SIX, "the standard load:\nthe baselines in bulk, the Dolt engines with one commit"),
+              (axes[1], [(p, "rowcommit", pairs_[p]["engine"], c) for p, c in zip(order_, ("#1baf7a", "#5b6ee1", "#c0392b"))],
+               "one commit per row:\nthe three Dolt engines")]
+    for ax, cols, title in panels:
+        h = 0.8 / len(cols)
+        for k, (pair, shape, name, colour) in enumerate(cols):
+            vals, ys = [], []
+            for i, d in enumerate(dbs):
+                v = measure(results[d], pair, test_of(pair, shape), "bytes")
+                if v:
+                    vals.append(v / MB)
+                    ys.append(i + (len(cols) / 2 - 0.5 - k) * h)
+            if vals:
+                ax.barh(ys, vals, h, label=name, color=colour)
+                for yy, vv in zip(ys, vals):
+                    ax.annotate(bar_label(vv), (vv, yy), textcoords="offset points", xytext=(3, 0), va="center",
+                                ha="left", fontsize=5.4, color=INK, alpha=.85)
+        ax.set_xscale("log")
+        log_axis(ax, "x")
+        style(ax, title, "mebibytes on disk (log scale)", pad=40)
+        ax.legend(fontsize=7, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.004))
+    axes[0].set_yticks(range(len(dbs)), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs], fontsize=7)
+    fig.suptitle("Disk used by every database in every engine", fontsize=13, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
+    fig.text(.01, -0.012, "A missing bar is a load with no result; a DoltLite store that could not be collected is absent here "
+             "and shown at its working footprint in the tables.", fontsize=7.5, color=INK, alpha=.75)
+    fig.tight_layout()
+    save(fig, "sizes-by-engine.png")
+
+
 def main():
     # Figures rendered from anything other than the real results file go somewhere else. Passing a
     # path is for checking a new figure against fabricated full coverage without waiting hours for a
@@ -547,6 +642,8 @@ def main():
         print(f"  ! rendering from {src}, so figures go to "
               f"{os.path.relpath(out, ROOT)}/ and not docs/img/")
     results = load(src)
+    fig_headline(results)
+    fig_sizes_by_engine(results)
     fig_cost_by_mode(results)
     fig_by_database(results, "bytes", "disk-by-database.png",
                     "Disk used, every database, every load, every pair", "mebibytes on disk (log scale)", MB)

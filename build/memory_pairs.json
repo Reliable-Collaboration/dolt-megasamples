@@ -386,11 +386,11 @@
    "adventureworks": {
     "ladder_top_mb": 12288,
     "largest_table_rows": 121317,
-    "measured": "2026-09-16T12:14:20Z",
-    "megabytes": null,
-    "outcome": "exited 1",
+    "measured": "2026-09-16T14:32:23Z",
+    "megabytes": 768,
+    "outcome": "ok",
     "query_table": "sales_salesorderdetail",
-    "seconds_to_profile": 301.5
+    "seconds_to_profile": 914.7
    },
    "adventureworks_lt": {
     "ladder_top_mb": 12288,

@@ -265,3 +265,101 @@ def memory_study_table():
              f"start-up, not the memory ceiling: DoltgreSQL scans every table when it opens a store, and a "
              f"per-row-commit history of 759,240 commits or more did not finish scanning in time.*")
     return "\n".join(L)
+
+
+# ------------------------------------------------------------- the findings, every engine at once ---
+def findings_totals(results, axis):
+    """Every engine side by side: each pair's five loads totalled over the databases where the pair
+    has every load, as a size or a time and as a multiple of that pair's own baseline in bulk. The
+    populations differ where a pair lacks a load of a database, so each column names its count."""
+    from loads import PAIRS, PAIR_ORDER, SHAPES, SHAPE_LABELS, complete, rows_of, test_of
+    cols, totals = [], {}
+    for pair in PAIR_ORDER:
+        dbs = complete(results, pair)
+        rows = sum(rows_of(results[d], pair) for d in dbs)
+        cols.append(f"{PAIRS[pair]['baseline']} / {PAIRS[pair]['engine']}<br>{len(dbs)} of {len(results)} databases, {rows:,} rows")
+        totals[pair] = {shape: sum(measure_of(results[d], pair, shape, axis) or 0 for d in dbs) for shape in SHAPES}
+    unit = "disk" if axis == "bytes" else "time to load"
+    L = [f"| load | " + " | ".join(f"{c} | × baseline" for c in cols) + " |",
+         "|---|" + "---:|---:|" * len(cols)]
+    for shape in SHAPES:
+        cells = []
+        for pair in PAIR_ORDER:
+            v, base = totals[pair][shape], totals[pair]["bulk"] or 1
+            text = human(v) if axis == "bytes" else seconds(v)
+            cells.append(f"{text} | {'—' if shape == 'bulk' else f'**{v / base:.2f}×**' if v / base < 10 else f'**{v / base:,.0f}×**'}")
+        who = "baseline" if shape in ("bulk", "rowwise") else "Dolt engine"
+        L.append(f"| {SHAPE_LABELS[shape]} ({who}) | " + " | ".join(cells) + " |")
+    return "\n".join(L)
+
+
+def measure_of(r, pair, shape, axis):
+    from loads import measure, test_of
+    return measure(r, pair, test_of(pair, shape), axis)
+
+
+def findings_by_database(results):
+    """Every database down, every engine across, for the two loads that answer the question: the
+    standard one-commit load (test 3 against test 1) and the commit-per-row load (test 5 against
+    test 1), each as the size and as a multiple of that pair's baseline. † marks a store that could
+    not be collected and is shown at its working footprint."""
+    from loads import PAIRS, PAIR_ORDER, rows_of, test_of
+    heads = []
+    for pair in PAIR_ORDER:
+        heads += [f"{PAIRS[pair]['baseline']}<br>bulk", f"{PAIRS[pair]['engine']}<br>1 commit/db", "×",
+                  f"{PAIRS[pair]['engine']}<br>1 commit/row", "×"]
+    L = ["| database | rows | " + " | ".join(heads) + " |", "|---|---:|" + "---:|" * len(heads)]
+    for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
+        r = results[db]
+        cells = []
+        for pair in PAIR_ORDER:
+            base = measure_of(r, pair, "bulk", "bytes")
+            for shape in ("oneshot", "rowcommit"):
+                v = measure_of(r, pair, shape, "bytes")
+                mark = ""
+                if pair != "dolt":
+                    u = ((r.get("pairs") or {}).get(pair) or {}).get(test_of(pair, shape)) or {}
+                    if u.get("settled") is False and u.get("footprint_bytes"):
+                        v, mark = u["footprint_bytes"], UNSETTLED
+                if shape == "oneshot":
+                    cells.append(human(base) if base else "—")
+                cells.append((human(v) + mark) if v else "—")
+                cells.append(f"{v / base:.2f}×" if (v and base and v / base < 10) else (f"{v / base:,.0f}×" if v and base else "—"))
+        L.append(f"| `{db}` | {rows_of(r):,} | " + " | ".join(cells) + " |")
+    return "\n".join(L)
+
+
+ENGINE_COLUMNS = [("dolt", "bulk", "MySQL"), ("pg", "bulk", "PostgreSQL"), ("lite", "bulk", "SQLite"),
+                  ("dolt", "oneshot", "Dolt"), ("pg", "oneshot", "DoltgreSQL"), ("lite", "oneshot", "DoltLite")]
+
+
+def findings_sizes(results, shape, axis="bytes"):
+    """Every database down and every engine across, for one way of writing the rows: the size (or
+    the time) each engine ended with, so a database can be compared across all six engines at once.
+    `shape` is 'oneshot' (the standard load: the baselines in bulk, the Dolt engines with one commit),
+    'rowinsert' (one INSERT per row everywhere, one commit on the Dolt side) or 'rowcommit' (one
+    commit per row, which only the Dolt engines have). † marks a store that could not be collected,
+    shown at its working footprint."""
+    from loads import PAIRS, PAIR_ORDER, rows_of, test_of
+    if shape == "oneshot":
+        cols = [(pair, "bulk", PAIRS[pair]["baseline"]) for pair in PAIR_ORDER] + \
+               [(pair, "oneshot", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
+    elif shape == "rowinsert":
+        cols = [(pair, "rowwise", PAIRS[pair]["baseline"]) for pair in PAIR_ORDER] + \
+               [(pair, "rowinsert", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
+    else:
+        cols = [(pair, "rowcommit", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
+    L = ["| database | rows | " + " | ".join(name for _, _, name in cols) + " |", "|---|---:|" + "---:|" * len(cols)]
+    for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
+        r = results[db]
+        cells = []
+        for pair, sh, _ in cols:
+            v = measure_of(r, pair, sh, axis)
+            mark = ""
+            if pair != "dolt" and axis == "bytes":
+                u = ((r.get("pairs") or {}).get(pair) or {}).get(test_of(pair, sh)) or {}
+                if u.get("settled") is False and u.get("footprint_bytes"):
+                    v, mark = u["footprint_bytes"], UNSETTLED
+            cells.append(((human(v) if axis == "bytes" else seconds(v)) + mark) if v else "—")
+        L.append(f"| `{db}` | {rows_of(r):,} | " + " | ".join(cells) + " |")
+    return "\n".join(L)

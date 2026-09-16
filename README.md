@@ -40,6 +40,183 @@ provenance and their licences -- and is useful on its own to anyone who wants re
 in MySQL, PostgreSQL and SQLite. This repository only measures things, and reads that corpus as its
 input.
 
+## The findings
+
+Every engine at once, before the detail: the three Dolt engines against the database each stands in
+for, totalled over the databases each pair has every load for, in disk and in time, as a multiple of
+that pair's own baseline loaded in bulk. The rest of this document is the evidence behind these
+tables, pair by pair, database by database.
+
+![What a Dolt engine costs against the database it stands in for](docs/img/headline.png)
+
+**Disk**, totalled:
+
+| load | MySQL / Dolt<br>21 of 21 databases, 9,056,697 rows | × baseline | PostgreSQL / DoltgreSQL<br>21 of 21 databases, 9,057,036 rows | × baseline | SQLite / DoltLite<br>20 of 21 databases, 5,138,021 rows | × baseline |
+|---|---:|---:|---:|---:|---:|---:|
+| the baseline in bulk (baseline) | 1.8 GiB | — | 1.2 GiB | — | 671.7 MiB | — |
+| the baseline, one INSERT per row (baseline) | 1.5 GiB | **0.86×** | 1.2 GiB | **0.99×** | 671.7 MiB | **1.00×** |
+| one commit per database (Dolt engine) | 524.1 MiB | **0.29×** | 432.6 MiB | **0.35×** | 935.8 MiB | **1.39×** |
+| one INSERT per row, one commit (Dolt engine) | 530.0 MiB | **0.29×** | 424.0 MiB | **0.34×** | 935.8 MiB | **1.39×** |
+| one commit per row (Dolt engine) | 116.7 GiB | **66×** | 89.8 GiB | **75×** | 37.7 GiB | **57×** |
+
+**Time to load**, totalled:
+
+| load | MySQL / Dolt<br>21 of 21 databases, 9,056,697 rows | × baseline | PostgreSQL / DoltgreSQL<br>21 of 21 databases, 9,057,036 rows | × baseline | SQLite / DoltLite<br>20 of 21 databases, 5,138,021 rows | × baseline |
+|---|---:|---:|---:|---:|---:|---:|
+| the baseline in bulk (baseline) | 67s | — | 16s | — | 17s | — |
+| the baseline, one INSERT per row (baseline) | 1.2h | **66×** | 1.1h | **244×** | 2.4h | **489×** |
+| one commit per database (Dolt engine) | 269s | **4.04×** | 148s | **9.02×** | 28s | **1.64×** |
+| one INSERT per row, one commit (Dolt engine) | 3.4h | **182×** | 4.8h | **1,052×** | 1.3h | **273×** |
+| one commit per row (Dolt engine) | 8.3h | **447×** | 13.7h | **3,008×** | 3.8h | **780×** |
+
+### Every database, in every engine
+
+The same database in all six engines, so sizes and times can be compared across products rather
+than only within a pair. A dash is a load with no result; † is a store the engine could not collect,
+shown at its working footprint.
+
+![Disk used by every database in every engine](docs/img/sizes-by-engine.png)
+
+**Disk, the standard load** -- the baselines loaded in bulk, the Dolt engines with one commit:
+
+| database | rows | MySQL | PostgreSQL | SQLite | Dolt | DoltgreSQL | DoltLite |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `employees` | 3,919,015 | 178.3 MiB | 282.9 MiB | 244.6 MiB | 42.5 MiB | 60.7 MiB | 248.6 MiB |
+| `wikipedia_simple` | 1,167,112 | 314.2 MiB | 204.6 MiB | 137.4 MiB | 122.4 MiB | 54.8 MiB | 183.7 MiB |
+| `oracle_sh` | 1,063,396 | 220.2 MiB | 116.6 MiB | 109.1 MiB | 143.3 MiB | 144.7 MiB | 193.5 MiB |
+| `adventureworks` | 759,240 | 335.9 MiB | 144.1 MiB | 122.4 MiB | 49.2 MiB | 38.7 MiB | 175.7 MiB |
+| `contoso` | 753,467 | 156.3 MiB | 116.1 MiB | 82.0 MiB | 39.3 MiB | 40.3 MiB | 105.7 MiB |
+| `lahman` | 706,466 | 191.8 MiB | 97.1 MiB | 63.6 MiB | 26.3 MiB | 27.2 MiB | 83.8 MiB |
+| `chicago_crimes` | 259,702 | 84.1 MiB | 74.2 MiB | 67.2 MiB | 28.7 MiB | 29.8 MiB | 88.7 MiB |
+| `dvdstore` | 174,716 | 60.0 MiB | 26.5 MiB | 9.9 MiB | 11.9 MiB | 10.8 MiB | 17.2 MiB |
+| `stackexchange_beer` | 62,523 | 83.6 MiB | 26.1 MiB | 19.0 MiB | 14.0 MiB | 7.6 MiB | 19.2 MiB |
+| `enron` | 48,778 | 98.2 MiB | 30.3 MiB | 38.4 MiB | 34.1 MiB | 9.2 MiB | 38.2 MiB |
+| `nyc_taxi` | 48,591 | 19.1 MiB | 17.1 MiB | 8.4 MiB | 3.0 MiB | 2.8 MiB | 11.1 MiB |
+| `sakila` | 47,268 | 24.1 MiB | 16.0 MiB | 5.0 MiB | 2.0 MiB | 1.9 MiB | 8.1 MiB |
+| `chinook` | 15,607 | 2.7 MiB | 9.9 MiB | 960.0 KiB | 615.0 KiB | 615.3 KiB | 1.2 MiB |
+| `oracle_oe` | 11,518 | 27.5 MiB | 11.3 MiB | 3.4 MiB | 4.3 MiB | 1.5 MiB | 4.8 MiB |
+| `oracle_co` | 8,783 | 1.8 MiB | 9.3 MiB | 692.0 KiB | 456.3 KiB | 454.5 KiB | 1.0 MiB |
+| `adventureworks_lt` | 4,277 | 12.5 MiB | 11.2 MiB | 2.7 MiB | 1.0 MiB | 1,007.6 KiB | 2.6 MiB |
+| `northwind` | 3,308 | 2.6 MiB | 9.4 MiB | 940.0 KiB | 518.5 KiB | 539.3 KiB | 856.6 KiB |
+| `smallsets` | 2,147 | 644.0 KiB | 8.0 MiB | 212.0 KiB | 164.3 KiB | 156.3 KiB | 214.7 KiB |
+| `jaffle_shop` | 312 | 372.0 KiB | 7.6 MiB | 24.0 KiB | 37.7 KiB | 16.8 KiB | 18.6 KiB |
+| `pubs` | 255 | 1.5 MiB | 8.1 MiB | 224.0 KiB | 77.0 KiB | 65.1 KiB | 126.8 KiB |
+| `oracle_hr` | 216 | 1.1 MiB | 8.1 MiB | 152.0 KiB | 62.8 KiB | 43.1 KiB | 53.2 KiB |
+
+**Disk, one `INSERT` per row** -- every engine writing the rows one at a time, the Dolt engines
+with one commit at the end:
+
+| database | rows | MySQL | PostgreSQL | SQLite | Dolt | DoltgreSQL | DoltLite |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `employees` | 3,919,015 | 176.3 MiB | 283.2 MiB | 244.6 MiB | 39.9 MiB | 51.8 MiB | 248.6 MiB |
+| `wikipedia_simple` | 1,167,112 | 235.2 MiB | 203.7 MiB | 137.4 MiB | 123.2 MiB | 54.8 MiB | 183.7 MiB |
+| `oracle_sh` | 1,063,396 | 188.4 MiB | 115.8 MiB | 109.1 MiB | 143.2 MiB | 145.0 MiB | 193.5 MiB |
+| `adventureworks` | 759,240 | 311.0 MiB | 141.0 MiB | 122.4 MiB | 49.2 MiB | 38.6 MiB | 175.7 MiB |
+| `contoso` | 753,467 | 135.3 MiB | 115.1 MiB | 82.0 MiB | 39.4 MiB | 40.4 MiB | 105.7 MiB |
+| `lahman` | 706,466 | 178.9 MiB | 93.9 MiB | 63.6 MiB | 26.3 MiB | 27.2 MiB | 83.8 MiB |
+| `chicago_crimes` | 259,702 | 72.1 MiB | 74.3 MiB | 67.2 MiB | 28.7 MiB | 29.8 MiB | 88.7 MiB |
+| `dvdstore` | 174,716 | 50.0 MiB | 25.2 MiB | 9.9 MiB | 12.4 MiB | 10.8 MiB | 17.2 MiB |
+| `stackexchange_beer` | 62,523 | 73.6 MiB | 25.3 MiB | 19.0 MiB | 16.1 MiB | 7.6 MiB | 19.2 MiB |
+| `enron` | 48,778 | 66.2 MiB | 29.9 MiB | 38.4 MiB | 38.6 MiB | 9.1 MiB | 38.2 MiB |
+| `nyc_taxi` | 48,591 | 16.1 MiB | 17.0 MiB | 8.4 MiB | 3.0 MiB | 2.8 MiB | 11.1 MiB |
+| `sakila` | 47,268 | 22.3 MiB | 15.3 MiB | 5.0 MiB | 2.2 MiB | 1.9 MiB | 8.1 MiB |
+| `chinook` | 15,607 | 2.6 MiB | 9.8 MiB | 960.0 KiB | 615.0 KiB | 599.8 KiB | 1.2 MiB |
+| `oracle_oe` | 11,518 | 19.6 MiB | 10.9 MiB | 3.4 MiB | 5.1 MiB | 1.5 MiB | 4.8 MiB |
+| `oracle_co` | 8,783 | 1.8 MiB | 9.3 MiB | 692.0 KiB | 456.1 KiB | 441.0 KiB | 1.0 MiB |
+| `adventureworks_lt` | 4,277 | 11.5 MiB | 11.1 MiB | 2.7 MiB | 1.0 MiB | 1,011.8 KiB | 2.6 MiB |
+| `northwind` | 3,308 | 2.7 MiB | 9.4 MiB | 940.0 KiB | 518.5 KiB | 516.0 KiB | 856.6 KiB |
+| `smallsets` | 2,147 | 644.0 KiB | 8.0 MiB | 212.0 KiB | 164.3 KiB | 156.3 KiB | 214.7 KiB |
+| `jaffle_shop` | 312 | 372.0 KiB | 7.6 MiB | 24.0 KiB | 37.7 KiB | 21.2 KiB | 18.6 KiB |
+| `pubs` | 255 | 1.5 MiB | 8.1 MiB | 224.0 KiB | 77.0 KiB | 81.4 KiB | 126.8 KiB |
+| `oracle_hr` | 216 | 1.1 MiB | 8.1 MiB | 152.0 KiB | 62.1 KiB | 54.5 KiB | 53.2 KiB |
+
+**Disk, one commit per row** -- the three Dolt engines keeping a commit for every row:
+
+| database | rows | Dolt | DoltgreSQL | DoltLite |
+|---|---:|---:|---:|---:|
+| `employees` | 3,919,015 | 63.3 GiB | 36.6 GiB | 317.8 GiB † |
+| `wikipedia_simple` | 1,167,112 | 12.6 GiB | 10.1 GiB | 7.7 GiB |
+| `oracle_sh` | 1,063,396 | 14.9 GiB | 15.5 GiB | 7.6 GiB |
+| `adventureworks` | 759,240 | 7.2 GiB | 8.1 GiB | 8.8 GiB |
+| `contoso` | 753,467 | 6.6 GiB | 6.8 GiB | 4.5 GiB |
+| `lahman` | 706,466 | 6.5 GiB | 6.9 GiB | 5.0 GiB |
+| `chicago_crimes` | 259,702 | 2.3 GiB | 2.4 GiB | 1.8 GiB |
+| `dvdstore` | 174,716 | 1.7 GiB | 1.7 GiB | 1,020.7 MiB |
+| `stackexchange_beer` | 62,523 | 435.8 MiB | 462.3 MiB | 336.2 MiB |
+| `enron` | 48,778 | 357.9 MiB | 352.0 MiB | 295.1 MiB |
+| `nyc_taxi` | 48,591 | 331.6 MiB | 312.8 MiB | 233.2 MiB |
+| `sakila` | 47,268 | 300.3 MiB | 323.0 MiB | 279.6 MiB |
+| `chinook` | 15,607 | 77.5 MiB | 85.9 MiB | 67.2 MiB |
+| `oracle_oe` | 11,518 | 70.2 MiB | 81.2 MiB | 62.5 MiB |
+| `oracle_co` | 8,783 | 39.1 MiB | 42.9 MiB | 30.0 MiB |
+| `adventureworks_lt` | 4,277 | 20.1 MiB | 20.9 MiB | 19.0 MiB |
+| `northwind` | 3,308 | 13.9 MiB | 13.9 MiB | 13.6 MiB |
+| `smallsets` | 2,147 | 8.4 MiB | 8.4 MiB | 6.5 MiB |
+| `jaffle_shop` | 312 | 658.2 KiB | 671.7 KiB | 719.8 KiB |
+| `pubs` | 255 | 578.5 KiB | 652.4 KiB | 739.9 KiB |
+| `oracle_hr` | 216 | 456.0 KiB | 392.8 KiB | 461.7 KiB |
+
+**Time to load, the standard load:**
+
+| database | rows | MySQL | PostgreSQL | SQLite | Dolt | DoltgreSQL | DoltLite |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `employees` | 3,919,015 | 11s | 4s | 8s | 29s | 29s | 10s |
+| `wikipedia_simple` | 1,167,112 | 15s | 2s | 3s | 92s | 13s | 5s |
+| `oracle_sh` | 1,063,396 | 8s | 2s | 2s | 39s | 59s | 7s |
+| `adventureworks` | 759,240 | 8s | 2s | 3s | 16s | 12s | 4s |
+| `contoso` | 753,467 | 5s | 1s | 2s | 14s | 10s | 3s |
+| `lahman` | 706,466 | 6s | 1s | 2s | 18s | 8s | 3s |
+| `chicago_crimes` | 259,702 | 4s | 1s | 1s | 11s | 6s | 2s |
+| `dvdstore` | 174,716 | 1s | 0s | 0s | 3s | 3s | 1s |
+| `stackexchange_beer` | 62,523 | 1s | 0s | 0s | 8s | 1s | 0s |
+| `enron` | 48,778 | 2s | 0s | 1s | 30s | 2s | 1s |
+| `nyc_taxi` | 48,591 | 1s | 0s | 0s | 2s | 1s | 0s |
+| `sakila` | 47,268 | 1s | 0s | 0s | 1s | 1s | 0s |
+| `chinook` | 15,607 | 0s | 0s | 0s | 0s | 0s | 0s |
+| `oracle_oe` | 11,518 | 1s | 0s | 0s | 3s | 0s | 0s |
+| `oracle_co` | 8,783 | 0s | 0s | 0s | 0s | 0s | 0s |
+| `adventureworks_lt` | 4,277 | 0s | 0s | 0s | 0s | 0s | 0s |
+| `northwind` | 3,308 | 0s | 0s | 0s | 0s | 0s | 0s |
+| `smallsets` | 2,147 | 0s | 0s | 0s | 0s | 0s | 0s |
+| `jaffle_shop` | 312 | 0s | 0s | 0s | 0s | 0s | 0s |
+| `pubs` | 255 | 0s | 0s | 0s | 0s | 0s | 0s |
+| `oracle_hr` | 216 | 0s | 0s | 0s | 0s | 0s | 0s |
+
+**Time to load, one commit per row:**
+
+| database | rows | Dolt | DoltgreSQL | DoltLite |
+|---|---:|---:|---:|---:|
+| `employees` | 3,919,015 | 3.5h | 6.0h | 2.6h |
+| `wikipedia_simple` | 1,167,112 | 1.0h | 1.5h | 2,535s |
+| `oracle_sh` | 1,063,396 | 3,517s | 1.3h | 2,419s |
+| `adventureworks` | 759,240 | 3,454s | 2.3h | 1.0h |
+| `contoso` | 753,467 | 2,181s | 3,001s | 1,514s |
+| `lahman` | 706,466 | 2,257s | 3,350s | 1,976s |
+| `chicago_crimes` | 259,702 | 768s | 997s | 484s |
+| `dvdstore` | 174,716 | 493s | 794s | 375s |
+| `stackexchange_beer` | 62,523 | 188s | 259s | 134s |
+| `enron` | 48,778 | 161s | 187s | 101s |
+| `nyc_taxi` | 48,591 | 134s | 197s | 95s |
+| `sakila` | 47,268 | 156s | 325s | 113s |
+| `chinook` | 15,607 | 45s | 60s | 33s |
+| `oracle_oe` | 11,518 | 36s | 48s | 24s |
+| `oracle_co` | 8,783 | 24s | 37s | 16s |
+| `adventureworks_lt` | 4,277 | 13s | 22s | 10s |
+| `northwind` | 3,308 | 11s | 17s | 7s |
+| `smallsets` | 2,147 | 6s | 8s | 4s |
+| `jaffle_shop` | 312 | 1s | 1s | 1s |
+| `pubs` | 255 | 2s | 2s | 1s |
+| `oracle_hr` | 216 | 1s | 1s | 1s |
+
+Three things hold across the three pairs, as the tables show. Loaded once and committed once, a
+Dolt engine's store is a fraction of its baseline's for MySQL and for PostgreSQL, and a little
+larger than its baseline's for SQLite, which starts compact. Writing one row at a time costs every
+baseline tens to hundreds of times its bulk load in time before any Dolt engine is involved; for
+the same rows Dolt and DoltgreSQL take longer again than their baselines do, DoltLite less than
+SQLite does. Keeping a commit per row is where both axes turn at once, in every pair: tens of times
+the baseline's disk and hundreds to thousands of times its time, because what disk, time and memory
+track in a Dolt engine is the number of commits (*What each engine needs in memory* below).
+
 ## Versions
 
 Every number in this document belongs to exactly one version of each engine, the versions below,
@@ -524,7 +701,7 @@ does not get the process killed, one point per database per shape.
 | DoltgreSQL | one INSERT per row, one commit | 192 MB (`oracle_sh`) | 64 MB | — |
 | DoltgreSQL | the same, indexes inline | 192 MB (`oracle_sh`) | 64 MB | — |
 | DoltgreSQL | one commit per row | 2,048 MB (`employees`) | 64 MB | — |
-| DoltgreSQL | the same, indexes inline | 1,536 MB (`oracle_sh`) | 64 MB | `adventureworks` (exited 1), `employees` (exited 1), `wikipedia_simple` (exited 1) |
+| DoltgreSQL | the same, indexes inline | 1,536 MB (`oracle_sh`) | 64 MB | `employees` (exited 1), `wikipedia_simple` (exited 1) |
 | DoltLite | one commit per database | 64 MB (`adventureworks`) | 64 MB | — |
 | DoltLite | one INSERT per row, one commit | 64 MB (`adventureworks`) | 64 MB | — |
 | DoltLite | the same, indexes inline | 64 MB (`adventureworks`) | 64 MB | — |

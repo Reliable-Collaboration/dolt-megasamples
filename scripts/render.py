@@ -72,6 +72,14 @@ def blocks():
         "pg_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "pg")),
         "lite_pair_memory": guarded(lambda r: report_pairs.memory_table(r, "lite")),
         "pair_memory_study": lambda: report_pairs.memory_study_table(),
+        "findings_disk": guarded(lambda r: report_pairs.findings_totals(r, "bytes")),
+        "findings_time": guarded(lambda r: report_pairs.findings_totals(r, "seconds")),
+        "findings_by_database": guarded(lambda r: report_pairs.findings_by_database(r)),
+        "sizes_oneshot": guarded(lambda r: report_pairs.findings_sizes(r, "oneshot")),
+        "sizes_rowinsert": guarded(lambda r: report_pairs.findings_sizes(r, "rowinsert")),
+        "sizes_rowcommit": guarded(lambda r: report_pairs.findings_sizes(r, "rowcommit")),
+        "times_oneshot": guarded(lambda r: report_pairs.findings_sizes(r, "oneshot", "seconds")),
+        "times_rowcommit": guarded(lambda r: report_pairs.findings_sizes(r, "rowcommit", "seconds")),
     }
 
 

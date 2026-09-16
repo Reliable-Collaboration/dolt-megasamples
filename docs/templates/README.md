@@ -36,6 +36,61 @@ provenance and their licences -- and is useful on its own to anyone who wants re
 in MySQL, PostgreSQL and SQLite. This repository only measures things, and reads that corpus as its
 input.
 
+## The findings
+
+Every engine at once, before the detail: the three Dolt engines against the database each stands in
+for, totalled over the databases each pair has every load for, in disk and in time, as a multiple of
+that pair's own baseline loaded in bulk. The rest of this document is the evidence behind these
+tables, pair by pair, database by database.
+
+![What a Dolt engine costs against the database it stands in for](docs/img/headline.png)
+
+**Disk**, totalled:
+
+{{block:findings_disk}}
+
+**Time to load**, totalled:
+
+{{block:findings_time}}
+
+### Every database, in every engine
+
+The same database in all six engines, so sizes and times can be compared across products rather
+than only within a pair. A dash is a load with no result; † is a store the engine could not collect,
+shown at its working footprint.
+
+![Disk used by every database in every engine](docs/img/sizes-by-engine.png)
+
+**Disk, the standard load** -- the baselines loaded in bulk, the Dolt engines with one commit:
+
+{{block:sizes_oneshot}}
+
+**Disk, one `INSERT` per row** -- every engine writing the rows one at a time, the Dolt engines
+with one commit at the end:
+
+{{block:sizes_rowinsert}}
+
+**Disk, one commit per row** -- the three Dolt engines keeping a commit for every row:
+
+{{block:sizes_rowcommit}}
+
+**Time to load, the standard load:**
+
+{{block:times_oneshot}}
+
+**Time to load, one commit per row:**
+
+{{block:times_rowcommit}}
+
+Three things hold across the three pairs, as the tables show. Loaded once and committed once, a
+Dolt engine's store is a fraction of its baseline's for MySQL and for PostgreSQL, and a little
+larger than its baseline's for SQLite, which starts compact. Writing one row at a time costs every
+baseline tens to hundreds of times its bulk load in time before any Dolt engine is involved; for
+the same rows Dolt and DoltgreSQL take longer again than their baselines do, DoltLite less than
+SQLite does. Keeping a commit per row is where both axes turn at once, in every pair: tens of times
+the baseline's disk and hundreds to thousands of times its time, because what disk, time and memory
+track in a Dolt engine is the number of commits (*What each engine needs in memory* below).
+
 ## Versions
 
 Every number in this document belongs to exactly one version of each engine, the versions below,
