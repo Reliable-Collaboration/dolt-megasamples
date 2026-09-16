@@ -310,26 +310,28 @@ Where the pairs depart from the MySQL/Dolt tests, and why:
 
 | database | rows | 1. PostgreSQL<br>COPY | 2. PostgreSQL<br>1 INSERT/row | 3. DoltgreSQL<br>1 commit/db | 4. DoltgreSQL<br>1 INSERT/row | 5. DoltgreSQL<br>1 commit/row |
 |---|---:|---:|---:|---:|---:|---:|
-| `adventureworks` | 759,240 | 144.1 MiB<br>2s | 141.0 MiB<br>**0.98×**<br>338s | — | — | — |
-| `contoso` | 753,467 | 116.1 MiB<br>1s | 115.1 MiB<br>**0.99×**<br>327s | — | — | — |
-| `lahman` | 706,466 | 97.1 MiB<br>1s | 93.9 MiB<br>**0.97×**<br>308s | — | — | — |
-| `chicago_crimes` | 260,041 | 74.2 MiB<br>1s | 74.3 MiB<br>**1.00×**<br>116s | — | — | — |
-| `dvdstore` | 174,716 | 26.5 MiB<br>0s | 25.2 MiB<br>**0.95×**<br>82s | 10.8 MiB<br>**0.41×**<br>3s | — | — |
-| `stackexchange_beer` | 62,523 | 26.1 MiB<br>0s | 25.3 MiB<br>**0.97×**<br>32s | 7.6 MiB<br>**0.29×**<br>1s | — | — |
-| `enron` | 48,778 | 30.3 MiB<br>0s | 29.9 MiB<br>**0.99×**<br>23s | 9.2 MiB<br>**0.30×**<br>2s | — | — |
-| `nyc_taxi` | 48,591 | 17.1 MiB<br>0s | 17.0 MiB<br>**0.99×**<br>26s | 2.8 MiB<br>**0.16×**<br>1s | — | — |
-| `sakila` | 47,268 | 16.0 MiB<br>0s | 15.3 MiB<br>**0.95×**<br>24s | 1.9 MiB<br>**0.12×**<br>1s | — | — |
-| `chinook` | 15,607 | 9.9 MiB<br>0s | 9.8 MiB<br>**0.99×**<br>8s | 615.3 KiB<br>**0.06×**<br>0s | 599.8 KiB<br>**0.06×**<br>22s | — |
-| `oracle_oe` | 11,518 | 11.3 MiB<br>0s | 10.9 MiB<br>**0.96×**<br>6s | 1.5 MiB<br>**0.14×**<br>0s | 1.5 MiB<br>**0.13×**<br>18s | — |
-| `oracle_co` | 8,783 | 9.3 MiB<br>0s | 9.3 MiB<br>**1.00×**<br>4s | 454.5 KiB<br>**0.05×**<br>0s | 441.0 KiB<br>**0.05×**<br>14s | — |
-| `adventureworks_lt` | 4,277 | 11.2 MiB<br>0s | 11.1 MiB<br>**0.99×**<br>2s | — | — | — |
-| `northwind` | 3,308 | 9.4 MiB<br>0s | 9.4 MiB<br>**1.00×**<br>2s | 539.3 KiB<br>**0.06×**<br>0s | 516.0 KiB<br>**0.05×**<br>6s | — |
-| `smallsets` | 2,147 | 8.0 MiB<br>0s | 8.0 MiB<br>**1.00×**<br>1s | 156.3 KiB<br>**0.02×**<br>0s | 156.3 KiB<br>**0.02×**<br>3s | — |
-| `jaffle_shop` | 312 | 7.6 MiB<br>0s | 7.6 MiB<br>**1.00×**<br>0s | 16.8 KiB<br>**0.00×**<br>0s | 21.2 KiB<br>**0.00×**<br>1s | — |
-| `pubs` | 255 | 8.1 MiB<br>0s | 8.1 MiB<br>**1.00×**<br>0s | 65.1 KiB<br>**0.01×**<br>0s | 81.4 KiB<br>**0.01×**<br>1s | — |
-| `oracle_hr` | 216 | 8.1 MiB<br>0s | 8.1 MiB<br>**1.00×**<br>0s | 43.1 KiB<br>**0.01×**<br>0s | 54.5 KiB<br>**0.01×**<br>1s | — |
-
-*Each cell is disk then time; a versioned cell also gives the size as a multiple of test 1. 18 database(s) do not yet have every test and are excluded from the totals row: `adventureworks`, `adventureworks_lt`, `chicago_crimes`, `chinook`, `contoso`, `dvdstore`, `enron`, `jaffle_shop`, `lahman`, `northwind`, `nyc_taxi`, `oracle_co`, `oracle_hr`, `oracle_oe`, `pubs`, `sakila`, `smallsets`, `stackexchange_beer`.*
+| `employees` | 3,919,015 | 282.9 MiB<br>4s | 283.2 MiB<br>**1.00×**<br>1,608s | 60.7 MiB<br>**0.21×**<br>29s | 51.8 MiB<br>**0.18×**<br>2.2h | 36.6 GiB<br>**132×**<br>6.0h |
+| `wikipedia_simple` | 1,167,112 | 204.6 MiB<br>2s | 203.7 MiB<br>**1.00×**<br>571s | 54.8 MiB<br>**0.27×**<br>13s | 54.8 MiB<br>**0.27×**<br>1,814s | 10.1 GiB<br>**51×**<br>1.5h |
+| `oracle_sh` | 1,063,396 | 116.6 MiB<br>2s | 115.8 MiB<br>**0.99×**<br>519s | 144.7 MiB<br>**1.24×**<br>59s | 145.0 MiB<br>**1.24×**<br>1,808s | 15.5 GiB<br>**136×**<br>1.3h |
+| `adventureworks` | 759,240 | 144.1 MiB<br>2s | 141.0 MiB<br>**0.98×**<br>338s | 38.7 MiB<br>**0.27×**<br>12s | 38.6 MiB<br>**0.27×**<br>2,412s | 8.1 GiB<br>**57×**<br>2.3h |
+| `contoso` | 753,467 | 116.1 MiB<br>1s | 115.1 MiB<br>**0.99×**<br>327s | 40.3 MiB<br>**0.35×**<br>10s | 40.4 MiB<br>**0.35×**<br>1,024s | 6.8 GiB<br>**60×**<br>3,001s |
+| `lahman` | 706,466 | 97.1 MiB<br>1s | 93.9 MiB<br>**0.97×**<br>308s | 27.2 MiB<br>**0.28×**<br>8s | 27.2 MiB<br>**0.28×**<br>1,115s | 6.9 GiB<br>**73×**<br>3,350s |
+| `chicago_crimes` | 260,041 | 74.2 MiB<br>1s | 74.3 MiB<br>**1.00×**<br>116s | 29.8 MiB<br>**0.40×**<br>6s | 29.8 MiB<br>**0.40×**<br>358s | 2.4 GiB<br>**33×**<br>997s |
+| `dvdstore` | 174,716 | 26.5 MiB<br>0s | 25.2 MiB<br>**0.95×**<br>82s | 10.8 MiB<br>**0.41×**<br>3s | 10.8 MiB<br>**0.41×**<br>270s | 1.7 GiB<br>**68×**<br>794s |
+| `stackexchange_beer` | 62,523 | 26.1 MiB<br>0s | 25.3 MiB<br>**0.97×**<br>32s | 7.6 MiB<br>**0.29×**<br>1s | 7.6 MiB<br>**0.29×**<br>92s | 462.3 MiB<br>**18×**<br>259s |
+| `enron` | 48,778 | 30.3 MiB<br>0s | 29.9 MiB<br>**0.99×**<br>23s | 9.2 MiB<br>**0.30×**<br>2s | 9.1 MiB<br>**0.30×**<br>69s | 352.0 MiB<br>**12×**<br>187s |
+| `nyc_taxi` | 48,591 | 17.1 MiB<br>0s | 17.0 MiB<br>**0.99×**<br>26s | 2.8 MiB<br>**0.16×**<br>1s | 2.8 MiB<br>**0.16×**<br>76s | 312.8 MiB<br>**18×**<br>197s |
+| `sakila` | 47,268 | 16.0 MiB<br>0s | 15.3 MiB<br>**0.95×**<br>24s | 1.9 MiB<br>**0.12×**<br>1s | 1.9 MiB<br>**0.12×**<br>100s | 323.0 MiB<br>**20×**<br>325s |
+| `chinook` | 15,607 | 9.9 MiB<br>0s | 9.8 MiB<br>**0.99×**<br>8s | 615.3 KiB<br>**0.06×**<br>0s | 599.8 KiB<br>**0.06×**<br>22s | 85.9 MiB<br>**8.71×**<br>60s |
+| `oracle_oe` | 11,518 | 11.3 MiB<br>0s | 10.9 MiB<br>**0.96×**<br>6s | 1.5 MiB<br>**0.14×**<br>0s | 1.5 MiB<br>**0.13×**<br>18s | 81.2 MiB<br>**7.19×**<br>48s |
+| `oracle_co` | 8,783 | 9.3 MiB<br>0s | 9.3 MiB<br>**1.00×**<br>4s | 454.5 KiB<br>**0.05×**<br>0s | 441.0 KiB<br>**0.05×**<br>14s | 42.9 MiB<br>**4.62×**<br>37s |
+| `adventureworks_lt` | 4,277 | 11.2 MiB<br>0s | 11.1 MiB<br>**0.99×**<br>2s | 1,007.6 KiB<br>**0.09×**<br>0s | 1,011.8 KiB<br>**0.09×**<br>8s | 20.9 MiB<br>**1.86×**<br>22s |
+| `northwind` | 3,308 | 9.4 MiB<br>0s | 9.4 MiB<br>**1.00×**<br>2s | 539.3 KiB<br>**0.06×**<br>0s | 516.0 KiB<br>**0.05×**<br>6s | 13.9 MiB<br>**1.48×**<br>17s |
+| `smallsets` | 2,147 | 8.0 MiB<br>0s | 8.0 MiB<br>**1.00×**<br>1s | 156.3 KiB<br>**0.02×**<br>0s | 156.3 KiB<br>**0.02×**<br>3s | 8.4 MiB<br>**1.05×**<br>8s |
+| `jaffle_shop` | 312 | 7.6 MiB<br>0s | 7.6 MiB<br>**1.00×**<br>0s | 16.8 KiB<br>**0.00×**<br>0s | 21.2 KiB<br>**0.00×**<br>1s | 671.7 KiB<br>**0.09×**<br>1s |
+| `pubs` | 255 | 8.1 MiB<br>0s | 8.1 MiB<br>**1.00×**<br>0s | 65.1 KiB<br>**0.01×**<br>0s | 81.4 KiB<br>**0.01×**<br>1s | 652.4 KiB<br>**0.08×**<br>2s |
+| `oracle_hr` | 216 | 8.1 MiB<br>0s | 8.1 MiB<br>**1.00×**<br>0s | 43.1 KiB<br>**0.01×**<br>0s | 54.5 KiB<br>**0.01×**<br>1s | 392.8 KiB<br>**0.05×**<br>1s |
+| **all 21 with every test** | **9,057,036** | **1.2 GiB<br>16s** | **0.99×<br>244× time** | **0.35×<br>9× time** | **0.34×<br>1052× time** | **74.52×<br>3008× time** |
 
 ### SQLite and DoltLite
 
@@ -366,30 +368,59 @@ Where the pairs depart from the MySQL/Dolt tests, and why:
 
 ### What each engine refused
 
+* `adventureworks`, DoltgreSQL, one commit per database: VIEW: production_vproductmodelcatalogdescription: function: 'xpath' not found; VIEW: sales_vstorewithdemographics: function: 'xpath' not found
+* `adventureworks`, DoltgreSQL, one INSERT per row: VIEW: production_vproductmodelcatalogdescription: function: 'xpath' not found; VIEW: sales_vstorewithdemographics: function: 'xpath' not found
+* `adventureworks`, DoltgreSQL, one commit per row: VIEW: production_vproductmodelcatalogdescription: function: 'xpath' not found; VIEW: sales_vstorewithdemographics: function: 'xpath' not found
+* `adventureworks`, DoltgreSQL, one INSERT per row (inline): VIEW: production_vproductmodelcatalogdescription: function: 'xpath' not found; VIEW: sales_vstorewithdemographics: function: 'xpath' not found
+* `adventureworks`, DoltgreSQL, one commit per row (inline): VIEW: production_vproductmodelcatalogdescription: function: 'xpath' not found; VIEW: sales_vstorewithdemographics: function: 'xpath' not found
+* `adventureworks_lt`, DoltgreSQL, one commit per database: VIEW: vproductmodelcatalogdescription: function: 'xpath' not found
+* `adventureworks_lt`, DoltgreSQL, one INSERT per row: VIEW: vproductmodelcatalogdescription: function: 'xpath' not found
+* `adventureworks_lt`, DoltgreSQL, one commit per row: VIEW: vproductmodelcatalogdescription: function: 'xpath' not found
+* `adventureworks_lt`, DoltgreSQL, one INSERT per row (inline): VIEW: vproductmodelcatalogdescription: function: 'xpath' not found
+* `adventureworks_lt`, DoltgreSQL, one commit per row (inline): VIEW: vproductmodelcatalogdescription: function: 'xpath' not found
 * `oracle_co`, DoltgreSQL, one commit per database: VIEW: product_reviews: at or near "as": syntax error
 * `oracle_co`, DoltgreSQL, one INSERT per row: VIEW: product_reviews: at or near "as": syntax error
+* `oracle_co`, DoltgreSQL, one commit per row: VIEW: product_reviews: at or near "as": syntax error
+* `oracle_co`, DoltgreSQL, one INSERT per row (inline): VIEW: product_reviews: at or near "as": syntax error
+* `oracle_co`, DoltgreSQL, one commit per row (inline): VIEW: product_reviews: at or near "as": syntax error
 * `sakila`, DoltgreSQL, one commit per database: VIEW: actor_info: Expression #4 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'group_concat(c.name::text || '
+* `sakila`, DoltgreSQL, one INSERT per row: VIEW: actor_info: Expression #4 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'group_concat(c.name::text || '
+* `sakila`, DoltgreSQL, one commit per row: VIEW: actor_info: Expression #4 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'group_concat(c.name::text || '
+* `sakila`, DoltgreSQL, one INSERT per row (inline): VIEW: actor_info: Expression #4 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'group_concat(c.name::text || '
+* `sakila`, DoltgreSQL, one commit per row (inline): VIEW: actor_info: Expression #4 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'group_concat(c.name::text || '
+* `wikipedia_simple`, DoltgreSQL, one commit per database: VIEW: v_article: function: 'convert_from' not found; VIEW: v_category_member: function: 'convert_from' not found; VIEW: v_page: function: 'convert_from' not found; VIEW: v_pagelink: function: 'convert_from' not found
+* `wikipedia_simple`, DoltgreSQL, one INSERT per row: VIEW: v_article: function: 'convert_from' not found; VIEW: v_category_member: function: 'convert_from' not found; VIEW: v_page: function: 'convert_from' not found; VIEW: v_pagelink: function: 'convert_from' not found
+* `wikipedia_simple`, DoltgreSQL, one commit per row: VIEW: v_article: function: 'convert_from' not found; VIEW: v_category_member: function: 'convert_from' not found; VIEW: v_page: function: 'convert_from' not found; VIEW: v_pagelink: function: 'convert_from' not found
+* `wikipedia_simple`, DoltgreSQL, one INSERT per row (inline): VIEW: v_article: function: 'convert_from' not found; VIEW: v_category_member: function: 'convert_from' not found; VIEW: v_page: function: 'convert_from' not found; VIEW: v_pagelink: function: 'convert_from' not found
+* `wikipedia_simple`, DoltgreSQL, one commit per row (inline): VIEW: v_article: function: 'convert_from' not found; VIEW: v_category_member: function: 'convert_from' not found; VIEW: v_page: function: 'convert_from' not found; VIEW: v_pagelink: function: 'convert_from' not found
 
-Dropped by the dialect before any load, on both engines of the pair (the GIN indexes and the indexes of the generated-column tables): `adventureworks`: production_workorder_ix_workorder_productid, production_workorder_ix_workorder_scrapreasonid, purchasing_purchaseorderdetail_ix_purchaseorderdetail_productid, purchasing_purchaseorderdetail_purchaseorderdetailid, purchasing_purchaseorderheader_fk_purchaseorderheader__9528bb49, purchasing_purchaseorderheader_ix_purchaseorderheader__f31c3d9f, purchasing_purchaseorderheader_ix_purchaseorderheader_vendorid, sales_salesorderdetail_ak_salesorderdetail_rowguid, sales_salesorderdetail_fk_salesorderdetail_specialoffe_d92db17b, sales_salesorderdetail_ix_salesorderdetail_productid, sales_salesorderdetail_salesorderdetailid, sales_salesorderheader_ak_salesorderheader_rowguid, sales_salesorderheader_ak_salesorderheader_salesordernumber, sales_salesorderheader_fk_salesorderheader_address_bil_6e62388a, sales_salesorderheader_fk_salesorderheader_address_shi_9449e824, sales_salesorderheader_fk_salesorderheader_creditcard__91df62eb, sales_salesorderheader_fk_salesorderheader_currencyrat_949e3880, sales_salesorderheader_fk_salesorderheader_salesterrit_3fbe2db3, sales_salesorderheader_fk_salesorderheader_shipmethod__e11da550, sales_salesorderheader_ix_salesorderheader_customerid, sales_salesorderheader_ix_salesorderheader_salespersonid; `adventureworks_lt`: salesorderdetail_ix_salesorderdetail_productid, salesorderdetail_rowguid, salesorderdetail_salesorderdetailid, salesorderheader_fk_salesorderheader_address_billto_addressid, salesorderheader_fk_salesorderheader_address_shipto_addressid, salesorderheader_ix_salesorderheader_customerid, salesorderheader_rowguid, salesorderheader_salesordernumber; `dvdstore`: products_ix_prod_actor, products_ix_prod_title; `enron`: message_ft_message; `oracle_oe`: product_descriptions_prod_desc_ft; `sakila`: film_text_idx_title_description; `stackexchange_beer`: posts_ft_posts_body.
+Dropped by the dialect before any load, on both engines of the pair (the GIN indexes and the indexes of the generated-column tables): `adventureworks`: production_workorder_ix_workorder_productid, production_workorder_ix_workorder_scrapreasonid, purchasing_purchaseorderdetail_ix_purchaseorderdetail_productid, purchasing_purchaseorderdetail_purchaseorderdetailid, purchasing_purchaseorderheader_fk_purchaseorderheader__9528bb49, purchasing_purchaseorderheader_ix_purchaseorderheader__f31c3d9f, purchasing_purchaseorderheader_ix_purchaseorderheader_vendorid, sales_salesorderdetail_ak_salesorderdetail_rowguid, sales_salesorderdetail_fk_salesorderdetail_specialoffe_d92db17b, sales_salesorderdetail_ix_salesorderdetail_productid, sales_salesorderdetail_salesorderdetailid, sales_salesorderheader_ak_salesorderheader_rowguid, sales_salesorderheader_ak_salesorderheader_salesordernumber, sales_salesorderheader_fk_salesorderheader_address_bil_6e62388a, sales_salesorderheader_fk_salesorderheader_address_shi_9449e824, sales_salesorderheader_fk_salesorderheader_creditcard__91df62eb, sales_salesorderheader_fk_salesorderheader_currencyrat_949e3880, sales_salesorderheader_fk_salesorderheader_salesterrit_3fbe2db3, sales_salesorderheader_fk_salesorderheader_shipmethod__e11da550, sales_salesorderheader_ix_salesorderheader_customerid, sales_salesorderheader_ix_salesorderheader_salespersonid; `adventureworks_lt`: salesorderdetail_ix_salesorderdetail_productid, salesorderdetail_rowguid, salesorderdetail_salesorderdetailid, salesorderheader_fk_salesorderheader_address_billto_addressid, salesorderheader_fk_salesorderheader_address_shipto_addressid, salesorderheader_ix_salesorderheader_customerid, salesorderheader_rowguid, salesorderheader_salesordernumber; `dvdstore`: products_ix_prod_actor, products_ix_prod_title; `enron`: message_ft_message; `oracle_oe`: product_descriptions_prod_desc_ft; `oracle_sh`: supplementary_demographics_sup_text_idx; `sakila`: film_text_idx_title_description; `stackexchange_beer`: posts_ft_posts_body; `wikipedia_simple`: text_ft_old_text.
 
 ### The index policies for the pairs
 
 | database | 2. PostgreSQL<br>1 INSERT/row<br>deferred → inline | 4. DoltgreSQL<br>1 INSERT/row<br>deferred → inline | 5. DoltgreSQL<br>1 commit/row<br>deferred → inline |
 |---|---:|---:|---:|
-| `dvdstore` | 25.2 MiB → 26.6 MiB<br>82s → 95s | — | — |
-| `stackexchange_beer` | 25.3 MiB → 25.5 MiB<br>32s → 34s | — | — |
-| `enron` | 29.9 MiB → 30.9 MiB<br>23s → 29s | — | — |
-| `nyc_taxi` | 17.0 MiB → 17.3 MiB<br>26s → 29s | — | — |
-| `sakila` | 15.3 MiB → 15.7 MiB<br>24s → 24s | — | — |
-| `chinook` | 9.8 MiB → 9.8 MiB<br>8s → 9s | 599.8 KiB → —<br>22s → — | — |
-| `oracle_oe` | 10.9 MiB → 10.9 MiB<br>6s → 7s | 1.5 MiB → —<br>18s → — | — |
-| `oracle_co` | 9.3 MiB → 9.4 MiB<br>4s → 6s | 441.0 KiB → —<br>14s → — | — |
-| `adventureworks_lt` | 11.1 MiB → 11.2 MiB<br>2s → 3s | — | — |
-| `northwind` | 9.4 MiB → 9.4 MiB<br>2s → 2s | 516.0 KiB → —<br>6s → — | — |
-| `smallsets` | 8.0 MiB → 8.0 MiB<br>1s → 2s | 156.3 KiB → —<br>3s → — | — |
-| `jaffle_shop` | 7.6 MiB → 7.6 MiB<br>0s → 0s | 21.2 KiB → —<br>1s → — | — |
-| `pubs` | 8.1 MiB → 8.1 MiB<br>0s → 0s | 81.4 KiB → —<br>1s → — | — |
-| `oracle_hr` | 8.1 MiB → 8.1 MiB<br>0s → 0s | 54.5 KiB → —<br>1s → — | — |
+| `employees` | 283.2 MiB → 283.1 MiB<br>1,608s → 1,614s | 51.8 MiB → 51.2 MiB<br>2.2h → 1.9h | 36.6 GiB → 38.8 GiB<br>6.0h → 6.0h |
+| `wikipedia_simple` | 203.7 MiB → 228.6 MiB<br>571s → 496s | 54.8 MiB → 53.1 MiB<br>1,814s → 2,106s | 10.1 GiB → 19.9 GiB<br>1.5h → 2.2h |
+| `oracle_sh` | 115.8 MiB → 119.1 MiB<br>519s → 456s | 145.0 MiB → 136.3 MiB<br>1,808s → 2,344s | 15.5 GiB → 56.6 GiB<br>1.3h → 2.1h |
+| `adventureworks` | 141.0 MiB → 146.4 MiB<br>338s → 314s | 38.6 MiB → 37.4 MiB<br>2,412s → 2,606s | 8.1 GiB → 11.5 GiB<br>2.3h → 2.8h |
+| `contoso` | 115.1 MiB → 117.6 MiB<br>327s → 305s | 40.4 MiB → 40.3 MiB<br>1,024s → 1,165s | 6.8 GiB → 11.6 GiB<br>3,001s → 3,514s |
+| `lahman` | 93.9 MiB → 94.1 MiB<br>308s → 290s | 27.2 MiB → 27.2 MiB<br>1,115s → 1,189s | 6.9 GiB → 9.2 GiB<br>3,350s → 3,527s |
+| `chicago_crimes` | 74.3 MiB → 76.4 MiB<br>116s → 113s | 29.8 MiB → 29.7 MiB<br>358s → 510s | 2.4 GiB → 9.5 GiB<br>997s → 1,310s |
+| `dvdstore` | 25.2 MiB → 26.6 MiB<br>82s → 95s | 10.8 MiB → 10.9 MiB<br>270s → 287s | 1.7 GiB → 3.0 GiB<br>794s → 849s |
+| `stackexchange_beer` | 25.3 MiB → 25.5 MiB<br>32s → 34s | 7.6 MiB → 7.6 MiB<br>92s → 96s | 462.3 MiB → 659.8 MiB<br>259s → 270s |
+| `enron` | 29.9 MiB → 30.9 MiB<br>23s → 29s | 9.1 MiB → 9.2 MiB<br>69s → 77s | 352.0 MiB → 711.0 MiB<br>187s → 203s |
+| `nyc_taxi` | 17.0 MiB → 17.3 MiB<br>26s → 29s | 2.8 MiB → 2.8 MiB<br>76s → 88s | 312.8 MiB → 921.3 MiB<br>197s → 219s |
+| `sakila` | 15.3 MiB → 15.7 MiB<br>24s → 24s | 1.9 MiB → 1.6 MiB<br>100s → 105s | 323.0 MiB → 644.7 MiB<br>325s → 346s |
+| `chinook` | 9.8 MiB → 9.8 MiB<br>8s → 9s | 599.8 KiB → 601.3 KiB<br>22s → 22s | 85.9 MiB → 118.0 MiB<br>60s → 64s |
+| `oracle_oe` | 10.9 MiB → 10.9 MiB<br>6s → 7s | 1.5 MiB → 1.5 MiB<br>18s → 19s | 81.2 MiB → 139.8 MiB<br>48s → 52s |
+| `oracle_co` | 9.3 MiB → 9.4 MiB<br>4s → 6s | 441.0 KiB → 448.7 KiB<br>14s → 14s | 42.9 MiB → 70.5 MiB<br>37s → 38s |
+| `adventureworks_lt` | 11.1 MiB → 11.2 MiB<br>2s → 3s | 1,011.8 KiB → 996.7 KiB<br>8s → 8s | 20.9 MiB → 35.7 MiB<br>22s → 23s |
+| `northwind` | 9.4 MiB → 9.4 MiB<br>2s → 2s | 516.0 KiB → 555.4 KiB<br>6s → 7s | 13.9 MiB → 28.7 MiB<br>17s → 18s |
+| `smallsets` | 8.0 MiB → 8.0 MiB<br>1s → 2s | 156.3 KiB → 156.3 KiB<br>3s → 3s | 8.4 MiB → 8.5 MiB<br>8s → 8s |
+| `jaffle_shop` | 7.6 MiB → 7.6 MiB<br>0s → 0s | 21.2 KiB → 18.4 KiB<br>1s → 1s | 671.7 KiB → 786.6 KiB<br>1s → 1s |
+| `pubs` | 8.1 MiB → 8.1 MiB<br>0s → 0s | 81.4 KiB → 68.6 KiB<br>1s → 1s | 652.4 KiB → 775.3 KiB<br>2s → 2s |
+| `oracle_hr` | 8.1 MiB → 8.1 MiB<br>0s → 0s | 54.5 KiB → 45.7 KiB<br>1s → 1s | 392.8 KiB → 884.1 KiB<br>1s → 1s |
 
 | database | 2. SQLite<br>1 INSERT/row<br>deferred → inline | 4. DoltLite<br>1 INSERT/row<br>deferred → inline | 5. DoltLite<br>1 commit/row<br>deferred → inline |
 |---|---:|---:|---:|
@@ -428,24 +459,27 @@ records its container's own peak, page cache included, in `build/results.json`.
 
 | database | rows | 1. PostgreSQL<br>COPY | 2. PostgreSQL<br>1 INSERT/row | 3. DoltgreSQL<br>1 commit/db | 4. DoltgreSQL<br>1 INSERT/row | 5. DoltgreSQL<br>1 commit/row |
 |---|---:|---:|---:|---:|---:|---:|
-| `adventureworks` | 759,240 | 160.4 MiB | 162.4 MiB | — | — | — |
-| `contoso` | 753,467 | 139.1 MiB | 140.3 MiB | — | — | — |
-| `lahman` | 706,466 | 123.8 MiB | 120.6 MiB | — | — | — |
-| `chicago_crimes` | 260,041 | 74.5 MiB | 109.9 MiB | — | — | — |
-| `dvdstore` | 174,716 | 54.5 MiB | 52.1 MiB | 839.2 MiB | — | — |
-| `stackexchange_beer` | 62,523 | 53.0 MiB | 55.8 MiB | 179.7 MiB | — | — |
-| `enron` | 48,778 | 59.8 MiB | 62.7 MiB | 255.9 MiB | — | — |
-| `nyc_taxi` | 48,591 | 47.3 MiB | 49.9 MiB | 149.0 MiB | — | — |
-| `sakila` | 47,268 | 45.9 MiB | 45.6 MiB | 140.2 MiB | — | — |
-| `chinook` | 15,607 | 39.9 MiB | 40.2 MiB | 82.4 MiB | 505.7 MiB | — |
-| `oracle_oe` | 11,518 | 41.3 MiB | 43.3 MiB | 90.0 MiB | 427.8 MiB | — |
-| `oracle_co` | 8,783 | 39.7 MiB | 40.2 MiB | 88.4 MiB | 289.0 MiB | — |
-| `adventureworks_lt` | 4,277 | 45.4 MiB | 42.2 MiB | — | — | — |
-| `northwind` | 3,308 | 43.8 MiB | 40.9 MiB | 86.6 MiB | 168.9 MiB | — |
-| `smallsets` | 2,147 | 39.9 MiB | 39.7 MiB | 66.9 MiB | 127.3 MiB | — |
-| `jaffle_shop` | 312 | 39.5 MiB | 39.4 MiB | 44.9 MiB | 86.3 MiB | — |
-| `pubs` | 255 | 39.6 MiB | 39.9 MiB | 68.4 MiB | 94.5 MiB | — |
-| `oracle_hr` | 216 | 39.7 MiB | 42.5 MiB | 67.3 MiB | 86.9 MiB | — |
+| `employees` | 3,919,015 | 168.8 MiB | 167.1 MiB | 1.1 GiB | 3.2 GiB | 5.1 GiB |
+| `wikipedia_simple` | 1,167,112 | 197.6 MiB | 187.6 MiB | 890.0 MiB | 3.4 GiB | 3.0 GiB |
+| `oracle_sh` | 1,063,396 | 108.9 MiB | 161.4 MiB | 1.4 GiB | 3.4 GiB | 3.6 GiB |
+| `adventureworks` | 759,240 | 160.4 MiB | 162.4 MiB | 835.1 MiB | 2.1 GiB | 2.0 GiB |
+| `contoso` | 753,467 | 139.1 MiB | 140.3 MiB | 659.3 MiB | 2.3 GiB | 3.4 GiB |
+| `lahman` | 706,466 | 123.8 MiB | 120.6 MiB | 924.5 MiB | 2.2 GiB | 2.4 GiB |
+| `chicago_crimes` | 260,041 | 74.5 MiB | 109.9 MiB | 579.4 MiB | 1.8 GiB | 2.3 GiB |
+| `dvdstore` | 174,716 | 54.5 MiB | 52.1 MiB | 839.2 MiB | 1.6 GiB | 1.9 GiB |
+| `stackexchange_beer` | 62,523 | 53.0 MiB | 55.8 MiB | 179.7 MiB | 1.3 GiB | 1.6 GiB |
+| `enron` | 48,778 | 59.8 MiB | 62.7 MiB | 255.9 MiB | 1.4 GiB | 1.6 GiB |
+| `nyc_taxi` | 48,591 | 47.3 MiB | 49.9 MiB | 149.0 MiB | 1.3 GiB | 1.5 GiB |
+| `sakila` | 47,268 | 45.9 MiB | 45.6 MiB | 140.2 MiB | 1.2 GiB | 1.5 GiB |
+| `chinook` | 15,607 | 39.9 MiB | 40.2 MiB | 82.4 MiB | 505.7 MiB | 790.7 MiB |
+| `oracle_oe` | 11,518 | 41.3 MiB | 43.3 MiB | 90.0 MiB | 427.8 MiB | 710.1 MiB |
+| `oracle_co` | 8,783 | 39.7 MiB | 40.2 MiB | 88.4 MiB | 289.0 MiB | 529.2 MiB |
+| `adventureworks_lt` | 4,277 | 45.4 MiB | 42.2 MiB | 98.8 MiB | 202.7 MiB | 307.6 MiB |
+| `northwind` | 3,308 | 43.8 MiB | 40.9 MiB | 86.6 MiB | 168.9 MiB | 259.8 MiB |
+| `smallsets` | 2,147 | 39.9 MiB | 39.7 MiB | 66.9 MiB | 127.3 MiB | 192.5 MiB |
+| `jaffle_shop` | 312 | 39.5 MiB | 39.4 MiB | 44.9 MiB | 86.3 MiB | 103.3 MiB |
+| `pubs` | 255 | 39.6 MiB | 39.9 MiB | 68.4 MiB | 94.5 MiB | 113.3 MiB |
+| `oracle_hr` | 216 | 39.7 MiB | 42.5 MiB | 67.3 MiB | 86.9 MiB | 107.8 MiB |
 
 | database | rows | 1. SQLite<br>one transaction | 2. SQLite<br>1 INSERT/row | 3. DoltLite<br>1 commit/db | 4. DoltLite<br>1 INSERT/row | 5. DoltLite<br>1 commit/row |
 |---|---:|---:|---:|---:|---:|---:|
@@ -578,10 +612,7 @@ enough to finish storing it.
 **MySQL runs with non-default flags**: `--local-infile=1`, `--skip-log-bin`. The second favours MySQL by not writing
 a binary log.
 
-The following are not measured yet, and appear in this document as `[not measured]`:
-
-* `pairs.pg.databases_every_test` — from results.json:*.pairs.pg (absent)
-* `pairs.pg.rowcommit_ratio` — from results.json:*.pairs.pg.doltgres_rowcommit.disk_bytes over postgres (absent)
+*Every number in this document is backed by a measurement.*
 
 ## The machine
 

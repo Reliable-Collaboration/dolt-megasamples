@@ -218,7 +218,7 @@ disagrees with the measurements cannot survive a regeneration.
 
 The corpus runs on PostgreSQL and SQLite as well, and DoltHub ships a versioned engine for each,
 so the five tests were run again for the PostgreSQL/DoltgreSQL and SQLite/DoltLite pairs
-(13 and 21 databases with the one-commit load on both
+(21 and 21 databases with the one-commit load on both
 engines so far). What was learned before a row was loaded is in `knowledge/` -- every fact about
 the two engines with the source it was read in or the command that produced it -- and the short
 version is this.
