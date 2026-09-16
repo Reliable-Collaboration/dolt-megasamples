@@ -11,7 +11,7 @@ status: stable
 trust: verified
 generated:
   by: claude-code/claude-fable-5-1
-  at: "2026-09-16T12:00:00Z"
+  at: "2026-09-16T13:30:00Z"
 verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-16T12:00:00Z"
@@ -40,6 +40,7 @@ sources:
 
 * **A role can still grant itself `CREATEDB`.** In the same probe, `ALTER ROLE demo CREATEDB` run by `demo` succeeded and `pg_roles.rolcreatedb` read true afterwards, where PostgreSQL answers `permission denied`; with it, `demo` could create databases after all. The second half of the private report, still open on 1.3.2.
 * **The catalog prints a null ordering the source does not.** `pg_indexes.indexdef` read back `(rowguid nulls first)` for adventureworks_lt's eight unique indexes on `uuid` columns, where PostgreSQL 18.6 and 1.3.1 print `(rowguid)`; in a probe on 2026-09-16 (a table with unique indexes on a `uuid` and a `text` column, a plain index on an `int`, rows including NULLs) the `text` unique index printed `NULLS FIRST` and the `uuid` one did not, so the condition is not the column type alone and is not pinned down. `ORDER BY` put NULLs last ascending and first descending on both engines, identically, so the difference is in what the catalog says, not in what the index does, as far as the probe shows. The parity check keeps such an index and records the difference under `ordering_differs` ([the load shapes](/decisions/pair-load-shapes-and-measurement.md)); not reported upstream.
+* **Opening a large per-row-commit store takes longer than the image allows.** Started over adventureworks' per-row-commit store (759,240 commits, 8.1 GB) under a 12 GiB cap, the server logged `failed to scan table public.production_transactionhistoryarchive: context canceled` and the entrypoint gave up: `Doltgres server failed to start within 300 seconds` (2026-09-16); the same for employees' stores and wikipedia_simple's inline one, while every one-commit and row-insert store and the per-row-commit stores up to oracle_sh's (1,063,396 commits) opened in time. The limit is the image's `DOLTGRES_SERVER_TIMEOUT` (default 300); the served stack and the memory study set it higher. How long those stores take to open is what the study's rerun measures.
 * **What 1.3.1 could not do, 1.3.2 cannot either**, by the loads: the generated-column, `character(n)`, trigger `WHEN`, named NOT NULL and `regexp_like` limits of [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) are worked around by the same rules; the fixes for all of them merged upstream on 2026-09-16, after v1.3.3, for a later release.
 
 # Decision

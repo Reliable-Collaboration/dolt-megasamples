@@ -32,3 +32,4 @@ build/spike-concurrent/run.log
 build/skip-*
 build/*.log
 build/mem-watch-*
+build/rerun-*
