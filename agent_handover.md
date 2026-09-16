@@ -133,7 +133,10 @@ the timed pairs (its MySQL is needed only for `make export`, its PostgreSQL only
    from the top as the run proceeds.
 8. **`make up`**, **`make test-stack`**, **`make screenshots`**, then `make report` and
    `make check` again, so the README's pictures show this machine's stack.
-9. Knowledge: a tool record per new engine version (what was verified on it, as
+9. When the run is complete, rewrite the README's *How far this has been tested* paragraph: it says,
+   truthfully, that these steps have never been followed end to end from an empty machine, and your
+   run is the first time. Say what it took and what the section got wrong.
+10. Knowledge: a tool record per new engine version (what was verified on it, as
    `knowledge/tools/doltgresql-1-3-2.md` and `knowledge/tools/doltlite-0-50-10.md` do), the older
    ones deprecated; `log.md` entries; `make okf-check`. Then the pull request.
 
