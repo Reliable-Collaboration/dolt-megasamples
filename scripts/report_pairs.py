@@ -9,6 +9,7 @@ import os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import human, human_mb  # noqa: E402
+from tables import TINT, grouped_table  # noqa: E402
 from pairs import LABEL, PER_ROW, PHASES  # noqa: E402
 from report import cell, secs  # noqa: E402
 
@@ -69,12 +70,12 @@ def pair_table(results, pair, suffix=""):
     if not data:
         return f"*No {' / '.join(TITLES[pair])} unit has been measured yet.*"
     keys = [phases[0]] + [ph + suffix for ph in phases[1:]]
-    L = ["| database | rows | " + " | ".join(SHORT[ph] for ph in phases) + " |",
-         "|---|---:|" + "---:|" * len(phases)]
+    rows = []
     for db in sorted(data, key=lambda d: -data[d]["__rows"]):
         m = data[db]
         base = m.get(phases[0]) or {}
-        L.append(f"| `{db}` | {m['__rows']:,} | " + " | ".join(size_time(m.get(k), base) for k in keys) + " |")
+        rows.append([f"`{db}`", f"{m['__rows']:,}"] + [size_time(m.get(k), base) for k in keys])
+    L = []
     full = [db for db in data if all((data[db].get(k) or {}).get("disk_bytes") for k in keys)
             and not any((data[db].get(k) or {}).get("settled") is False for k in keys)]
     if full:
@@ -84,8 +85,12 @@ def pair_table(results, pair, suffix=""):
         b0, t0 = b[keys[0]], max(t[keys[0]], 0.1)
         cells = [f"**{human(b0)}<br>{seconds(t0)}**"] + [
             f"**{b[k] / b0:.2f}×<br>{t[k] / t0:.0f}× time**" for k in keys[1:]]
-        L.append(f"| **all {len(full)} with every test** | **{sum(data[db]['__rows'] for db in full):,}** | "
-                 + " | ".join(cells) + " |")
+        rows.append([f"**all {len(full)} with every test**", f"**{sum(data[db]['__rows'] for db in full):,}**"] + cells)
+    baseline, engine = TITLES[pair]
+    groups = [(f"{baseline}<br><small>the baseline</small>", [(SHORT[ph].split("<br>")[1], None) for ph in phases[:2]], None),
+              (f"{engine}<br><small>the Dolt engine</small>",
+               [(SHORT[ph].split("<br>")[1], TINT["history"] if ph.endswith("rowcommit") else None) for ph in phases[2:]], TINT["commit"])]
+    L.append(grouped_table([("database", "left"), ("rows", "right")], groups, rows))
     if len(full) < len(data):
         missing = sorted(db for db in data if db not in full)
         L.append(f"\n*Each cell is disk then time; a versioned cell also gives the size as a multiple of test 1. "
@@ -284,17 +289,17 @@ def findings_totals(results, axis):
         cols.append(f"{PAIRS[pair]['baseline']} / {PAIRS[pair]['engine']}<br>{len(dbs)} of {len(results)} databases, {rows:,} rows")
         totals[pair] = {shape: sum(measure_of(results[d], pair, shape, axis) or 0 for d in dbs) for shape in SHAPES}
     unit = "disk" if axis == "bytes" else "time to load"
-    L = [f"| load | " + " | ".join(f"{c} | × baseline" for c in cols) + " |",
-         "|---|" + "---:|---:|" * len(cols)]
+    groups = [(c, [(unit, None), ("× baseline", TINT["ratio"])], None) for c in cols]
+    rows = []
     for shape in SHAPES:
-        cells = []
+        who = "baseline" if shape in ("bulk", "rowwise") else "Dolt engine"
+        row = [f"{SHAPE_LABELS[shape]} ({who})"]
         for pair in PAIR_ORDER:
             v, base = totals[pair][shape], totals[pair]["bulk"] or 1
-            text = human(v) if axis == "bytes" else seconds(v)
-            cells.append(f"{text} | {'—' if shape == 'bulk' else f'**{v / base:.2f}×**' if v / base < 10 else f'**{v / base:,.0f}×**'}")
-        who = "baseline" if shape in ("bulk", "rowwise") else "Dolt engine"
-        L.append(f"| {SHAPE_LABELS[shape]} ({who}) | " + " | ".join(cells) + " |")
-    return "\n".join(L)
+            row.append(human(v) if axis == "bytes" else seconds(v))
+            row.append("—" if shape == "bulk" else f"**{v / base:.2f}×**" if v / base < 10 else f"**{v / base:,.0f}×**")
+        rows.append(row)
+    return grouped_table([("load", "left")], groups, rows)
 
 
 def measure_of(r, pair, shape, axis):
@@ -337,6 +342,27 @@ ENGINE_COLUMNS = [("dolt", "bulk", "MySQL"), ("pg", "bulk", "PostgreSQL"), ("lit
                   ("dolt", "oneshot", "Dolt"), ("pg", "oneshot", "DoltgreSQL"), ("lite", "oneshot", "DoltLite")]
 
 
+def sizes_all(results, axis="bytes"):
+    """Every engine and every run in one grouped table: five column groups, one per run, the three
+    engines of that run side by side under one label and one shade."""
+    from loads import PAIRS, PAIR_ORDER, rows_of
+    runs = [("bulk", "in bulk", "baseline", None), ("oneshot", "one commit per database", "engine", TINT["commit"]),
+            ("rowwise", "one INSERT per row", "baseline", None), ("rowinsert", "one INSERT per row, one commit", "engine", TINT["commit"]),
+            ("rowcommit", "one commit per row", "engine", TINT["history"])]
+    groups = [(f"{label}<br><small>{'the baselines' if side == 'baseline' else 'the Dolt engines'}</small>",
+               [(PAIRS[p][side], None) for p in PAIR_ORDER], tint) for _, label, side, tint in runs]
+    rows = []
+    for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
+        r = results[db]
+        row = [f"`{db}`", f"{rows_of(r):,}"]
+        for sh, _, _, _ in runs:
+            for p in PAIR_ORDER:
+                v, mark = size_cell(r, p, sh) if axis == "bytes" else (measure_of(r, p, sh, axis), "")
+                row.append(((human(v) if axis == "bytes" else seconds(v)) + mark) if v else "—")
+        rows.append(row)
+    return grouped_table([("database", "left"), ("rows", "right")], groups, rows)
+
+
 def size_cell(r, pair, shape):
     """(bytes, mark) for one store: the measured size, or, for a store the engine could not collect,
     its working footprint marked †."""
@@ -367,12 +393,7 @@ def findings_sizes(results, shape, axis="bytes"):
     elif shape == "rowcommit":
         cols = [(pair, "rowcommit", PAIRS[pair]["engine"]) for pair in PAIR_ORDER]
     else:  # every engine and every run, grouped by run so the same run's engines sit side by side
-        short = {"bulk": "in bulk", "oneshot": "one commit", "rowwise": "one INSERT per row",
-                 "rowinsert": "one INSERT per row, one commit", "rowcommit": "one commit per row"}
-        cols = []
-        for sh in ("bulk", "oneshot", "rowwise", "rowinsert", "rowcommit"):
-            side = "baseline" if sh in ("bulk", "rowwise") else "engine"
-            cols += [(pair, sh, f"{PAIRS[pair][side]}<br>{short[sh]}") for pair in PAIR_ORDER]
+        return sizes_all(results, axis)
     L = ["| database | rows | " + " | ".join(name for _, _, name in cols) + " |", "|---|---:|" + "---:|" * len(cols)]
     for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
         r = results[db]
@@ -399,14 +420,16 @@ def databases_table(results):
         what = json.load(open(os.path.join(ROOT, "build", "catalogue.json"), encoding="utf-8"))
     except (OSError, ValueError):
         what = {}
-    L = ["| database | what it is | tables | rows | " + " | ".join(f"on disk in {PAIRS[p]['engine']}<br>one commit" for p in PAIR_ORDER) + " |",
-         "|---|---|---:|---:|" + "---:|" * len(PAIR_ORDER)]
     order = sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
+    rows = []
     for db in order:
         r = results[db]
         sizes = [measure_of(r, p, "oneshot", "bytes") for p in PAIR_ORDER]
-        L.append(f"| `{db}` | {what.get(db, '')} | {r.get('tables') or 0:,} | {rows_of(r):,} | "
-                 + " | ".join(human(v) if v else "—" for v in sizes) + " |")
+        rows.append([f"`{db}`", what.get(db, ""), f"{r.get('tables') or 0:,}", f"{rows_of(r):,}"]
+                    + [human(v) if v else "—" for v in sizes])
+    L = [grouped_table([("database", "left"), ("what it is", "left"), ("tables", "right"), ("rows", "right")],
+                       [("on disk, one commit for the database<br><small>as served</small>",
+                         [(PAIRS[p]["engine"], None) for p in PAIR_ORDER], TINT["commit"])], rows)]
     # the same database with a commit per row, so a reader does not take the served size for the
     # only size: what a Dolt engine's store tracks is its commits
     big = results[order[0]]

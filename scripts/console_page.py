@@ -150,13 +150,20 @@ def main():
         + "".join(f'<tr><th>{html.escape(k)}</th><td>{"<code>" + html.escape(v) + "</code>" if k in ("client", "URL", "JDBC", "open", "copy one out") else html.escape(v)}</td></tr>'
                   for k, v in rows) + '</table></div>' for title, rows in CONNECT)
 
-    head = ['<th>database</th>' + ('<th>what it is</th>' if catalogue else '') + '<th class="n">rows</th><th class="n">MySQL</th><th class="n">Dolt</th>']
+    # two header rows: the pairs, then the engines; a Dolt engine's column carries a tint so the three
+    # can be compared across the pairs at a glance
+    lead = 3 if catalogue else 2
+    group = [f'<th colspan="{lead}"></th><th colspan="2" class="g">MySQL / Dolt</th>']
+    head = ['<th>database</th>' + ('<th>what it is</th>' if catalogue else '') + '<th class="n">rows</th><th class="n">MySQL</th><th class="n tint">Dolt</th>']
     if mode != "oneshot":
+        group.append('<th></th>')
         head.append('<th class="n">commits served<br>Dolt / DoltgreSQL / DoltLite</th>')
     if have_pg:
-        head.append('<th class="n">PostgreSQL</th><th class="n">DoltgreSQL</th>')
+        group.append('<th colspan="2" class="g">PostgreSQL / DoltgreSQL</th>')
+        head.append('<th class="n">PostgreSQL</th><th class="n tint">DoltgreSQL</th>')
     if have_lite:
-        head.append('<th class="n">SQLite</th><th class="n">DoltLite</th>')
+        group.append('<th colspan="2" class="g">SQLite / DoltLite</th>')
+        head.append('<th class="n">SQLite</th><th class="n tint">DoltLite</th>')
     cards = []
 
     def fmt(v):
@@ -169,7 +176,7 @@ def main():
         row = (f'      <tr><td><code>{html.escape(db)}</code><span class="opens">{opens}</span></td>'
                + (f'<td class="what">{html.escape(catalogue.get(db, ""))}</td>' if catalogue else '')
                + f'<td class="n">{(r.get("rows_mysql") or 0):,}</td>'
-               f'<td class="n">{fmt(s["mysql"])}</td><td class="n">{fmt(s["dolt"])}</td>')
+               f'<td class="n">{fmt(s["mysql"])}</td><td class="n tint">{fmt(s["dolt"])}</td>')
         if mode != "oneshot":
             e = serve.get("engines") or {}
             c = commits_served(r, mode)
@@ -179,9 +186,9 @@ def main():
                 cells.append(f"{n:,}" if (on and n) else ("—" if not on else "?"))
             row += f'<td class="n">{" / ".join(cells)}</td>'
         if have_pg:
-            row += f'<td class="n">{fmt(s["postgres"])}</td><td class="n">{fmt(s["doltgres"])}</td>'
+            row += f'<td class="n">{fmt(s["postgres"])}</td><td class="n tint">{fmt(s["doltgres"])}</td>'
         if have_lite:
-            row += f'<td class="n">{fmt(s["sqlite"])}</td><td class="n">{fmt(s["doltlite"])}</td>'
+            row += f'<td class="n">{fmt(s["sqlite"])}</td><td class="n tint">{fmt(s["doltlite"])}</td>'
         cards.append(row + "</tr>")
 
     e = serve.get("engines") or {}
@@ -210,6 +217,9 @@ def main():
  table.kv {{ width:100%; table-layout:fixed; }} table.kv th {{ width:6.5rem; }}
  table.kv td {{ overflow-wrap:anywhere; }} table.kv code {{ white-space:pre-wrap; overflow-wrap:anywhere; }}
  td.what {{ font-size:.85rem; opacity:.85; }}
+ .tint {{ background:#eef3f8; }} tr.group th {{ border-bottom:none; padding-bottom:0; font-weight:500; opacity:.75; }}
+ tr.group th.g {{ text-align:center; }}
+ @media (prefers-color-scheme: dark) {{ .tint {{ background:#1c2733; }} }}
  .engine h3 {{ margin:.25rem 0 .5rem; font-size:1rem; }}
  table.kv th {{ text-align:left; font-weight:600; padding:.1rem .6rem .1rem 0; white-space:nowrap; vertical-align:top; font-size:.9rem; }}
  table.kv td {{ font-size:.9rem; padding:.1rem 0; }} table.kv code {{ font-size:.85rem; }}
@@ -239,6 +249,7 @@ stores are {ratio_line}; a commit per row costs far more.{granularity} <code>REA
 
 <h2>Databases</h2>
 <table class="db">
+<tr class="group">{''.join(group)}</tr>
 <tr>{''.join(head)}</tr>
 {chr(10).join(cards)}
 </table>

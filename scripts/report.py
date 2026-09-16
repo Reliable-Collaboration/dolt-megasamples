@@ -200,16 +200,15 @@ def environment_table():
 def summary_table(items):
     """Every database, every test, disk and time. One table, so nothing is compared across
     populations by accident: a test with no result for a database shows an em dash."""
-    L = ["| database | rows | 1. MySQL | 2. MySQL<br>row-wise | 3. Dolt<br>1 commit/db "
-         "| 4. Dolt<br>1 INSERT/row | 5. Dolt<br>1 commit/row |",
-         "|---|---:|---:|---:|---:|---:|---:|"]
+    from tables import TINT, grouped_table
+    rows, L = [], []
     for i in sorted(items, key=lambda x: -(i_rows := x["rows"])):
-        L.append(f"| `{i['db']}` | {i['rows']:,} "
-                 f"| {human(i['mysql'])}<br>{secs(i['mysql_seconds'])} "
-                 f"| {cell(i['mysql_rowwise_bytes'], i['mysql'])}<br>{secs(i['mysql_rowwise_seconds'])} "
-                 f"| {cell(i['dolt'], i['mysql'])}<br>{secs(i['dolt_seconds'])} "
-                 f"| {cell(i['rowinsert'], i['mysql'])}<br>{secs(i['rowinsert_seconds'])} "
-                 f"| {cell(i['rowcommit'], i['mysql'])}<br>{secs(i['rowcommit_seconds'])} |")
+        rows.append([f"`{i['db']}`", f"{i['rows']:,}",
+                     f"{human(i['mysql'])}<br>{secs(i['mysql_seconds'])}",
+                     f"{cell(i['mysql_rowwise_bytes'], i['mysql'])}<br>{secs(i['mysql_rowwise_seconds'])}",
+                     f"{cell(i['dolt'], i['mysql'])}<br>{secs(i['dolt_seconds'])}",
+                     f"{cell(i['rowinsert'], i['mysql'])}<br>{secs(i['rowinsert_seconds'])}",
+                     f"{cell(i['rowcommit'], i['mysql'])}<br>{secs(i['rowcommit_seconds'])}"])
     # totals over the databases where every test has a result, so the row is one population
     full = [i for i in items if all(i[k] for k in ("mysql", "mysql_rowwise_bytes", "dolt",
                                                    "rowinsert", "rowcommit"))]
@@ -219,12 +218,16 @@ def summary_table(items):
         t = {k: sum(i[k] or 0 for i in full) for k in ("mysql_seconds", "mysql_rowwise_seconds",
                                                        "dolt_seconds", "rowinsert_seconds",
                                                        "rowcommit_seconds")}
-        L.append(f"| **all {len(full)} with every test** | **{sum(i['rows'] for i in full):,}** "
-                 f"| **{human(b['mysql'])}<br>{secs(t['mysql_seconds'])}** "
-                 f"| **{b['mysql_rowwise_bytes'] / b['mysql']:.2f}×<br>{t['mysql_rowwise_seconds'] / t['mysql_seconds']:.0f}× time** "
-                 f"| **{b['dolt'] / b['mysql']:.2f}×<br>{t['dolt_seconds'] / t['mysql_seconds']:.1f}× time** "
-                 f"| **{b['rowinsert'] / b['mysql']:.2f}×<br>{t['rowinsert_seconds'] / t['mysql_seconds']:.0f}× time** "
-                 f"| **{b['rowcommit'] / b['mysql']:.0f}×<br>{t['rowcommit_seconds'] / t['mysql_seconds']:.0f}× time** |")
+        rows.append([f"**all {len(full)} with every test**", f"**{sum(i['rows'] for i in full):,}**",
+                     f"**{human(b['mysql'])}<br>{secs(t['mysql_seconds'])}**",
+                     f"**{b['mysql_rowwise_bytes'] / b['mysql']:.2f}×<br>{t['mysql_rowwise_seconds'] / t['mysql_seconds']:.0f}× time**",
+                     f"**{b['dolt'] / b['mysql']:.2f}×<br>{t['dolt_seconds'] / t['mysql_seconds']:.1f}× time**",
+                     f"**{b['rowinsert'] / b['mysql']:.2f}×<br>{t['rowinsert_seconds'] / t['mysql_seconds']:.0f}× time**",
+                     f"**{b['rowcommit'] / b['mysql']:.0f}×<br>{t['rowcommit_seconds'] / t['mysql_seconds']:.0f}× time**"])
+    L.append(grouped_table([("database", "left"), ("rows", "right")],
+                           [("MySQL<br><small>the baseline</small>", [("1. extended INSERTs", None), ("2. 1 INSERT/row", None)], None),
+                            ("Dolt<br><small>the Dolt engine</small>", [("3. 1 commit/db", None), ("4. 1 INSERT/row", None),
+                                                                        ("5. 1 commit/row", TINT["history"])], TINT["commit"])], rows))
     if len(full) < len(items):
         missing = sorted(i["db"] for i in items if i not in full)
         L.append(f"\n*Each cell is disk then time. {len(items) - len(full)} database(s) do not yet "
