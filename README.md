@@ -88,7 +88,7 @@ after garbage collection; every other load is in [the experiment's table](#every
 What each dataset is, where it came from and what its licence asks is in
 [`sql-megasamples`' catalogue](https://github.com/Reliable-Collaboration/sql-megasamples/blob/main/CATALOGUE.md).
 
-| database | what it is | tables | rows | Dolt | DoltgreSQL | DoltLite |
+| database | what it is | tables | rows | on disk in Dolt<br>one commit | on disk in DoltgreSQL<br>one commit | on disk in DoltLite<br>one commit |
 |---|---|---:|---:|---:|---:|---:|
 | `employees` | The MySQL "Employees Sample Database" - 300,024 fabricated employees with 2.8 M salary rows | 6 | 3,919,015 | 42.5 MiB | 60.7 MiB | 248.6 MiB |
 | `wikipedia_simple` | Current-revision article text plus MediaWiki link tables of the Simple English Wikipedia | 9 | 1,167,112 | 122.4 MiB | 54.8 MiB | 183.7 MiB |
@@ -111,6 +111,8 @@ What each dataset is, where it came from and what its licence asks is in
 | `jaffle_shop` | dbt Labs' fictional jaffle (toasted sandwich) shop | 3 | 312 | 37.7 KiB | 16.8 KiB | 18.6 KiB |
 | `pubs` | Microsoft's tiny 11-table publishers/authors sample (SQL Server 2000 era) shipped as a 126 KB T-SQL script with inline data | 11 | 255 | 77.0 KiB | 65.1 KiB | 126.8 KiB |
 | `oracle_hr` | The 7-table, 216-row teaching schema from Oracle's db-sample-schemas v23.3, converted from its plain INSERT scripts | 7 | 216 | 62.8 KiB | 43.1 KiB | 53.2 KiB |
+
+*These are the sizes with one commit per database, which is what is served. The same rows with a commit per row are a different store: `employees`, 3,919,015 rows, is 42.5 MiB in Dolt with one commit and 63.3 GiB with a commit per row (DoltgreSQL 36.6 GiB; DoltLite 317.8 GiB †). What a Dolt engine's store tracks is its commits, and every run of every database is in [the experiment's table](#every-database-in-every-engine-every-run).*
 
 ## The engines
 

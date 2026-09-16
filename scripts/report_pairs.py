@@ -337,6 +337,18 @@ ENGINE_COLUMNS = [("dolt", "bulk", "MySQL"), ("pg", "bulk", "PostgreSQL"), ("lit
                   ("dolt", "oneshot", "Dolt"), ("pg", "oneshot", "DoltgreSQL"), ("lite", "oneshot", "DoltLite")]
 
 
+def size_cell(r, pair, shape):
+    """(bytes, mark) for one store: the measured size, or, for a store the engine could not collect,
+    its working footprint marked †."""
+    from loads import test_of
+    v, mark = measure_of(r, pair, shape, "bytes"), ""
+    if pair != "dolt":
+        u = ((r.get("pairs") or {}).get(pair) or {}).get(test_of(pair, shape)) or {}
+        if u.get("settled") is False and u.get("footprint_bytes"):
+            v, mark = u["footprint_bytes"], UNSETTLED
+    return v, mark
+
+
 def findings_sizes(results, shape, axis="bytes"):
     """Every database down and every engine across, for one way of writing the rows: the size (or
     the time) each engine ended with, so a database can be compared across all six engines at once.
@@ -366,12 +378,10 @@ def findings_sizes(results, shape, axis="bytes"):
         r = results[db]
         cells = []
         for pair, sh, _ in cols:
-            v = measure_of(r, pair, sh, axis)
-            mark = ""
-            if pair != "dolt" and axis == "bytes":
-                u = ((r.get("pairs") or {}).get(pair) or {}).get(test_of(pair, sh)) or {}
-                if u.get("settled") is False and u.get("footprint_bytes"):
-                    v, mark = u["footprint_bytes"], UNSETTLED
+            if axis == "bytes":
+                v, mark = size_cell(r, pair, sh)
+            else:
+                v, mark = measure_of(r, pair, sh, axis), ""
             cells.append(((human(v) if axis == "bytes" else seconds(v)) + mark) if v else "—")
         L.append(f"| `{db}` | {rows_of(r):,} | " + " | ".join(cells) + " |")
     return "\n".join(L)
@@ -389,13 +399,26 @@ def databases_table(results):
         what = json.load(open(os.path.join(ROOT, "build", "catalogue.json"), encoding="utf-8"))
     except (OSError, ValueError):
         what = {}
-    L = ["| database | what it is | tables | rows | " + " | ".join(PAIRS[p]["engine"] for p in PAIR_ORDER) + " |",
+    L = ["| database | what it is | tables | rows | " + " | ".join(f"on disk in {PAIRS[p]['engine']}<br>one commit" for p in PAIR_ORDER) + " |",
          "|---|---|---:|---:|" + "---:|" * len(PAIR_ORDER)]
-    for db in sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0)):
+    order = sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
+    for db in order:
         r = results[db]
         sizes = [measure_of(r, p, "oneshot", "bytes") for p in PAIR_ORDER]
         L.append(f"| `{db}` | {what.get(db, '')} | {r.get('tables') or 0:,} | {rows_of(r):,} | "
                  + " | ".join(human(v) if v else "—" for v in sizes) + " |")
+    # the same database with a commit per row, so a reader does not take the served size for the
+    # only size: what a Dolt engine's store tracks is its commits
+    big = results[order[0]]
+    once = [size_cell(big, p, "oneshot") for p in PAIR_ORDER]
+    each = [size_cell(big, p, "rowcommit") for p in PAIR_ORDER]
+    if once[0][0] and each[0][0]:
+        others = "; ".join(f"{PAIRS[p]['engine']} {human(v)}{m}" for p, (v, m) in zip(PAIR_ORDER[1:], each[1:]) if v)
+        L += ["", f"*These are the sizes with one commit per database, which is what is served. The same rows with a commit "
+                  f"per row are a different store: `{order[0]}`, {rows_of(big):,} rows, is {human(once[0][0])} in "
+                  f"{PAIRS[PAIR_ORDER[0]]['engine']} with one commit and {human(each[0][0])} with a commit per row"
+                  + (f" ({others})" if others else "") + ". What a Dolt engine's store tracks is its commits, and every "
+                  "run of every database is in [the experiment's table](#every-database-in-every-engine-every-run).*"]
     return "\n".join(L)
 
 
