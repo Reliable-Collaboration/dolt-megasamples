@@ -55,6 +55,7 @@ def blocks():
         "per_database": guarded(lambda r: report.detail_table(report.rows(r))
                                 if hasattr(report, "detail_table") else
                                 report.summary_table(report.rows(r))),
+        "dolt_report": guarded(lambda r: embed_report(r)),
         "index_policy": guarded(lambda r: demote(report.policy_section(report.rows(r))
                                                  or "*Neither index policy has been measured yet.*")),
         "index_parity": guarded(lambda r: "\n".join(report.index_parity_table(report.rows(r)))
@@ -81,6 +82,29 @@ def blocks():
         "times_oneshot": guarded(lambda r: report_pairs.findings_sizes(r, "oneshot", "seconds")),
         "times_rowcommit": guarded(lambda r: report_pairs.findings_sizes(r, "rowcommit", "seconds")),
     }
+
+
+def embed_report(r):
+    """The MySQL/Dolt report, generated as it always was, placed under a heading of REPORT.md's own:
+    its file header, human note and machine table go, since REPORT.md carries each once already."""
+    import report
+    report.RAW = r
+    text = report.report(report.rows(r))
+    text = text.replace(report.GENERATED, "").replace(report.HUMAN_NOTE, "")
+    a = text.index("## The machine\n")
+    b = text.index("## The short answer")
+    return demote_all(text[:a] + text[b:])
+
+
+def demote_all(text):
+    """A whole generated document placed under a heading of the template's own: its H1 goes, every
+    H2 becomes an H3 and every H3 an H4."""
+    out = []
+    for l in text.split("\n"):
+        if l.startswith("# "):
+            continue
+        out.append("#" + l if l.startswith("## ") or l.startswith("### ") else l)
+    return "\n".join(out).strip("\n")
 
 
 def demote(text):

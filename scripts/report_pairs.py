@@ -259,11 +259,15 @@ def memory_study_table():
             why = ", ".join(f"`{db}` ({v.get('outcome')})" for db, v in sorted(bad.items())) or "—"
             L.append(f"| {names[engine]} | {label} | {opens} | {least} | {why} |")
     tops = sorted({v.get("ladder_top_mb") for e in study.values() for m in e.values() for v in m.values() if v.get("ladder_top_mb")})
+    exited = any(v.get("outcome") == "exited 1" for e in study.values() for m in e.values() for v in m.values())
     L.append("")
-    L.append(f"*Ceilings walked up to {', '.join(f'{t:,} MB' for t in tops)}; a query that did not answer at the top is "
-             f"\"could not open\" with what the probe saw. `exited 1` is the image's entrypoint giving up after 300 s of "
-             f"start-up, not the memory ceiling: DoltgreSQL scans every table when it opens a store, and a "
-             f"per-row-commit history of 759,240 commits or more did not finish scanning in time.*")
+    note = (f"*Ceilings walked up to {', '.join(f'{t:,} MB' for t in tops)}; a query that did not answer at the top is "
+            f"\"could not open\" with what the probe saw.")
+    if exited:
+        note += (" `exited 1` is the image's entrypoint giving up after 300 s of start-up, not the memory ceiling: "
+                 "DoltgreSQL scans every table when it opens a store, and a per-row-commit history of hundreds of "
+                 "thousands of commits did not finish scanning in time.")
+    L.append(note + "*")
     return "\n".join(L)
 
 

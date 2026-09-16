@@ -440,11 +440,11 @@
    "employees": {
     "ladder_top_mb": 12288,
     "largest_table_rows": 2844047,
-    "measured": "2026-09-16T12:32:44Z",
-    "megabytes": null,
-    "outcome": "exited 1",
+    "measured": "2026-09-16T14:47:08Z",
+    "megabytes": 2048,
+    "outcome": "ok",
     "query_table": "salaries",
-    "seconds_to_profile": 301.9
+    "seconds_to_profile": 885.5
    },
    "enron": {
     "ladder_top_mb": 12288,
@@ -566,11 +566,11 @@
    "wikipedia_simple": {
     "ladder_top_mb": 12288,
     "largest_table_rows": 769735,
-    "measured": "2026-09-16T13:04:27Z",
-    "megabytes": null,
-    "outcome": "exited 1",
+    "measured": "2026-09-16T14:57:19Z",
+    "megabytes": 1024,
+    "outcome": "ok",
     "query_table": "pagelinks",
-    "seconds_to_profile": 301.5
+    "seconds_to_profile": 610.9
    }
   },
   "rowinsert": {

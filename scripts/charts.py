@@ -17,16 +17,18 @@ and that is the honest thing for the picture to say.
 The figures, each covering every pair -- MySQL and Dolt, PostgreSQL and DoltgreSQL, SQLite and
 DoltLite -- and every database:
 
-  cost-by-mode         both axes totalled, one bar per load, one row of panels per pair
-  disk-by-database     what each database costs on disk in all five loads, one panel per pair
-  time-by-database     the same in time
-  ratio-by-database    disk as a ratio of the pair's own baseline, so the crossover is visible
-  index-policy-<pair>  the row-by-row loads with the indexes dropped and with them maintained
-  memory-by-history    what each Dolt engine needs to open a store, against rows and commits
+  headline              both axes totalled, every load of every pair, as a ratio of the baseline
+  sizes-by-engine       every database in every engine, the standard load
+  history-cost          what a commit per row costs against the bulk load, database by database
+  index-policy-summary  what maintaining the indexes costs, one dot per engine and load
+  index-policy-<pair>   the same, database by database, with the indexes dropped and maintained
+  memory-by-history     what each Dolt engine needs to open a store, against its commits
+  disk-by-database      what each database costs on disk in all five loads, one panel per pair
+  time-by-database      the same in time
 
-Where a load was cheap enough to repeat, its bar carries a whisker spanning every sample. A bar
-without one was measured once, which the figure says by leaving it off rather than by drawing a
-whisker of zero length.
+One colour per engine (the Okabe-Ito palette, distinguishable under every common colour-vision
+deficiency) and one marker per load shape, the same in every figure; a title states what the figure
+shows, computed from the same measurements it draws.
 """
 import json, os, sys
 
@@ -40,32 +42,6 @@ IMG = os.path.join(ROOT, "docs", "img")
 MB = 1024 * 1024
 
 INK, GRID = "#22252a", "#cfd4dc"
-# the five loads, in the order they are always drawn
-TESTS = ["mysql", "mysql_rowwise", "dolt_oneshot", "dolt_rowinsert", "dolt_rowcommit"]
-# Categorical hues in fixed slot order, and they are checked rather than chosen by eye. The palette
-# these replaced failed a colour-vision check outright: its green and its orange -- Dolt's one-commit
-# and one-shot loads, drawn as adjacent bars -- came out 4.5 apart under protanopia, which is to say
-# indistinguishable to a red-green colourblind reader looking at the two bars this chart exists to
-# compare. These five pass every check; the three that sit under 3:1 against white are relieved by
-# the report carrying every number as a table.
-COLOURS = {"mysql": "#2a78d6", "mysql_rowwise": "#eb6834", "dolt_oneshot": "#1baf7a",
-           "dolt_rowinsert": "#eda100", "dolt_rowcommit": "#e87ba4"}
-LABELS = {"mysql": "MySQL — extended INSERTs",
-          "mysql_rowwise": "MySQL — one INSERT per row",
-          "dolt_oneshot": "Dolt — one commit per database",
-          "dolt_rowinsert": "Dolt — one INSERT per row, one commit",
-          "dolt_rowcommit": "Dolt — one commit per row"}
-SHORT = {"mysql": "MySQL\nextended", "mysql_rowwise": "MySQL\n1 INSERT/row",
-         "dolt_oneshot": "Dolt\n1 commit/db", "dolt_rowinsert": "Dolt\n1 INSERT/row",
-         "dolt_rowcommit": "Dolt\n1 commit/row"}
-
-# The same three row-by-row loads run a second time with every secondary index and constraint left
-# in place for the whole load. They are a comparison of one variable against the five tests above,
-# not five more tests, so they get their own figure instead of seven bars per database.
-POLICY_TESTS = ["mysql_rowwise", "dolt_rowinsert", "dolt_rowcommit"]
-# Diverging, because the question is a polarity: does keeping the indexes cost more or less than
-# dropping them? Warm and cool poles with a neutral midpoint, so "no difference" reads as nothing.
-POLICY_MORE, POLICY_LESS, POLICY_NONE = "#e34948", "#2a78d6", "#c9c7c2"
 
 
 def bar_label(v):
@@ -128,282 +104,245 @@ def load(path=None):
         return json.load(fh)
 
 
-def value(r, test, axis, policy="deferred"):
-    """One measurement, or None. `axis` is 'bytes' or 'seconds'.
+# ---------------------------------------------------------------------------- the code ---
+# One colour code for the whole document: hue is the engine family, on the Okabe-Ito palette, which
+# stays distinguishable under the three common colour-vision deficiencies. A load shape is never a
+# hue: it is the panel a figure puts it in, or the marker.
+from loads import PAIRS, PAIR_ORDER, SHAPES, SHAPE_LABELS, TESTS, PAIR_TESTS, complete, measure, rows_of, spread, test_of  # noqa: E402
 
-    `policy` picks between the row-by-row loads that dropped their secondary indexes for the load
-    and the ones that kept them. It has no meaning for the one-shot loads, which are unaffected."""
-    sfx = "_inline" if policy == "inline" else ""
-    if test == "mysql":
-        return r.get("mysql_disk_bytes") if axis == "bytes" else r.get("mysql_load_seconds")
-    if test == "mysql_rowwise":
-        return (r.get(f"mysql_rowwise_bytes{sfx}") if axis == "bytes"
-                else r.get(f"mysql_rowwise_seconds{sfx}"))
-    m = (r.get("modes", {}) or {}).get(test.replace("dolt_", "") + sfx, {}) or {}
-    return m.get("disk_bytes") if axis == "bytes" else m.get("total_seconds")
-
-
-def samples(r, test, axis, policy="deferred"):
-    """Every repeat of one measurement, or None when it was measured once.
-
-    A load cheap enough to repeat carries its own spread, and the figures draw it as a whisker. The
-    expensive loads are single samples and get no whisker, which is the honest distinction: an
-    unrepeated number is not a number that repeated well."""
-    sfx = "_inline" if policy == "inline" else ""
-    key = "bytes_all" if axis == "bytes" else "seconds_all"
-    if test.startswith("dolt_"):
-        m = (r.get("modes", {}) or {}).get(test.replace("dolt_", "") + sfx, {}) or {}
-        got = m.get(key)
-    else:
-        spread = r.get("mysql_spread" if test == "mysql" else f"mysql_rowwise_spread{sfx}") or {}
-        got = spread.get(key)
-    return got if got and len(got) > 1 else None
+ENGINE = {"MySQL": "#0072B2", "PostgreSQL": "#56B4E9", "SQLite": "#E69F00",
+          "Dolt": "#009E73", "DoltgreSQL": "#D55E00", "DoltLite": "#CC79A7"}
+BASELINE_OF = {p: PAIRS[p]["baseline"] for p in PAIR_ORDER}
+DOLT_OF = {p: PAIRS[p]["engine"] for p in PAIR_ORDER}
+MARKER = {"bulk": "o", "rowwise": "o", "oneshot": "o", "rowinsert": "D", "rowcommit": "s"}
+MB = 1024 * 1024
 
 
-def whisker(r, test, axis, policy, scale, centre):
-    """(lower, upper) error-bar lengths around `centre`, or None."""
-    xs = samples(r, test, axis, policy)
-    if not xs:
-        return None
-    lo, hi = min(xs) / scale, max(xs) / scale
-    return [[max(0.0, centre - lo)], [max(0.0, hi - centre)]]
+def engine_of(pair, shape):
+    return BASELINE_OF[pair] if shape in ("bulk", "rowwise") else DOLT_OF[pair]
 
 
-def coverage(results, axis):
-    """How many of the databases each test has a measurement for."""
-    return {t: sum(1 for r in results.values() if value(r, t, axis)) for t in TESTS}
+def colour(pair, shape):
+    return ENGINE[engine_of(pair, shape)]
 
 
-def caption(results, axis):
-    cov = coverage(results, axis)
-    n = len(results)
-    missing = {t: n - c for t, c in cov.items() if c < n}
-    if not missing:
-        return f"all {n} databases, all five loads"
-    return (f"{n} databases; a gap means that load has no result yet — "
-            + ", ".join(f"{LABELS[t].split(' — ')[0]} {LABELS[t].split(' — ')[1]}: {cov[t]}/{n}"
-                        for t in missing))
-
-
-# ------------------------------------------------------------------- the three pairs ---
-PAIR_TESTS = {"pg": ["postgres", "postgres_rowwise", "doltgres_oneshot", "doltgres_rowinsert", "doltgres_rowcommit"],
-              "lite": ["sqlite", "sqlite_rowwise", "doltlite_oneshot", "doltlite_rowinsert", "doltlite_rowcommit"]}
-PAIR_SHORT = {"postgres": "PostgreSQL\nCOPY", "postgres_rowwise": "PostgreSQL\n1 INSERT/row",
-              "doltgres_oneshot": "DoltgreSQL\n1 commit/db", "doltgres_rowinsert": "DoltgreSQL\n1 INSERT/row",
-              "doltgres_rowcommit": "DoltgreSQL\n1 commit/row",
-              "sqlite": "SQLite\none transaction", "sqlite_rowwise": "SQLite\n1 INSERT/row",
-              "doltlite_oneshot": "DoltLite\n1 commit/db", "doltlite_rowinsert": "DoltLite\n1 INSERT/row",
-              "doltlite_rowcommit": "DoltLite\n1 commit/row"}
-PAIR_TITLES = {"pg": "PostgreSQL and DoltgreSQL", "lite": "SQLite and DoltLite"}
-
-# Every figure draws the three pairs the same way: five loads in the same order and the same colours
-# -- the baseline in bulk, the baseline one row at a time, and the Dolt engine one commit per
-# database, one INSERT per row, one commit per row -- so a colour means a shape wherever it appears.
-PAIRS = {
-    "dolt": {"title": "MySQL and Dolt", "tests": TESTS, "baseline": "mysql", "baseline_label": "the size MySQL uses",
-             "labels": LABELS, "short": SHORT, "rows": lambda r: r.get("rows_mysql") or 0},
-    "pg": {"title": PAIR_TITLES["pg"], "tests": PAIR_TESTS["pg"], "baseline": "postgres",
-           "baseline_label": "the size PostgreSQL uses",
-           "labels": {"postgres": "PostgreSQL — COPY", "postgres_rowwise": "PostgreSQL — one INSERT per row",
-                      "doltgres_oneshot": "DoltgreSQL — one commit per database",
-                      "doltgres_rowinsert": "DoltgreSQL — one INSERT per row, one commit",
-                      "doltgres_rowcommit": "DoltgreSQL — one commit per row"},
-           "short": {t: PAIR_SHORT[t] for t in PAIR_TESTS["pg"]},
-           "rows": lambda r: ((r.get("pairs") or {}).get("source_rows") or {}).get("pg") or r.get("rows_mysql") or 0},
-    "lite": {"title": PAIR_TITLES["lite"], "tests": PAIR_TESTS["lite"], "baseline": "sqlite",
-             "baseline_label": "the size SQLite uses",
-             "labels": {"sqlite": "SQLite — one transaction", "sqlite_rowwise": "SQLite — one INSERT per row",
-                        "doltlite_oneshot": "DoltLite — one commit per database",
-                        "doltlite_rowinsert": "DoltLite — one INSERT per row, one commit",
-                        "doltlite_rowcommit": "DoltLite — one commit per row"},
-             "short": {t: PAIR_SHORT[t] for t in PAIR_TESTS["lite"]},
-             "rows": lambda r: ((r.get("pairs") or {}).get("source_rows") or {}).get("lite") or r.get("rows_mysql") or 0},
-}
-PAIR_ORDER = ["dolt", "pg", "lite"]
-
-
-def colour_of(pair, test):
-    """The colour of a load is its position in the pair's five, so the same shape has the same colour."""
-    return COLOURS[TESTS[PAIRS[pair]["tests"].index(test)]]
-
-
-def measure(r, pair, test, axis, policy="deferred"):
-    """One measurement of any pair, or None: the settled size, or the load plus its settle step."""
-    if pair == "dolt":
-        return value(r, test, axis, policy)
-    per_row = test != PAIRS[pair]["baseline"] and "oneshot" not in test
-    key = test + ("_inline" if policy == "inline" and per_row else "")
-    u = ((r.get("pairs") or {}).get(pair) or {}).get(key)
-    if not u:
-        return None
-    if axis == "bytes":
-        return u.get("disk_bytes")
-    return u.get("load_seconds") if test in ("postgres", "sqlite") else u.get("total_seconds")
-
-
-def spread(r, pair, test, axis, policy="deferred"):
-    """Every repeat of a measurement, or None when it was measured once; the pairs' units are single samples."""
-    return samples(r, test, axis, policy) if pair == "dolt" else None
-
-
-def pair_coverage(results, pair, axis):
-    return {t: sum(1 for r in results.values() if measure(r, pair, t, axis)) for t in PAIRS[pair]["tests"]}
-
-
-def pair_caption(results, pair, axis):
-    cov = pair_coverage(results, pair, axis)
-    n = len(results)
-    missing = {t: n - c for t, c in cov.items() if c < n}
-    if not missing:
-        return f"all {n} databases, all five loads"
-    return (f"{n} databases; a gap means that load has no result — "
-            + ", ".join(f"{PAIRS[pair]['labels'][t]}: {cov[t]}/{n}" for t in missing))
+def times(v):
+    return f"{v:.2f}×" if v < 10 else f"{v:,.0f}×"
 
 
 def order(results):
     return sorted(results, key=lambda d: -(results[d].get("rows_mysql") or 0))
 
 
-def fig_by_database(results, axis, name, title, xlabel, scale):
-    """One panel per pair, the same databases in the same order down every panel, five bars each:
-    what every database costs in every load of every pair. Values sit past each bar because on a
-    log axis the bar length deceives; the tables carry them all."""
-    dbs = order(results)
-    fig, axes = plt.subplots(1, 3, figsize=(19, 0.72 * len(dbs) + 2.6), sharey=True)
-    h = 0.16
-    for ax, pair in zip(axes, PAIR_ORDER):
-        meta = PAIRS[pair]
-        for k, t in enumerate(meta["tests"]):
-            vals, ys, errs = [], [], []
-            for i, d in enumerate(dbs):
-                v = measure(results[d], pair, t, axis)
-                if v:
-                    vals.append(v / scale)
-                    ys.append(i + (2 - k) * h)
-                    xs = spread(results[d], pair, t, axis)
-                    errs.append([[max(0.0, v / scale - min(xs) / scale)], [max(0.0, max(xs) / scale - v / scale)]]
-                                if xs else None)
-            if vals:
-                ax.barh(ys, vals, h, label=meta["labels"][t], color=colour_of(pair, t))
-                for yy, vv, e in zip(ys, vals, errs):
-                    at = vv
-                    if e:
-                        ax.errorbar(vv, yy, xerr=e, fmt="none", ecolor=INK, elinewidth=.8, capsize=1.6, alpha=.85)
-                        at = vv + e[1][0]
-                    ax.annotate(bar_label(vv), (at, yy), textcoords="offset points", xytext=(3, 0),
-                                va="center", ha="left", fontsize=5.4, color=INK, alpha=.85)
-        ax.set_xscale("log")
-        log_axis(ax, "x")
-        style(ax, meta["title"], xlabel, pad=50)
-        ax.legend(fontsize=7, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.008))
-        ax.text(0, -0.04, pair_caption(results, pair, axis), transform=ax.transAxes, fontsize=7, color=INK, alpha=.75)
-    axes[0].set_yticks(range(len(dbs)), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs], fontsize=7)
-    fig.suptitle(title, fontsize=13, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
-    fig.tight_layout()
-    save(fig, name)
+def totals(results, pair, axis):
+    """{shape: total} over the databases the pair has every load for, and how many."""
+    dbs = complete(results, pair)
+    return {sh: sum(measure(results[d], pair, test_of(pair, sh), axis) or 0 for d in dbs) for sh in SHAPES}, dbs
 
 
-def fig_ratio(results):
-    """Disk as a ratio of the pair's own baseline loaded from the same dump, one panel per pair."""
-    dbs = order(results)
-    fig, axes = plt.subplots(1, 3, figsize=(19, 0.62 * len(dbs) + 2.6), sharey=True)
-    h = 0.2
-    for ax, pair in zip(axes, PAIR_ORDER):
-        meta = PAIRS[pair]
-        tests = [t for t in meta["tests"] if t != meta["baseline"]]
-        for k, t in enumerate(tests):
-            vals, ys = [], []
-            for i, d in enumerate(dbs):
-                base, v = measure(results[d], pair, meta["baseline"], "bytes"), measure(results[d], pair, t, "bytes")
-                if base and v:
-                    vals.append(v / base)
-                    ys.append(i + (1.5 - k) * h)
-            if vals:
-                ax.barh(ys, vals, h, label=meta["labels"][t], color=colour_of(pair, t))
-        ax.axvline(1.0, color=colour_of(pair, meta["baseline"]), linewidth=1.4, linestyle="--")
-        ax.text(1.08, len(dbs) - .35, meta["baseline_label"], fontsize=7.5, color=colour_of(pair, meta["baseline"]))
-        ax.set_xscale("log")
-        log_axis(ax, "x")
-        style(ax, meta["title"], "left of the line is smaller than the baseline; right is larger (log scale)", pad=44)
-        if ax.containers:
-            ax.legend(fontsize=7, frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.006))
-        ax.text(0, -0.04, pair_caption(results, pair, "bytes"), transform=ax.transAxes, fontsize=7, color=INK, alpha=.75)
-    axes[0].set_yticks(range(len(dbs)), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs], fontsize=7)
-    fig.suptitle("Disk used, as a ratio of each pair's baseline loaded from the same dump",
-                 fontsize=13, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
-    fig.tight_layout()
-    save(fig, "ratio-by-database.png")
+def dot_axes(ax, title, xlabel, pad=14):
+    style(ax, title, xlabel, pad=pad)
+    ax.set_xscale("log")
+    log_axis(ax, "x")
+    ax.grid(axis="y", visible=False)
 
 
-def fig_cost_by_mode(results):
-    """Totals on both axes, one row of two panels per pair, over the databases where every load of
-    that pair has a result, so the five bars of a row stand for one population."""
-    fig, axes = plt.subplots(3, 2, figsize=(11.5, 12.6))
-    for row, pair in enumerate(PAIR_ORDER):
-        meta = PAIRS[pair]
-        tests = meta["tests"]
-        dbs = [d for d, r in results.items()
-               if all(measure(r, pair, t, "bytes") and measure(r, pair, t, "seconds") is not None for t in tests)]
-        rows = sum(meta["rows"](results[d]) for d in dbs)
-        for ax, axis in zip(axes[row], ("bytes", "seconds")):
+def name_extremes(ax, points, fmt, k=2, fontsize=7):
+    """Label the k largest and k smallest values of a dot series with their database name."""
+    if not points:
+        return
+    ranked = sorted(points, key=lambda p: p[0])
+    for x, y, name in ranked[:k] + ranked[-k:]:
+        ax.annotate(f"{name} {fmt(x)}", (x, y), textcoords="offset points", xytext=(6, 0), va="center",
+                    ha="left", fontsize=fontsize, color=INK, alpha=.9)
+
+
+# ---------------------------------------------------------------------------- F1 headline ---
+def fig_headline(results):
+    """The finding in one figure: for each way of writing the rows, each Dolt engine's total against
+    its baseline in bulk, as a dot on a log axis with the reference line at 1. Position, not length,
+    carries the value, which is what a log scale needs."""
+    shapes = ["rowwise", "oneshot", "rowinsert", "rowcommit"]
+    names = {"rowwise": "the baseline itself,\none INSERT per row", "oneshot": "one commit\nper database",
+             "rowinsert": "one INSERT per row,\none commit", "rowcommit": "one commit\nper row"}
+    fig, axes = plt.subplots(1, 2, figsize=(12.5, 4.6), sharey=True)
+    ratio = {}
+    for ax, axis in zip(axes, ("bytes", "seconds")):
+        for k, pair in enumerate(PAIR_ORDER):
+            tot, dbs = totals(results, pair, axis)
             if not dbs:
-                ax.axis("off")
-                ax.text(0.01, 0.5, f"{meta['title']}: no database has every load of the pair yet", fontsize=10,
-                        color=INK, va="center")
                 continue
-            vals = [sum(measure(results[d], pair, t, axis) or 0 for d in dbs) for t in tests]
-            base = vals[0] or 1
-            shown = [v / MB for v in vals] if axis == "bytes" else vals
-            bars = ax.bar([meta["short"][t] for t in tests], shown, color=[colour_of(pair, t) for t in tests], width=.62)
-            for b, v, raw in zip(bars, shown, vals):
-                tag = "" if raw == vals[0] else (f"\n{raw / base:.2f}×" if raw / base < 10 else f"\n{raw / base:.0f}×")
-                text = f"{v:,.0f} MB" if axis == "bytes" else (f"{v:,.0f}s" if v < 3600 else f"{v / 3600:,.1f}h")
-                ax.text(b.get_x() + b.get_width() / 2, max(v, 1e-3) * 1.08, text + tag, ha="center", fontsize=7.5,
-                        color=INK, fontweight="bold")
-            ax.set_yscale("log")
-            log_axis(ax, "y")
-            ax.set_ylabel("mebibytes on disk" if axis == "bytes" else "seconds to load", color=INK, fontsize=8.5)
-            style(ax, (f"{meta['title']} — {len(dbs)} of {len(results)} databases, {rows:,} rows\ndisk"
-                       if axis == "bytes" else "\ntime"), "")
-            ax.grid(axis="x", visible=False)
-            ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
-            ax.set_ylim(top=max(shown) * 8, bottom=max(min(x for x in shown if x > 0) / 4, 1e-3))
-            ax.tick_params(axis="x", labelsize=7)
-    fig.suptitle("What each load costs, every pair, against its own baseline",
-                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.0)
+            base = tot["bulk"] or 1
+            for i, sh in enumerate(shapes):
+                v = tot[sh] / base
+                ratio[(axis, pair, sh)] = v
+                y = len(shapes) - 1 - i + (1 - k) * 0.22
+                ax.scatter([v], [y], s=64, color=colour(pair, sh), marker=MARKER[sh], zorder=3,
+                           edgecolor="white", linewidth=.8)
+                ax.annotate(times(v), (v, y), textcoords="offset points", xytext=(7, 0), va="center", ha="left",
+                            fontsize=7.5, color=INK)
+        ax.axvline(1.0, color=INK, linewidth=1, linestyle="--")
+        ax.set_yticks(range(len(shapes)), [names[sh] for sh in reversed(shapes)], fontsize=8.5)
+        dot_axes(ax, "disk" if axis == "bytes" else "time to load",
+                 "as a multiple of the same engine's baseline loaded in bulk (log scale; 1 = the baseline)")
+        lo, hi = ax.get_xlim()
+        ax.set_xlim(lo, hi * 3)
+    rc = [ratio.get(("bytes", p, "rowcommit")) for p in PAIR_ORDER if ("bytes", p, "rowcommit") in ratio]
+    rt = [ratio.get(("seconds", p, "rowcommit")) for p in PAIR_ORDER if ("seconds", p, "rowcommit") in ratio]
+    title = (f"A commit per row costs {min(rc):.0f} to {max(rc):.0f} times the baseline's disk and "
+             f"{min(rt):,.0f} to {max(rt):,.0f} times its time, in every engine") if rc and rt else "What each Dolt engine costs"
+    fig.suptitle(title, fontsize=12.5, fontweight="bold", color=INK, x=.01, ha="left", y=1.04)
+    handles = [plt.Line2D([], [], marker="o", linestyle="", color=ENGINE[e], markersize=8) for e in
+               ("Dolt", "DoltgreSQL", "DoltLite", "MySQL", "PostgreSQL", "SQLite")]
+    fig.legend(handles, ["Dolt against MySQL", "DoltgreSQL against PostgreSQL", "DoltLite against SQLite",
+                         "MySQL itself", "PostgreSQL itself", "SQLite itself"],
+               fontsize=8, frameon=False, ncol=6, loc="lower center", bbox_to_anchor=(0.5, -0.06))
+    cov = "; ".join(f"{DOLT_OF[p]}: {len(complete(results, p))} of {len(results)} databases" for p in PAIR_ORDER)
+    fig.text(.01, -0.14, f"Totals over the databases each pair has every load for ({cov}). "
+             "Loaded once and committed once, a Dolt engine's store is a fraction of MySQL's or PostgreSQL's and near SQLite's; "
+             "writing one row at a time is expensive before any Dolt engine is involved.",
+             fontsize=7.5, color=INK, alpha=.85, wrap=True)
     fig.tight_layout()
-    save(fig, "cost-by-mode.png")
+    save(fig, "headline.png")
+
+
+# ------------------------------------------------------------------- F2 every database, every engine ---
+def fig_sizes_by_engine(results):
+    """One row per database, a dot per engine on a shared log axis: the standard load in all six
+    engines, and the commit-per-row load in the three Dolt engines."""
+    dbs = order(results)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 0.42 * len(dbs) + 2.4), sharey=True, gridspec_kw={"width_ratios": [1.15, 1]})
+    panels = [(axes[0], [(p, "bulk") for p in PAIR_ORDER] + [(p, "oneshot") for p in PAIR_ORDER],
+               "the standard load:\nthe baselines in bulk, the Dolt engines with one commit"),
+              (axes[1], [(p, "rowcommit") for p in PAIR_ORDER], "one commit per row:\nthe three Dolt engines")]
+    for ax, cols, title in panels:
+        for pair, sh in cols:
+            xs, ys = [], []
+            for i, d in enumerate(dbs):
+                v = measure(results[d], pair, test_of(pair, sh), "bytes")
+                if v:
+                    xs.append(v / MB)
+                    ys.append(len(dbs) - 1 - i)
+            ax.scatter(xs, ys, s=40, color=colour(pair, sh), marker=MARKER[sh], zorder=3, edgecolor="white", linewidth=.6,
+                       label=f"{engine_of(pair, sh)}")
+        for i in range(len(dbs)):
+            ax.axhline(len(dbs) - 1 - i, color=GRID, linewidth=.5, alpha=.6, zorder=1)
+        dot_axes(ax, title, "mebibytes on disk (log scale)", pad=34)
+        ax.legend(fontsize=7.5, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0))
+    axes[0].set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=7.5)
+    sub = ", ".join(f"{times(totals(results, p, 'bytes')[0]['oneshot'] / (totals(results, p, 'bytes')[0]['bulk'] or 1))} "
+                    f"{BASELINE_OF[p]}'s" for p in PAIR_ORDER)
+    fig.suptitle(f"Loaded once and committed once, a Dolt engine's store is {sub}, in total",
+                 fontsize=12.5, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
+    fig.text(.01, -0.01, "Databases in order of rows. A missing dot is a load with no result; DoltLite's uncollected store "
+             "is absent here and shown at its working footprint in the tables.", fontsize=7.5, color=INK, alpha=.8)
+    fig.tight_layout()
+    save(fig, "sizes-by-engine.png")
+
+
+# -------------------------------------------------------------------------- F3 the cost of history ---
+def fig_history_cost(results):
+    """Each database's commit-per-row store and load against its baseline in bulk, three engines on a
+    row, the reference line at 1, the extremes named: a deviation figure, which is what a ratio is."""
+    dbs = order(results)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 0.42 * len(dbs) + 2.4), sharey=True)
+    span = {}
+    for ax, axis in zip(axes, ("bytes", "seconds")):
+        pts_all = []
+        for pair in PAIR_ORDER:
+            xs, ys, pts = [], [], []
+            for i, d in enumerate(dbs):
+                base = measure(results[d], pair, test_of(pair, "bulk"), axis)
+                v = measure(results[d], pair, test_of(pair, "rowcommit"), axis)
+                if base and v:
+                    xs.append(v / base)
+                    ys.append(len(dbs) - 1 - i)
+                    pts.append((v / base, len(dbs) - 1 - i, d))
+            ax.scatter(xs, ys, s=40, color=colour(pair, "rowcommit"), marker="s", zorder=3, edgecolor="white", linewidth=.6,
+                       label=f"{DOLT_OF[pair]} against {BASELINE_OF[pair]}")
+            pts_all += pts
+        span[axis] = (min(x for x, _, _ in pts_all), max(x for x, _, _ in pts_all)) if pts_all else (0, 0)
+        for i in range(len(dbs)):
+            ax.axhline(len(dbs) - 1 - i, color=GRID, linewidth=.5, alpha=.6, zorder=1)
+        ax.axvline(1.0, color=INK, linewidth=1, linestyle="--")
+        name_extremes(ax, pts_all, times, k=1)
+        dot_axes(ax, "disk" if axis == "bytes" else "time to load",
+                 "one commit per row, as a multiple of the same engine's baseline in bulk (log scale)", pad=30)
+        ax.legend(fontsize=7.5, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0))
+        lo, hi = ax.get_xlim()
+        ax.set_xlim(lo, hi * 4)
+    axes[0].set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=7.5)
+    fig.suptitle(f"Keeping a commit per row costs from {times(span['bytes'][0])} to {times(span['bytes'][1])} the disk of the "
+                 f"same database loaded in bulk, and {times(span['seconds'][0])} to {times(span['seconds'][1])} the time",
+                 fontsize=12, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
+    fig.text(.01, -0.01, "Databases in order of rows; the extremes are named. What the ratio tracks is the number of commits, "
+             "not the rows: the database with the most rows is the outlier in every engine.", fontsize=7.5, color=INK, alpha=.8)
+    fig.tight_layout()
+    save(fig, "history-cost.png")
+
+
+# ------------------------------------------------------------------------ F4 index policy, summary ---
+POLICY_MORE, POLICY_LESS, POLICY_NONE = "#D55E00", "#0072B2", "#c9c7c2"
+
+
+def policy_change(r, pair, shape, axis):
+    a = measure(r, pair, test_of(pair, shape), axis, "deferred")
+    b = measure(r, pair, test_of(pair, shape), axis, "inline")
+    return 100.0 * (b - a) / a if a and b else None
+
+
+def fig_index_policy_summary(results):
+    """What keeping the indexes during a row-by-row load costs, the median change over the databases,
+    every engine on one axis: the README's figure. The per-database figures are in the report."""
+    import statistics
+    shapes = ["rowwise", "rowinsert", "rowcommit"]
+    fig, axes = plt.subplots(1, 2, figsize=(12.5, 4.2), sharey=True)
+    worst = {}
+    for ax, axis in zip(axes, ("bytes", "seconds")):
+        for k, pair in enumerate(PAIR_ORDER):
+            for i, sh in enumerate(shapes):
+                vals = [policy_change(results[d], pair, sh, axis) for d in results]
+                vals = [v for v in vals if v is not None]
+                if not vals:
+                    continue
+                med = statistics.median(vals)
+                worst[(axis, pair, sh)] = (med, min(vals), max(vals), len(vals))
+                y = len(shapes) - 1 - i + (1 - k) * 0.22
+                ax.plot([min(vals), max(vals)], [y, y], color=colour(pair, sh), linewidth=1.2, alpha=.45, zorder=2)
+                ax.scatter([med], [y], s=64, color=colour(pair, sh), marker=MARKER[sh], zorder=3, edgecolor="white", linewidth=.8)
+                ax.annotate(f"{med:+.0f}%", (med, y), textcoords="offset points", xytext=(8, 0), ha="left", va="center", fontsize=7, color=INK)
+        ax.axvline(0, color=INK, linewidth=1)
+        ax.set_yticks(range(len(shapes)), [SHAPE_LABELS[sh].replace("the baseline, ", "the baseline,\n") for sh in reversed(shapes)], fontsize=8.5)
+        style(ax, "disk" if axis == "bytes" else "time to load",
+              "% change with the indexes kept (dot: the median database; line: the range)")
+        ax.grid(axis="y", visible=False)
+    handles = [plt.Line2D([], [], marker="o", linestyle="", color=ENGINE[e], markersize=8) for e in ENGINE]
+    fig.legend(handles, list(ENGINE), fontsize=8, frameon=False, ncol=6, loc="lower center", bbox_to_anchor=(0.5, -0.05))
+    rcs = [worst[(axis, p, "rowcommit")][0] for axis in ("bytes",) for p in PAIR_ORDER if (axis, p, "rowcommit") in worst]
+    fig.suptitle(f"Maintaining the indexes on a commit-per-row load costs {min(rcs):.0f}% to {max(rcs):.0f}% more disk at the median "
+                 f"database; on the baselines it barely matters" if rcs else "What maintaining the indexes costs",
+                 fontsize=12, fontweight="bold", color=INK, x=.01, ha="left", y=1.04)
+    fig.tight_layout()
+    save(fig, "index-policy-summary.png")
 
 
 def fig_index_policy(results, pair="dolt"):
-    """What keeping the indexes during the load costs, as a change from dropping them.
-
-    The question is a polarity -- more or less -- so the form is a diverging bar against a zero
-    line, and the colour is a diverging pair with a neutral midpoint rather than two arbitrary
-    hues. Absolute sizes and times for both policies are in the report's tables; drawing them
-    here as paired bars on a log axis made a 47% difference look like nothing at all, which is
-    the opposite of what the figure is for.
-
-    The one-shot loads are absent because the policy does not apply to them: mysqldump's extended
-    INSERTs build an index over batches either way, and the two policies produced byte-identical
-    files."""
+    """What keeping the indexes costs, database by database, for one pair: diverging bars against a
+    zero line, which is the form a change from a reference takes. In the report."""
     meta = PAIRS[pair]
-    policy_tests = [t for t in meta["tests"] if t != meta["baseline"] and "oneshot" not in t]
+    shapes = ["rowwise", "rowinsert", "rowcommit"]
     dbs = order(results)
-    if not any(measure(results[d], pair, t, "bytes", "inline") for d in dbs for t in policy_tests):
+    if not any(measure(results[d], pair, test_of(pair, sh), "bytes", "inline") for d in dbs for sh in shapes):
         print(f"  ! index-policy-{pair} skipped: no load has been measured with indexes left inline")
         return
-
     fig, axes = plt.subplots(2, 3, figsize=(14, 0.34 * len(dbs) + 3.2), sharey=True)
-    for col, t in enumerate(policy_tests):
+    for col, sh in enumerate(shapes):
         for row, (axis, unit) in enumerate((("bytes", "disk"), ("seconds", "time"))):
             ax = axes[row][col]
             vals, ys, cols = [], [], []
             for i, d in enumerate(dbs):
-                a = measure(results[d], pair, t, axis, "deferred")
-                b = measure(results[d], pair, t, axis, "inline")
-                if a and b:
-                    pct = 100.0 * (b - a) / a
+                pct = policy_change(results[d], pair, sh, axis)
+                if pct is not None:
                     vals.append(pct)
                     ys.append(len(dbs) - 1 - i)
                     cols.append(POLICY_MORE if pct > 0.5 else POLICY_LESS if pct < -0.5 else POLICY_NONE)
@@ -411,15 +350,13 @@ def fig_index_policy(results, pair="dolt"):
                 ax.barh(ys, vals, 0.66, color=cols)
                 for yy, vv in sorted(zip(ys, vals), key=lambda z: -abs(z[1]))[:2]:
                     if abs(vv) >= 1:
-                        ax.annotate(f"{vv:+.0f}%", (vv, yy), textcoords="offset points",
-                                    xytext=(4 if vv >= 0 else -4, 0), va="center",
-                                    ha="left" if vv >= 0 else "right", fontsize=7.5, color=INK, fontweight="bold")
+                        ax.annotate(f"{vv:+.0f}%", (vv, yy), textcoords="offset points", xytext=(4 if vv >= 0 else -4, 0),
+                                    va="center", ha="left" if vv >= 0 else "right", fontsize=7.5, color=INK, fontweight="bold")
                 if max(abs(v) for v in vals) < 1:
                     ax.set_xlim(-1, 1)
             ax.axvline(0, color=INK, linewidth=1.1)
             ax.set_xlabel(f"% change in {unit} when the indexes are kept", color=INK, fontsize=8.5)
-            ax.set_title(meta["labels"][t] if row == 0 else "", color=INK, fontsize=11, pad=10, loc="left",
-                         fontweight="bold")
+            ax.set_title(meta["labels"][test_of(pair, sh)] if row == 0 else "", color=INK, fontsize=11, pad=10, loc="left", fontweight="bold")
             ax.tick_params(colors=INK, labelsize=7)
             for side in ("top", "right", "left"):
                 ax.spines[side].set_visible(False)
@@ -427,238 +364,135 @@ def fig_index_policy(results, pair="dolt"):
             ax.grid(axis="x", color=GRID, linewidth=.6, alpha=.7)
             ax.set_axisbelow(True)
             if col == 0:
-                ax.set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1],
-                              fontsize=6.5)
-
-    n = len(dbs)
-    covered = {t: sum(1 for d in dbs if measure(results[d], pair, t, "bytes", "inline")
-                      and measure(results[d], pair, t, "bytes", "deferred")) for t in policy_tests}
-    gaps = ", ".join(f"{meta['labels'][t]}: {c}/{n}" for t, c in covered.items() if c < n)
+                ax.set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=6.5)
     handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (POLICY_MORE, POLICY_LESS, POLICY_NONE)]
     axes[0][0].legend(handles, ["keeping them costs more", "keeping them costs less", "no difference"],
                       fontsize=8, frameon=False, ncol=3, loc="lower left", bbox_to_anchor=(0.0, 1.16))
-    fig.suptitle(f"What maintaining the indexes during a row-by-row load costs, {meta['title']} — "
-                 f"all {n} databases, against dropping them and rebuilding at the end",
+    fig.suptitle(f"What maintaining the indexes during a row-by-row load costs, {meta['title']}, database by database",
                  fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.0)
-    fig.text(.02, -0.014,
-             (f"a missing bar means that load has no result yet — {gaps}" if gaps
-              else f"every database has both policies for all {len(policy_tests)} loads")
-             + ".  Absolute sizes and times for both policies are tabulated in the README and REPORT.md.",
-             fontsize=7.5, color=INK, alpha=.75)
     fig.tight_layout()
     save(fig, f"index-policy-{pair}.png")
 
 
+# ------------------------------------------------------------------------ F5 memory tracks commits ---
 MEMORY_JSON = os.path.join(ROOT, "build", "memory.json")
 MEMORY_PAIRS_JSON = os.path.join(ROOT, "build", "memory_pairs.json")
-MEM_SERIES = {"oneshot": ("#2a78d6", "one commit per database"),
-              "rowcommit": ("#eb6834", "one commit per row")}
-MEM_MARKERS = {"dolt": ("o", "Dolt"), "doltgres": ("s", "DoltgreSQL"), "doltlite": ("^", "DoltLite")}
 
 
 def memory_points(results):
-    """{(engine, mode): [(rows, commits, megabytes or None)]} from the three memory studies. Dolt's
-    study records rows and commits itself; the pairs' study records the ceiling only, so their rows
-    come from the export and their commits from the unit that wrote the store."""
+    """{(engine, mode): [(rows, commits, megabytes or None, db)]} from the three memory studies."""
     pts = {}
     if os.path.exists(MEMORY_JSON):
         data = json.load(open(MEMORY_JSON, encoding="utf-8"))
-        for mode in MEM_SERIES:
-            pts[("dolt", mode)] = [(r.get("rows"), r.get("commits"), r.get("megabytes"))
-                                   for r in (data.get(mode) or {}).values() if r.get("rows")]
+        for mode in ("oneshot", "rowcommit"):
+            pts[("Dolt", mode)] = [(r.get("rows"), r.get("commits"), r.get("megabytes"), db)
+                                   for db, r in (data.get(mode) or {}).items() if r.get("rows")]
     if os.path.exists(MEMORY_PAIRS_JSON):
         data = json.load(open(MEMORY_PAIRS_JSON, encoding="utf-8"))
-        for engine, pair, test in (("doltgres", "pg", "doltgres"), ("doltlite", "lite", "doltlite")):
-            for mode in MEM_SERIES:
+        for engine, pair, test in (("DoltgreSQL", "pg", "doltgres"), ("DoltLite", "lite", "doltlite")):
+            for mode in ("oneshot", "rowcommit"):
                 out = []
-                for db, r in ((data.get(engine) or {}).get(mode) or {}).items():
+                for db, r in ((data.get(test) or {}).get(mode) or {}).items():
                     unit = ((results.get(db, {}).get("pairs") or {}).get(pair) or {}).get(f"{test}_{mode}") or {}
-                    rows = PAIRS[pair]["rows"](results.get(db, {}))
+                    rows = rows_of(results.get(db, {}), pair)
                     if rows:
-                        out.append((rows, unit.get("commits"), r.get("megabytes")))
+                        out.append((rows, unit.get("commits"), r.get("megabytes"), db))
                 pts[(engine, mode)] = out
     return pts
 
 
 def fig_memory(results):
-    """How much memory each Dolt engine needs to open a stored database and count its largest table,
-    against rows and against commits: Dolt, DoltgreSQL and DoltLite, each in its one-commit and its
-    one-commit-per-row form. Each point is the smallest ceiling a query survived on a ladder of
-    container memory limits -- an upper bound at the ladder's granularity, not a measured peak. An
-    open marker with an arrow is a store the study could not open at the top of its ladder."""
+    """What each Dolt engine needs to open a stored database and count its largest table, against rows
+    and against commits: the memory studies. A point is the smallest container ceiling a query
+    survived, an upper bound at the ladder's granularity; an open marker with an arrow is a store the
+    study could not open at the top of its ladder."""
     pts = memory_points(results)
     if not pts:
         return
-    tops = []
-    for path in (MEMORY_JSON, MEMORY_PAIRS_JSON):
-        if os.path.exists(path):
-            data = json.load(open(path, encoding="utf-8"))
-            for m in data.values():
-                for r in (m.values() if isinstance(m, dict) else []):
-                    if isinstance(r, dict):
-                        tops += [r.get("ladder_top_mb") for r in (r.values() if "megabytes" not in r else [r]) if isinstance(r, dict) and r.get("ladder_top_mb")]
-    top = max(tops or [8192])
-
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5.6), sharey=True)
+    top = 16384
+    fig, axes = plt.subplots(1, 2, figsize=(12.5, 5.2), sharey=True)
     for ax, xi, xlabel in ((axes[0], 0, "rows in the database"), (axes[1], 1, "commits in the store")):
         for (engine, mode), series in pts.items():
-            colour, shape = MEM_SERIES[mode]
-            marker, name = MEM_MARKERS[engine]
-            xs = [(p[xi], p[2]) for p in series if p[xi]]
-            ax.scatter([x for x, y in xs if y], [y for x, y in xs if y], s=44, color=colour, marker=marker,
-                       label=f"{name}, {shape}", zorder=3, edgecolor="white", linewidth=.7)
-            for x, _ in [(x, y) for x, y in xs if not y]:
-                ax.scatter([x], [top], s=54, facecolors="none", edgecolors=colour, marker=marker, linewidth=1.5, zorder=3)
-                ax.annotate("", xy=(x, top * 1.9), xytext=(x, top * 1.05),
-                            arrowprops=dict(arrowstyle="-|>", color=colour, linewidth=1.3))
+            xs = [(p[xi], p[2], p[3]) for p in series if p[xi]]
+            ax.scatter([x for x, y, _ in xs if y], [y for x, y, _ in xs if y], s=40, color=ENGINE[engine],
+                       marker=MARKER["oneshot" if mode == "oneshot" else "rowcommit"],
+                       label=f"{engine}, {'one commit per database' if mode == 'oneshot' else 'one commit per row'}",
+                       zorder=3, edgecolor="white", linewidth=.6, alpha=.9)
+            for x, _, name in [(x, y, n) for x, y, n in xs if not y]:
+                ax.scatter([x], [top], s=52, facecolors="none", edgecolors=ENGINE[engine], marker="s", linewidth=1.4, zorder=3)
+                ax.annotate("", xy=(x, top * 1.9), xytext=(x, top * 1.05), arrowprops=dict(arrowstyle="-|>", color=ENGINE[engine], linewidth=1.2))
+            if xi == 1 and mode == "rowcommit":
+                for x, y, name in sorted([p for p in xs if p[1]], key=lambda p: -p[1])[:1]:
+                    ax.annotate(f"{name}", (x, y), textcoords="offset points", xytext=(-8, -10), ha="right", fontsize=7.5, color=ENGINE[engine])
         ax.set_xscale("log")
         ax.set_yscale("log")
         log_axis(ax, "x")
         log_axis(ax, "y")
         style(ax, "", xlabel)
-        if ax is axes[0]:
-            ax.set_ylabel("memory the store needed to open and count (MiB, log scale)", color=INK, fontsize=9)
         ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
-    axes[0].legend(fontsize=8, frameon=False, loc="upper left", ncol=2)
-    fig.suptitle("What each Dolt engine's memory tracks: not the rows, the commits",
-                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.01)
-    fig.text(.02, -0.13,
-             "Left: at the same row count the one-commit and the one-commit-per-row stores need very different\n"
-             "memory, so rows do not predict it. Right: within each engine the two forms fall on one relationship\n"
-             "against commits. A point is the smallest container memory limit a query survived, an upper bound at\n"
-             "the ladder's granularity; an open marker with an arrow is a store the study could not open at the top\n"
-             "of its ladder, and a store with no commit count recorded appears on the left only.",
-             fontsize=8, color=INK, alpha=.8, linespacing=1.5)
+    axes[0].set_ylabel("memory the store needed to open and count (MiB, log scale)", color=INK, fontsize=9)
+    axes[0].legend(fontsize=7.5, frameon=False, loc="upper left", ncol=2)
+    fig.suptitle("The memory a Dolt engine needs to open a store tracks its commits, not its rows, in all three engines",
+                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.02)
+    fig.text(.02, -0.08,
+             "Left: at the same row count the one-commit and the one-commit-per-row stores of the same database need very different\n"
+             "memory. Right: against commits the two forms fall on one rising relationship within each engine. A point is the\n"
+             "smallest container memory limit a query survived, an upper bound at the ladder's granularity.",
+             fontsize=8, color=INK, alpha=.85, linespacing=1.5)
     fig.tight_layout()
     save(fig, "memory-by-history.png")
 
 
-ENGINE_COLOURS = {"dolt": "#1baf7a", "pg": "#5b6ee1", "lite": "#c0392b"}
-
-
-def fig_headline(results):
-    """The finding in one picture: for each way of writing the rows, what each Dolt engine costs as a
-    multiple of its own baseline loaded in bulk, in disk and in time, totalled over the databases
-    the pair has every load for. The three engines stand side by side, which the per-pair figures
-    cannot show. The baseline's own row-by-row load is drawn too, as the grey bar, because writing
-    one row at a time is expensive before any Dolt engine is involved."""
-    from loads import PAIR_ORDER as order_, PAIRS as pairs_, SHAPES, complete, measure, test_of
-    shapes = ["rowwise", "oneshot", "rowinsert", "rowcommit"]
-    names = {"rowwise": "the baseline,\none INSERT per row", "oneshot": "one commit\nper database",
-             "rowinsert": "one INSERT per row,\none commit", "rowcommit": "one commit\nper row"}
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5.4))
-    w = 0.26
-    for ax, axis in zip(axes, ("bytes", "seconds")):
-        for k, pair in enumerate(order_):
-            dbs = complete(results, pair)
-            if not dbs:
-                continue
-            base = sum(measure(results[d], pair, test_of(pair, "bulk"), axis) or 0 for d in dbs) or 1
-            xs, ys, cols = [], [], []
-            for i, shape in enumerate(shapes):
-                v = sum(measure(results[d], pair, test_of(pair, shape), axis) or 0 for d in dbs) / base
-                xs.append(i + (k - 1) * w)
-                ys.append(v)
-                cols.append("#b8bcc4" if shape == "rowwise" else ENGINE_COLOURS[pair])
-            bars = ax.bar(xs, ys, w, color=cols, label=f"{pairs_[pair]['engine']} ({len(dbs)} of {len(results)} databases)")
-            for b, v in zip(bars, ys):
-                ax.text(b.get_x() + b.get_width() / 2, v * 1.12, f"{v:.2f}×" if v < 10 else f"{v:,.0f}×", ha="center",
-                        fontsize=7, color=INK, fontweight="bold")
-        ax.axhline(1.0, color=INK, linewidth=1, linestyle="--")
-        ax.text(len(shapes) - 0.55, 1.12, "the baseline, loaded in bulk", fontsize=7.5, color=INK, ha="right")
-        ax.set_yscale("log")
-        log_axis(ax, "y")
-        ax.set_xticks(range(len(shapes)), [names[sh] for sh in shapes], fontsize=8)
-        ax.set_ylabel(("disk" if axis == "bytes" else "time to load") + ", as a multiple of the baseline in bulk (log scale)",
-                      color=INK, fontsize=8.5)
-        style(ax, "Disk" if axis == "bytes" else "Time", "")
-        ax.grid(axis="x", visible=False)
-        ax.grid(axis="y", color=GRID, linewidth=.6, alpha=.7)
-        ax.set_ylim(top=max(ax.get_ylim()[1], 1) * 4)
-    handles = [plt.Rectangle((0, 0), 1, 1, color=ENGINE_COLOURS[p]) for p in order_] + [plt.Rectangle((0, 0), 1, 1, color="#b8bcc4")]
-    labels = [f"{pairs_[p]['engine']} against {pairs_[p]['baseline']}" for p in order_] + ["the baseline itself, one INSERT per row"]
-    axes[0].legend(handles, labels, fontsize=8, frameon=False, loc="upper left")
-    fig.suptitle("What a Dolt engine costs against the database it stands in for, every engine side by side",
-                 fontsize=12, fontweight="bold", color=INK, x=.02, ha="left", y=1.02)
-    fig.text(.02, -0.06, "Totals over the databases each pair has every load for; the grey bar is the baseline's own row-by-row "
-             "load, the cost of writing one row at a time before any Dolt engine is involved.",
-             fontsize=7.5, color=INK, alpha=.8)
-    fig.tight_layout()
-    save(fig, "headline.png")
-
-
-SIX = [("dolt", "bulk", "MySQL", "#2a78d6"), ("pg", "bulk", "PostgreSQL", "#6aa6e8"), ("lite", "bulk", "SQLite", "#a9cbf2"),
-       ("dolt", "oneshot", "Dolt", "#1baf7a"), ("pg", "oneshot", "DoltgreSQL", "#5b6ee1"), ("lite", "oneshot", "DoltLite", "#c0392b")]
-
-
-def fig_sizes_by_engine(results):
-    """Every database down, every engine across, in two panels: the standard load in all six engines
-    (the baselines in bulk, the Dolt engines with one commit), and the commit-per-row load in the
-    three Dolt engines. The place to compare one database's size across engines, which the per-pair
-    figures cannot show."""
-    from loads import PAIR_ORDER as order_, PAIRS as pairs_, measure, test_of
+# ------------------------------------------------------------ the report's per-database figures ---
+def fig_by_database(results, axis, name, xlabel):
+    """Every database, every load, every pair, as dots on one shared log axis per pair: the report's
+    full view. Hue is the engine, the marker is the load shape."""
     dbs = order(results)
-    fig, axes = plt.subplots(1, 2, figsize=(15, 0.62 * len(dbs) + 2.6), sharey=True)
-    panels = [(axes[0], SIX, "the standard load:\nthe baselines in bulk, the Dolt engines with one commit"),
-              (axes[1], [(p, "rowcommit", pairs_[p]["engine"], c) for p, c in zip(order_, ("#1baf7a", "#5b6ee1", "#c0392b"))],
-               "one commit per row:\nthe three Dolt engines")]
-    for ax, cols, title in panels:
-        h = 0.8 / len(cols)
-        for k, (pair, shape, name, colour) in enumerate(cols):
-            vals, ys = [], []
+    fig, axes = plt.subplots(1, 3, figsize=(18, 0.42 * len(dbs) + 2.6), sharey=True)
+    for ax, pair in zip(axes, PAIR_ORDER):
+        for sh in SHAPES:
+            xs, ys = [], []
             for i, d in enumerate(dbs):
-                v = measure(results[d], pair, test_of(pair, shape), "bytes")
+                v = measure(results[d], pair, test_of(pair, sh), axis)
                 if v:
-                    vals.append(v / MB)
-                    ys.append(i + (len(cols) / 2 - 0.5 - k) * h)
-            if vals:
-                ax.barh(ys, vals, h, label=name, color=colour)
-                for yy, vv in zip(ys, vals):
-                    ax.annotate(bar_label(vv), (vv, yy), textcoords="offset points", xytext=(3, 0), va="center",
-                                ha="left", fontsize=5.4, color=INK, alpha=.85)
-        ax.set_xscale("log")
-        log_axis(ax, "x")
-        style(ax, title, "mebibytes on disk (log scale)", pad=40)
-        ax.legend(fontsize=7, frameon=False, ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.004))
-    axes[0].set_yticks(range(len(dbs)), [f"{d}\n{results[d].get('rows_mysql', 0):,} rows" for d in dbs], fontsize=7)
-    fig.suptitle("Disk used by every database in every engine", fontsize=13, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
-    fig.text(.01, -0.012, "A missing bar is a load with no result; a DoltLite store that could not be collected is absent here "
-             "and shown at its working footprint in the tables.", fontsize=7.5, color=INK, alpha=.75)
+                    xs.append(v / (MB if axis == "bytes" else 1))
+                    ys.append(len(dbs) - 1 - i)
+            ax.scatter(xs, ys, s=34, color=colour(pair, sh), marker=MARKER[sh], zorder=3, edgecolor="white", linewidth=.6,
+                       label=PAIRS[pair]["labels"][test_of(pair, sh)])
+        for i in range(len(dbs)):
+            ax.axhline(len(dbs) - 1 - i, color=GRID, linewidth=.5, alpha=.6, zorder=1)
+        dot_axes(ax, PAIRS[pair]["title"], xlabel, pad=44)
+        ax.legend(fontsize=6.8, frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.0))
+    axes[0].set_yticks(range(len(dbs)), [f"{d}  {results[d].get('rows_mysql', 0):,}" for d in dbs][::-1], fontsize=7.5)
+    fig.suptitle(("Disk used" if axis == "bytes" else "Time to load") + " by every database in every load of every pair",
+                 fontsize=12.5, fontweight="bold", color=INK, x=.01, ha="left", y=1.0)
     fig.tight_layout()
-    save(fig, "sizes-by-engine.png")
+    save(fig, name)
 
 
 def main():
-    # Figures rendered from anything other than the real results file go somewhere else. Passing a
-    # path is for checking a new figure against fabricated full coverage without waiting hours for a
-    # run -- and doing exactly that overwrote docs/img and put two commits of synthetic charts into
-    # the repository, presented as the experiment's results. The output directory follows the input
-    # so that cannot happen again.
     src = sys.argv[1] if len(sys.argv) > 1 else None
     out = IMG if src is None else os.path.join(ROOT, "build", "img-preview")
     globals()["IMG"] = out
     os.makedirs(out, exist_ok=True)
     if src:
-        print(f"  ! rendering from {src}, so figures go to "
-              f"{os.path.relpath(out, ROOT)}/ and not docs/img/")
+        print(f"  ! rendering from {src}, so figures go to {os.path.relpath(out, ROOT)}/ and not docs/img/")
     results = load(src)
     fig_headline(results)
     fig_sizes_by_engine(results)
-    fig_cost_by_mode(results)
-    fig_by_database(results, "bytes", "disk-by-database.png",
-                    "Disk used, every database, every load, every pair", "mebibytes on disk (log scale)", MB)
-    fig_by_database(results, "seconds", "time-by-database.png",
-                    "Time to load, every database, every load, every pair", "seconds (log scale)", 1)
-    fig_ratio(results)
+    fig_history_cost(results)
+    fig_index_policy_summary(results)
     for pair in PAIR_ORDER:
         fig_index_policy(results, pair)
     fig_memory(results)
+    fig_by_database(results, "bytes", "disk-by-database.png", "mebibytes on disk (log scale)")
+    fig_by_database(results, "seconds", "time-by-database.png", "seconds (log scale)")
     for pair in PAIR_ORDER:
         for axis in ("bytes", "seconds"):
-            cov = pair_coverage(results, pair, axis)
-            gaps = {t: c for t, c in cov.items() if c < len(results)}
+            gaps = {sh: sum(1 for d in results if measure(results[d], pair, test_of(pair, sh), axis)) for sh in SHAPES}
+            gaps = {sh: c for sh, c in gaps.items() if c < len(results)}
             if gaps:
-                print(f"  ! {pair} {axis}: incomplete — " + ", ".join(f"{t} {c}/{len(results)}" for t, c in gaps.items()))
+                print(f"  ! {pair} {axis}: incomplete — " + ", ".join(f"{sh} {c}/{len(results)}" for sh, c in gaps.items()))
     return 0
 
 

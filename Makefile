@@ -74,10 +74,8 @@ collect:
 	@$(PY) scripts/collect.py
 	@$(PY) scripts/collect_pairs.py
 
-report: environment method-checks collect docs
-	@$(PY) scripts/report.py
+report: environment method-checks collect charts docs
 	@$(PY) scripts/console_page.py
-	@$(MAKE) --no-print-directory charts
 
 # The figures. matplotlib lives in .venv because it is this repository's only dependency; the rest
 # of the pipeline runs on the system python and shells out to docker.
@@ -132,7 +130,6 @@ docs:
 check:
 	@$(PY) scripts/audit.py
 	@$(PY) scripts/render.py --check
-	@$(PY) scripts/report.py --check
 	@$(MAKE) --no-print-directory okf-check
 
 up:

@@ -36,62 +36,126 @@ provenance and their licences -- and is useful on its own to anyone who wants re
 in MySQL, PostgreSQL and SQLite. This repository only measures things, and reads that corpus as its
 input.
 
-## The findings
+## The finding
 
-Every engine at once, before the detail: the three Dolt engines against the database each stands in
-for, totalled over the databases each pair has every load for, in disk and in time, as a multiple of
-that pair's own baseline loaded in bulk. The rest of this document is the evidence behind these
-tables, pair by pair, database by database.
+![A commit per row costs tens of times the baseline's disk and hundreds to thousands of times its time, in every engine](docs/img/headline.png)
 
-![What a Dolt engine costs against the database it stands in for](docs/img/headline.png)
-
-**Disk**, totalled:
-
-{{block:findings_disk}}
-
-**Time to load**, totalled:
-
-{{block:findings_time}}
-
-### Every database, in every engine
-
-The same database in all six engines, so sizes and times can be compared across products rather
-than only within a pair. A dash is a load with no result; † is a store the engine could not collect,
-shown at its working footprint.
-
-![Disk used by every database in every engine](docs/img/sizes-by-engine.png)
-
-**Disk, the standard load** -- the baselines loaded in bulk, the Dolt engines with one commit:
-
-{{block:sizes_oneshot}}
-
-**Disk, one `INSERT` per row** -- every engine writing the rows one at a time, the Dolt engines
-with one commit at the end:
-
-{{block:sizes_rowinsert}}
-
-**Disk, one commit per row** -- the three Dolt engines keeping a commit for every row:
-
-{{block:sizes_rowcommit}}
-
-**Time to load, the standard load:**
-
-{{block:times_oneshot}}
-
-**Time to load, one commit per row:**
-
-{{block:times_rowcommit}}
-
-Three things hold across the three pairs, as the tables show. Loaded once and committed once, a
+Three things hold across the three pairs, as the figure and the tables below it show. Loaded once and committed once, a
 Dolt engine's store is a fraction of its baseline's for MySQL and for PostgreSQL, and a little
 larger than its baseline's for SQLite, which starts compact. Writing one row at a time costs every
 baseline tens to hundreds of times its bulk load in time before any Dolt engine is involved; for
 the same rows Dolt and DoltgreSQL take longer again than their baselines do, DoltLite less than
 SQLite does. Keeping a commit per row is where both axes turn at once, in every pair: tens of times
 the baseline's disk and hundreds to thousands of times its time, because what disk, time and memory
-track in a Dolt engine is the number of commits (*What each engine needs in memory* below).
+track in a Dolt engine is the number of commits (*What memory needs*, below).
 
-## Versions
+**Disk**, totalled over the databases each pair has every load for:
+
+{{block:findings_disk}}
+
+**Time to load**, the same:
+
+{{block:findings_time}}
+
+That is the whole result. What follows is the evidence for it, in the order a reader asks: how big
+each database is in each engine, what keeping history costs, what keeping the indexes costs, what
+memory the engines need, whether each pair holds the same rows, what was measured and how, and
+what would make a reviewer hesitate. Every table and figure of the full evidence is in
+[REPORT.md](REPORT.md); the method and the history of the work are in [JOURNAL.md](JOURNAL.md).
+
+## How big: every database in every engine
+
+![Loaded once and committed once, a Dolt engine's store is a fraction of MySQL's and PostgreSQL's and near SQLite's](docs/img/sizes-by-engine.png)
+
+The standard load in every engine -- the baselines in bulk, the Dolt engines with one commit for
+the database.
+
+{{block:sizes_oneshot}}
+
+## What history costs
+
+![Keeping a commit per row costs tens to hundreds of times the disk of the same database loaded in bulk, and hundreds to thousands of times the time](docs/img/history-cost.png)
+
+One commit per row is the load that keeps every change, which is what a Dolt engine exists to do,
+and it is the one case where both axes turn at once. The ratio tracks the number of commits, not
+the rows: the database with the most rows is the outlier in every engine.
+
+**Disk**, one commit per row; † marks a store the engine could not collect, shown at its working
+footprint:
+
+{{block:sizes_rowcommit}}
+
+**Time to load**, the same:
+
+{{block:times_rowcommit}}
+
+## What keeping the indexes costs
+
+![Maintaining the indexes on a commit-per-row load costs the Dolt engines far more disk at the median database; on the baselines it barely matters](docs/img/index-policy-summary.png)
+
+The three row-by-row loads of every pair run twice: once with the secondary indexes and
+constraints added after the last row, the standard way to bulk-load any of these engines, and once
+maintained on every row. On a one-INSERT-per-row load with one commit the policy changes little
+anywhere; on a commit-per-row load, keeping the indexes means every commit carries the index
+changes too, and the store grows accordingly. The per-database figures and both policies' tables
+are in [REPORT.md](REPORT.md#what-maintaining-the-indexes-costs-database-by-database).
+
+## What memory needs
+
+![The memory a Dolt engine needs to open a store tracks its commits, not its rows, in all three engines](docs/img/memory-by-history.png)
+
+Memory is the constraint people meet first, and there are separate answers for loading a database
+and for opening one that is stored. Each is measured rather than estimated: a container gets a hard
+ceiling and the work either finishes or the kernel kills it. What each Dolt engine needs to open a
+stored shape and count its largest table, from three memory studies of the same kind:
+
+{{block:pair_memory_study}}
+
+For Dolt, the engine with the longest record here, there are three separate answers depending on
+what you are doing:
+
+| what you are doing | what it costs, on the largest database here |
+|---|---|
+| **opening it and running a query** | {{memory.max_open_gb}} GiB |
+| **loading it**, one commit per row | {{memory.peak_load_gb}} GiB of anonymous memory |
+| **packing it** with `dolt gc` afterwards | more than either — it was the high-water mark on every large database |
+
+Those are independent. A database you can build in {{memory.peak_load_gb}} GiB may not open in that
+much, and the packing that finishes the load wants more again. Sizing a machine from the load
+figures alone gets you one that loads a database and then cannot store it.
+
+**What memory tracks is commits — not rows, and not bytes on disk.**
+
+* Every one of the {{corpus.databases}} databases opens in {{memory.oneshot_max_mb}} MiB when it
+  holds three commits, including the largest at {{memory.oneshot_max_rows}} rows. Row count is not
+  the variable.
+* Size on disk is not it either: {{memory.disk_pair}}.
+* Above that floor, {{memory.linear_databases}} databases sit in a narrow band of
+  **{{memory.commits_per_mb_low}} to {{memory.commits_per_mb_high}} commits per MiB**, holding from
+  {{memory.linear_from}} to {{memory.linear_to}} commits. Within that range you can budget from the
+  commit count alone.
+* **The band does not hold at the top.** {{memory.breaks_db}}, at {{memory.breaks_commits}}
+  commits, manages only {{memory.breaks_ratio}} commits per MiB — about {{memory.breaks_factor}}
+  times worse than the rule — and needs {{memory.max_open_gb}} GiB to open and count one table. So
+  the rule is useful up to roughly a million commits and optimistic beyond it.
+
+{{block:memory_table}}
+
+The peaks of the loads themselves, per unit, are in [REPORT.md](REPORT.md#memory).
+
+## Does each pair hold the same thing?
+
+Before any size counts, every table is counted with `COUNT(*)` on both sides of the pair and every
+index is compared by definition; a load short in any table is recorded as a failure, not as a small
+number. For MySQL and Dolt:
+
+{{block:index_parity}}
+
+What DoltgreSQL and DoltLite refused -- a view over `xpath`, a view over `JSON_TABLE`, four views
+over `convert_from` -- is recorded on each unit and listed in
+[REPORT.md](REPORT.md#what-each-engine-refused); nothing else differs.
+
+## What was measured
 
 Every number in this document belongs to exactly one version of each engine, the versions below,
 named in `versions.json`. Nothing is pinned and nothing moves on its own: `python3 scripts/versions.py
@@ -102,11 +166,9 @@ to these tables (`knowledge/decisions/engine-versions-one-per-result-set.md`).
 
 {{block:versions}}
 
-## The tests
-
-Each pair's own dump is loaded five ways. Nothing differs but how the rows are written, and the
-same five shapes are run for every pair, so a colour in the figures below means the same shape
-wherever it appears.
+**The tests.** Each pair's own dump is loaded five ways. Nothing differs but how the rows are written, and the
+same five shapes are run for every pair, so in every figure a colour is an engine and a marker is a
+load shape, the same wherever they appear.
 
 | # | MySQL / Dolt | PostgreSQL / DoltgreSQL | SQLite / DoltLite | how the rows are written | why it is here |
 |---|---|---|---|---|---|
@@ -144,199 +206,8 @@ parity against the baseline is checked under each.
 Tests 1 and 3 have no policy: a bulk load builds an index over batches whichever way you ask, and on
 the MySQL side both policies produced byte-identical files.
 
-### How each load is performed
-
-MySQL and Dolt:
-
-
-* **MySQL** is loaded into a **fresh, empty server** — not read from the megasamples image, which was
-  built by a `mysqlsh` restore with deferred index builds and is measurably more compact than the
-  same data loaded from SQL. Comparing against it would compare Dolt against a differently-built
-  MySQL.
-* **Dolt** is loaded by the `dolt` CLI. **Each database gets its own data directory**, which is not
-  a detail: Dolt opens every database under its `--data-dir` at startup, so a shared directory made
-  each load pay to open everything loaded before it. That inflated the later loads in every phase
-  and, at the size the per-row-commit directory reaches, exhausted the host outright.
-* **Both engines load the identical transformed file.** `scripts/dolt_dialect.py` documents each
-  rule and each is reported; none of them touches a row.
-* **Sizes exclude what a server writes.** A `dolt sql-server` writes statistics into `.dolt/stats`
-  that `dolt gc` does not reclaim, so a served directory and an unserved one are not comparable by
-  `du`. The measurement subtracts them and reports separately what a server adds.
-
-PostgreSQL and DoltgreSQL, SQLite and DoltLite:
-
-* **Every DoltgreSQL load runs in a server started for it alone**, over an empty root, so what a load
-  costs is that database's alone; the first version kept one server per shape, and a 255-row database
-  then peaked at nearly a gigabyte because of everything loaded before it. PostgreSQL likewise gets a
-  fresh server per load.
-* **"The same file" for DoltLite is the dump replayed into a DoltLite-format database.** A stock
-  SQLite file opened by DoltLite runs on SQLite's own B-tree engine without version control, which
-  would have measured SQLite twice. The `sqlite` baseline is the same replay by `sqlite3`.
-* **Both engines of a pair load the same transformed file.** `scripts/doltgres_dialect.py` and
-  `scripts/doltlite_dialect.py` hold the rules, each found by refusal and named in every unit's
-  notes: a GIN index DoltgreSQL cannot build, `regexp_like` checks and generated-column tables it
-  cannot take rows for, the order and the virtual-table registration DoltLite needs. What an engine
-  still refuses -- a view over `xpath`, a view over `JSON_TABLE` -- is recorded on the unit and
-  listed under *Does each pair hold the same thing?*, never hidden.
-* **A fresh PostgreSQL database is not empty**: it is a copy of the template catalog, about 7 MiB
-  before the first row, which MySQL's per-schema directory and Dolt's repository do not carry. The
-  PostgreSQL sizes include it; the ratio for a small database is therefore mostly that floor.
-
-### How each load is measured
-
-* **Disk** — `du -sb` of the directory the engine keeps the database in, after the load has settled:
-  for Dolt, after the commit and `dolt gc`, because Dolt writes through a journal and measuring
-  before packing reports the write-ahead state rather than the stored one. A `du` that fails raises
-  rather than returning zero.
-* **Time** — wall clock around the load itself, excluding the dump, the transform, and the
-  measurement. Both engines are timed the same way, by `docker exec` into a container that is
-  already up, so neither's timings contain container startup. That start costs a measured
-  {{method.container_overhead}} s, and used to be paid twice per Dolt load and not at all by MySQL.
-* **Repeats, where a repeat is affordable.** Each unit runs up to three times and the median of every
-  sample is kept, until it has spent its repeat budget; after that it is a single sample. Of the
-  units recorded so far, {{run.single_sample_units}} of {{run.units_done}} were measured once. Across
-  the repeated ones the spread is {{method.repeat_bytes_median}}% median and
-  {{method.repeat_bytes_worst}}% worst for size, and {{method.repeat_seconds_median}}% median and
-  {{method.repeat_seconds_worst}}% worst for time. The pairs' units are single samples, each
-  measured once with the same method.
-* **Every load ends settled before it is sized**, and the settle step is timed separately from the
-  load: Dolt commits and runs `dolt gc`; DoltgreSQL runs `dolt_commit` and `dolt_gc()`; DoltLite runs
-  `dolt_commit` and `VACUUM`; PostgreSQL runs `CHECKPOINT`; SQLite and MySQL need nothing. A settle
-  step that fails is kept and marked -- the store is reported at the working footprint of the load, not
-  hidden and not loaded again to meet the same limit.
-* **Correctness, before any size is recorded** — every table counted with `COUNT(*)` on both sides,
-  and every index compared by definition. A load short in any table is recorded as a failure, not as
-  a small number.
-
-* **Memory, on the pairs** -- peak memory the kernel cannot reclaim, anonymous plus shared since
-  swap is off, of the container each load runs in, read four times a second from before the load
-  until after its settle step, so a collection that runs out of memory shows in it. Every unit also
-  records its container's own peak, page cache included, and the memory cap it ran under.
-
-## The results
-
-One table per pair, the same five loads across, every database down. The figures after them draw
-all three pairs on the same axes and in the same colours, each pair against its own baseline.
-
-### MySQL and Dolt
-
-{{block:summary_table}}
-
-### PostgreSQL and DoltgreSQL
-
-{{block:pg_pair_table}}
-
-### SQLite and DoltLite
-
-{{block:lite_pair_table}}
-
-### The figures
-
-![What each load costs, every pair](docs/img/cost-by-mode.png)
-
-![Disk used, every database, every load, every pair](docs/img/disk-by-database.png)
-
-![Disk as a ratio of each pair's baseline](docs/img/ratio-by-database.png)
-
-![Time to load, every database, every load, every pair](docs/img/time-by-database.png)
-
-## What maintaining the indexes costs
-
-The three row-by-row loads of every pair, run again with every secondary index and constraint kept
-for the whole load, as a change from dropping them and rebuilding at the end. The question is a
-polarity -- more or less -- so each figure is a diverging bar against a zero line; the tables carry
-both policies' absolute sizes and times.
-
-![What maintaining the indexes costs, MySQL and Dolt](docs/img/index-policy-dolt.png)
-
-![What maintaining the indexes costs, PostgreSQL and DoltgreSQL](docs/img/index-policy-pg.png)
-
-![What maintaining the indexes costs, SQLite and DoltLite](docs/img/index-policy-lite.png)
-
-### MySQL and Dolt
-
-{{block:index_policy}}
-
-### PostgreSQL and DoltgreSQL
-
-{{block:pg_pair_inline}}
-
-### SQLite and DoltLite
-
-{{block:lite_pair_inline}}
-
-## Does each pair hold the same thing?
-
-Before any size counts, every table is counted with `COUNT(*)` on both sides of the pair and every
-index is compared by definition; a load short in any table is recorded as a failure, not as a small
-number. What an engine refused -- a statement it does not implement, a view it cannot resolve -- is
-recorded on the unit and listed here, and where a dialect rule dropped something on both sides so
-that the pair stays comparable, that is named too.
-
-### MySQL and Dolt
-
-{{block:index_parity}}
-
-### PostgreSQL and DoltgreSQL, SQLite and DoltLite
-
-{{block:pair_refusals}}
-
-## What each engine needs in memory
-
-Memory is the constraint people meet first, and there are separate answers for loading a database
-and for opening one that is stored. Each is measured rather than estimated: a container gets a hard
-ceiling and the work either finishes or the kernel kills it, which returns exit 137 and needs no
-interpretation.
-
-### Loading
-
-The peak of each load's own container, through the load and its settle step, for the two pairs
-whose runs recorded it per unit:
-
-{{block:pg_pair_memory}}
-
-{{block:lite_pair_memory}}
-
-### Opening a stored database
-
-What each Dolt engine needs to open a stored shape and count its largest table, from three memory
-studies of the same kind: a ladder of container ceilings walked by bisection to the smallest that
-does not get the process killed, one point per database per shape.
-
-![What each Dolt engine's memory tracks](docs/img/memory-by-history.png)
-
-{{block:pair_memory_study}}
-
-#### Dolt, in detail
-
-For Dolt there are three separate answers depending on what you are doing:
-
-| what you are doing | what it costs, on the largest database here |
-|---|---|
-| **opening it and running a query** | {{memory.max_open_gb}} GiB |
-| **loading it**, one commit per row | {{memory.peak_load_gb}} GiB of anonymous memory |
-| **packing it** with `dolt gc` afterwards | more than either — it was the high-water mark on every large database |
-
-Those are independent. A database you can build in {{memory.peak_load_gb}} GiB may not open in that
-much, and the packing that finishes the load wants more again. Sizing a machine from the load
-figures alone gets you one that loads a database and then cannot store it.
-
-**What memory tracks is commits — not rows, and not bytes on disk.**
-
-* Every one of the {{corpus.databases}} databases opens in {{memory.oneshot_max_mb}} MiB when it
-  holds three commits, including the largest at {{memory.oneshot_max_rows}} rows. Row count is not
-  the variable.
-* Size on disk is not it either: {{memory.disk_pair}}.
-* Above that floor, {{memory.linear_databases}} databases sit in a narrow band of
-  **{{memory.commits_per_mb_low}} to {{memory.commits_per_mb_high}} commits per MiB**, holding from
-  {{memory.linear_from}} to {{memory.linear_to}} commits. Within that range you can budget from the
-  commit count alone.
-* **The band does not hold at the top.** {{memory.breaks_db}}, at {{memory.breaks_commits}}
-  commits, manages only {{memory.breaks_ratio}} commits per MiB — about {{memory.breaks_factor}}
-  times worse than the rule — and needs {{memory.max_open_gb}} GiB to open and count one table. So
-  the rule is useful up to roughly a million commits and optimistic beyond it.
-
-{{block:memory_table}}
+How each load is performed and measured, engine by engine, is in
+[REPORT.md](REPORT.md#how-each-load-is-performed).
 
 ## What would make a reviewer hesitate
 
@@ -346,11 +217,12 @@ re-reading the prose.
 **The per-row-commit size is the least repeatable number here.** Loads of a byte-identical file into
 an empty directory do not produce byte-identical repositories; the commit graph is
 content-addressed but `dolt gc`'s packing is not deterministic. Treat test 5's disk figures with
-more tolerance than the others, and see the repeat spreads above for the measured amount.
+more tolerance than the others; every repeat's samples are recorded on its unit in
+`build/results.json`.
 
 **The expensive loads are single samples.** Repeats stop once a unit has spent its budget, so the
-slow loads on the large databases are one run each. The figures draw a whisker only where there is a
-spread to draw.
+slow loads on the large databases are one run each. A figure or table shows a spread only where
+there is one to show.
 
 **The machine is not idle.** The run shares the host with the source MySQL it reads the dumps from.
 It is realistic, but it is not a benchmark rig.
@@ -510,7 +382,7 @@ narrows it, `SERVE_DATABASES=all` serves every database the shape holds, and the
 applies itself: the Dolt server is held to its memory limit (`DOLT_MEM=8g` raises it, default
 1536m) using the memory study below, taking databases smallest need first, because a per-row-commit
 history can need gigabytes to open -- `make up` names what it left out and why. DoltgreSQL is held the same way
-using the pairs' study (*What each engine needs in memory* above); DoltLite has no server, so its files
+using the pairs' study (*What memory needs* above); DoltLite has no server, so its files
 are simply there, and the one it could not collect is the working footprint of the load.
 
 The accounts are the same on both sides and on both servers: `demo` / `demo` reads, `admin` /

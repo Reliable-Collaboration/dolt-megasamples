@@ -281,7 +281,7 @@ def report(items):
         L.append(f"| **Dolt**, one commit per row | {len(rc)} | {human(sum(i['rowcommit'] for i in rc))} "
                  f"| **{sum(i['rowcommit'] for i in rc) / cmy:.0f}×** | {secs(ct)} "
                  f"| **{ct / cmt:.0f}×** |")
-    L += ["", "![What each load costs](docs/img/cost-by-mode.png)", "",
+    L += ["", "![What each load costs, in every pair](docs/img/headline.png)", "",
           "Read the two columns together. The standard Dolt load is a third of MySQL's disk for "
           "several times its load time — a trade, not a free win. Writing row by row is expensive in "
           "**both** engines, which is why MySQL is measured that way too: it separates what row-wise "
@@ -296,7 +296,7 @@ def report(items):
           f"(`{largest['db']}`), a spread of more than "
           f"{largest['ratio'] / smallest['ratio']:.0f} to one.", "",
           "![Disk used, every database, every load, every pair](docs/img/disk-by-database.png)", "",
-          "![Ratio per database](docs/img/ratio-by-database.png)", "",
+          "![Every database in every engine, the standard load](docs/img/sizes-by-engine.png)", "",
           "The shape of the spread is legible. Small databases favour Dolt heavily because InnoDB "
           "allocates a tablespace per table whether or not anything is in it. Text-heavy data "
           "narrows the gap, because neither engine can compress prose. Dense numeric fact tables "
