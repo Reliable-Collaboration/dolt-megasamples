@@ -201,18 +201,17 @@ with Debian's feature set (FTS5 above all -- a plain build refused the corpus's 
 ## Known at handover: the corpus's fetch on a fresh machine
 
 Tested on 2026-09-16 by cloning sql-megasamples from GitHub and building it from nothing. Its fetch
-crashed on every freshly downloaded artifact until the fix on its branch `fix/fetch-start-time`
-(merge it, or clone that branch, until it is in `main`). Two of its 155 artifacts could not be
-fetched by a script: `lahman` is a hand download its README explains; `chicago_crimes`'s 2024
-extract from the city's open-data API no longer matches the size its manifest pins, so a stranger
-cannot build that database from upstream until the corpus re-pins it (and re-verifies its row
-counts) or mirrors the file. Placing a maintainer-supplied copy works only with its verification
-markers (`.ok` and `.meta.json`) beside it. The corpus's `make run` builds the other 19 and exits
-non-zero naming the two; after they are placed, it builds the rest.
+crashed on every freshly downloaded artifact until the fix on its branch `fix/fetch-start-time`,
+and `chicago_crimes`, a live feed whose extract the city amends, stopped the build on a pinned
+digest. Both are settled on the corpus's branch `live-artifacts` (which includes the fetch fix):
+a live feed is taken as served and its tests hold a build to floors and structure, by the
+maintainer's decision ("we want the data to evolve"). Until that branch is in the corpus's `main`,
+clone it by name. One artifact remains a hand download: `lahman`, behind a share link, which the
+corpus's README explains; its `make run` builds the other 20, exits non-zero naming it, and builds
+it once the file is placed.
 
 ## Open items the maintainer has not decided
 
-- `chicago_crimes` in the corpus: re-pin the manifest to the current extract or mirror the file.
 
 - Whether to report the `nulls first` index-definition finding to DoltHub.
 - Whether JOURNAL.md should be reframed the way the README was (story first); the maintainer's
