@@ -90,7 +90,9 @@ do not rewrite it.
   `uv` if present), `git`, `gh` (for the pull request), and `make`.
 - **The corpus beside this checkout**: `../sql-megasamples` (or `MEGASAMPLES_DIR=...` in the
   environment), cloned and built for MySQL, PostgreSQL and SQLite with the 21 core databases (in
-  that repository: `uv sync`, `make configure`, `make run`; hours). The exports here read its running
+  that repository: `uv sync`, `make configure` or a copied `megasamples.yaml`, `make run`; hours; one
+  dataset, `lahman`, must be downloaded by hand from the link its fetch prints and placed where it says,
+  then `make run` again). The exports here read its running
   `megasamples-mysql` and `megasamples-postgres` containers and its `build/sqlite/` tree.
 - **Disk**: the previous run's stores and exports took several hundred gigabytes, most of it the
   per-row-commit loads of the largest databases, and the maintainer provided 1.5 TB. The runners
