@@ -85,12 +85,15 @@ One version per run, and no pins ([the decision](/decisions/engine-versions-one-
 unit records its engine's version, a run never mixes two, and a new run starts on the newest releases.
 
 1. `make versions` -- each engine's version beside the newest release upstream. Nothing moves on its own.
-2. `make new-run` -- `scripts/versions.py --latest` resolves the newest release of Dolt, DoltgreSQL and
-   DoltLite (packages downloaded fresh and checked against the release's digests, images pulled and resolved
-   to their digests), rewrites `versions.json` and the compose defaults, and drops from `build/progress.json`
-   and the memory studies every record of an engine that moved (the repository's history keeps the old run);
-   then `make lite-image --record` builds the DoltLite image and records the sqlite3 shell it carries. It
-   refuses while a runner holds `build/run.lock`: a run keeps its versions until it is complete.
+2. `make new-run` -- `scripts/versions.py --latest` resolves the newest release of all six engines (Dolt
+   and DoltgreSQL: the GitHub release's image, pulled and resolved to its digest; DoltLite: the release's
+   packages, downloaded fresh and checked against its digests; MySQL and PostgreSQL: the newest version tag
+   of the official Docker Hub image, by digest; SQLite: sqlite.org's newest release tarball, checked against
+   the SHA3-256 its download page names), rewrites `versions.json` and the compose defaults, and drops from
+   `build/progress.json` and the memory studies every record of an engine that moved (the repository's
+   history keeps the old run); then `make lite-image --record` builds the DoltLite image with the SQLite
+   shell from source and records what the image carries. It refuses while a runner holds `build/run.lock`:
+   a run keeps its versions until it is complete.
 3. The runs: `make run`, `make run-pg`, `make run-lite`, both index policies, `make memory-pairs`. A runner
    refuses before writing anything if any recorded unit of an engine it touches is on another version, over
    the whole result set and not only the run's scope; the collectors withdraw such units' numbers, and

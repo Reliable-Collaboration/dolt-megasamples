@@ -4,12 +4,12 @@
   python3 scripts/lite_image.py [--record]
 
 DoltLite ships no container image, so this repository builds one: docker/doltlite/Dockerfile over
-the two Debian packages of one release, downloaded from the GitHub release and checked against
-the sha256 recorded in versions.json before anything is built (`make new-run` records them). The
-image also carries the sqlite3 shell, the SQLite baseline, as Debian ships it that day: it is not
-pinned, it is recorded. With `--record` (what `make new-run` does) the shell's version goes into
-versions.json; without it, a shell that differs from the recorded one is reported, because the
-SQLite units of the current run were measured with the recorded one.
+the two Debian packages of one release and sqlite.org's source tarball of one release -- the
+sqlite3 shell, the SQLite baseline, built from source so the pair compares the newest SQLite with
+the newest DoltLite -- each downloaded and checked against the sha256 versions.json records
+(`make new-run` records them). With `--record` (what `make new-run` does) the version the built
+shell reports goes into versions.json; without it, a shell that differs from the recorded one is
+reported, because the SQLite units of the current run were measured with the recorded one.
 """
 import argparse, hashlib, json, os, subprocess, sys, urllib.request
 
@@ -46,41 +46,34 @@ def main():
     os.makedirs(WORK, exist_ok=True)
     for name, url, sha in LITE_PACKAGES:
         fetch(name, url, sha)
-    print(f"  . building {LITE_IMAGE} (DoltLite {LITE_VERSION})", flush=True)
+    tarball = VERSIONS["sqlite"].get("tarball")
+    if not tarball:
+        sys.exit("versions.json names no SQLite source tarball: `make new-run` resolves the newest release and records it")
+    fetch(tarball["name"], tarball["url"], tarball["sha256"])
+    print(f"  . building {LITE_IMAGE} (DoltLite {LITE_VERSION}, SQLite {VERSIONS['sqlite']['version']} from source)", flush=True)
     p = subprocess.run(["docker", "build", "-q", "-f", os.path.join(ROOT, "docker", "doltlite", "Dockerfile"),
-                        "--build-arg", f"LITE_VERSION={LITE_VERSION}", "-t", LITE_IMAGE, WORK],
-                       capture_output=True, text=True)
+                        "--build-arg", f"LITE_VERSION={LITE_VERSION}", "--build-arg", f"SQLITE_TARBALL={tarball['name']}",
+                        "-t", LITE_IMAGE, WORK], capture_output=True, text=True)
     if p.returncode != 0:
         sys.exit(p.stderr or p.stdout)
     v = subprocess.run(["docker", "run", "--rm", "--label", "doltsamples.transient=true", LITE_IMAGE,
-                        "sh", "-c", "doltlite -version; sqlite3 -version; dpkg-query -W -f '${Version}' sqlite3"],
-                       capture_output=True, text=True)
+                        "sh", "-c", "doltlite -version; sqlite3 -version"], capture_output=True, text=True)
     lines = [l for l in v.stdout.splitlines() if l.strip()]
     print("  . " + " / ".join(lines))
     shell = (lines[1].split() or [""])[0] if len(lines) > 1 else ""
-    package = lines[2].strip() if len(lines) > 2 else ""
     recorded = VERSIONS["sqlite"]
     if shell and shell != recorded["version"]:
         if a.record:
-            recorded.update(version=shell, since=__import__("time").strftime("%Y-%m-%d", __import__("time").gmtime()),
-                            named_by=f"Debian's package sqlite3 {package} in the DoltLite image")
+            recorded.update(version=shell, since=__import__("time").strftime("%Y-%m-%d", __import__("time").gmtime()))
             tmp = VERSIONS_PATH + ".tmp"
             with open(tmp, "w", encoding="utf-8") as fh:
                 json.dump(VERSIONS, fh, indent=2, ensure_ascii=False)
                 fh.write("\n")
             os.replace(tmp, VERSIONS_PATH)
-            print(f"  . recorded the sqlite3 shell {shell} (package {package}) in versions.json")
+            print(f"  . recorded the sqlite3 shell the image carries, {shell}, in versions.json")
         else:
-            print(f"  ! the image carries sqlite3 {shell} (package {package}); versions.json records {recorded['version']}, "
-                  f"the shell the current run's SQLite units were measured with. `make new-run` records the new one.")
-    elif a.record and package and package not in (recorded.get("named_by") or ""):
-        recorded["named_by"] = f"Debian's package sqlite3 {package} in the DoltLite image"
-        tmp = VERSIONS_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(VERSIONS, fh, indent=2, ensure_ascii=False)
-            fh.write("\n")
-        os.replace(tmp, VERSIONS_PATH)
-        print(f"  . recorded the sqlite3 package {package} in versions.json")
+            print(f"  ! the image carries sqlite3 {shell}; versions.json records {recorded['version']}, the shell the current "
+                  f"run's SQLite units were measured with. `make new-run` records the new one.")
     return 0
 
 

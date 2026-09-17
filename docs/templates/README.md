@@ -77,7 +77,7 @@ Each cell is the wall-clock time of that load: for a baseline the load itself; f
 
 ## The engines
 
-Every number in this document belongs to one run, and a run uses one version of each engine, the versions below, recorded in `versions.json`. Nothing is pinned: a new run (`make new-run`) starts on the newest release of every Dolt engine and keeps those versions until it is complete, so nothing switches in the middle; the baselines are the corpus's own, recorded as found. A new run drops the units of every engine that moved and measures them again; what earlier runs found is in this repository's history, not in its documents (`knowledge/decisions/engine-versions-one-per-result-set.md`). `make versions` says what is newer upstream.
+Every number in this document belongs to one run, and a run uses one version of each engine, the versions below, recorded in `versions.json`. Nothing is pinned: a new run (`make new-run`) starts on the newest release of every one of the six -- Dolt, DoltgreSQL and DoltLite from their GitHub releases, MySQL and PostgreSQL from their official images, the SQLite shell built from sqlite.org's release -- and keeps those versions until it is complete, so nothing switches in the middle. The corpus that supplies the dumps runs its own versions of the baselines; only the exports touch it, and the loads are timed on the versions named here. A new run drops the units of every engine that moved and measures them again; what earlier runs found is in this repository's history, not in its documents (`knowledge/decisions/engine-versions-one-per-result-set.md`). `make versions` says what is newer upstream.
 
 {{block:versions}}
 
@@ -289,11 +289,11 @@ The sample databases are not in this repository. They come from `sql-megasamples
 
 ```sh
 make versions      # what versions.json names, beside the newest release upstream
-make new-run       # a new run: every Dolt engine to its newest release, the DoltLite image built,
-                   # the sqlite3 shell it carries recorded, the previous run's records dropped
+make new-run       # a new run: every engine to its newest release -- the three Dolt engines, the two
+                   # baseline images, the SQLite shell built from sqlite.org's release into the DoltLite image, the previous run's records dropped
 ```
 
-A run uses one version of each engine from its first unit to its last, and a new run starts on the newest release of every Dolt engine; nothing is pinned. The baselines are the corpus's own and are recorded as found. If versions.json names versions you did not measure, `make new-run` is the first step; a runner refuses to add to a result set measured on another version.
+A run uses one version of each engine from its first unit to its last, and a new run starts on the newest release of all six; nothing is pinned. The corpus's own engine versions matter only for the exports; the timed loads run on the images and the shell versions.json names. If versions.json names versions you did not measure, `make new-run` is the first step; a runner refuses to add to a result set measured on another version.
 
 ### The loads
 

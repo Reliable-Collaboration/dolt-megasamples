@@ -185,7 +185,7 @@ def environment_table():
         f"| Disk | {h['disk_total']} {h['filesystem']} |",
         f"| Kernel | {h['kernel']} |",
         f"| Docker | {d['version']}, storage driver `{d['storage_driver']}` |",
-        f"| MySQL | `{g['mysql_image']}` — {g['mysql_version']}, named by image tag |",
+        f"| MySQL | `{g['mysql_image']}` — {g['mysql_version']}, named by image {'digest' if '@sha256:' in g['mysql_image'] else 'tag'} |",
         f"| Dolt | `{g['dolt_image'].split('@')[0]}` — {g['dolt_version']}, named by image digest |",
         f"| PostgreSQL | `{g.get('postgres_image', '').split('@')[0]}` — {g.get('postgres_version', 'not recorded')}, named by image digest |",
         f"| DoltgreSQL | `{g.get('doltgres_image', '').split('@')[0]}` — {g.get('doltgres_version', 'not recorded')}, named by image digest |",

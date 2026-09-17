@@ -41,7 +41,11 @@ These were given during release 2 and still hold. Quote them back when a decisio
 - **One version per run, no pins** (revised 2026-09-16): "lets not pin anything anymore - We'll want
   any new run to use the latest release version of everything out there. The only real requirement
   is that we want all of the experiments in a run to use the same latest version, we don't want to
-  switch in the middle." `make new-run` is that rule in one command.
+  switch in the middle." And, the same day, on the baselines: "we want all tools to be the newest
+  during a run. especially dolt, doltgres, and doltlite; but 'latest release' is what anyone is going
+  to be interested in". `make new-run` is that rule in one command, for all six engines: the Dolt
+  engines from their GitHub releases, MySQL and PostgreSQL from their official images on Docker Hub,
+  the SQLite shell built from sqlite.org's newest release into the DoltLite image.
 - **Present the current run, not a history**: "we don't want this to become a historical record -
   old commits can contain old data - we want to present what we know as current with most recent
   runs". A new run drops the old one's records; git history is the archive. Never build a
@@ -111,9 +115,11 @@ Nothing else may run on the machine while loads are timed; the corpus's stack mu
 the timed pairs (its MySQL is needed only for `make export`, its PostgreSQL only for
 `make export-pairs`).
 
-1. `make versions`, then **`make new-run`**: resolves the newest release of Dolt, DoltgreSQL and
-   DoltLite, writes `versions.json` and the compose defaults, builds the DoltLite image and records
-   the sqlite3 shell it carries. Commit `versions.json`.
+1. `make versions`, then **`make new-run`**: resolves the newest release of all six engines,
+   writes `versions.json` and the compose defaults, builds the DoltLite image (with the SQLite shell
+   from source) and records the shell it carries. Commit `versions.json`. Note what it resolved: on
+   2026-09-17 MySQL's newest official image tag was 26.7.0, a numbering the maintainer may want to
+   look at before trusting it as "the release anyone is interested in".
 2. In the corpus checkout: `make compose && docker compose up -d mysql`. Here: `make export`
    (mysqldump every database), then `make preflight` (every schema into MySQL and Dolt, no rows;
    what each refuses). Read what the preflight refuses: a newer Dolt may take objects the transform

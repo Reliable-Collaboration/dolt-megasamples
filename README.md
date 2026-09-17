@@ -81,15 +81,15 @@ Each cell is the wall-clock time of that load: for a baseline the load itself; f
 
 ## The engines
 
-Every number in this document belongs to one run, and a run uses one version of each engine, the versions below, recorded in `versions.json`. Nothing is pinned: a new run (`make new-run`) starts on the newest release of every Dolt engine and keeps those versions until it is complete, so nothing switches in the middle; the baselines are the corpus's own, recorded as found. A new run drops the units of every engine that moved and measures them again; what earlier runs found is in this repository's history, not in its documents (`knowledge/decisions/engine-versions-one-per-result-set.md`). `make versions` says what is newer upstream.
+Every number in this document belongs to one run, and a run uses one version of each engine, the versions below, recorded in `versions.json`. Nothing is pinned: a new run (`make new-run`) starts on the newest release of every one of the six -- Dolt, DoltgreSQL and DoltLite from their GitHub releases, MySQL and PostgreSQL from their official images, the SQLite shell built from sqlite.org's release -- and keeps those versions until it is complete, so nothing switches in the middle. The corpus that supplies the dumps runs its own versions of the baselines; only the exports touch it, and the loads are timed on the versions named here. A new run drops the units of every engine that moved and measures them again; what earlier runs found is in this repository's history, not in its documents (`knowledge/decisions/engine-versions-one-per-result-set.md`). `make versions` says what is newer upstream.
 
 | engine | version of this result set | since | named by | what the image answers |
 |---|---|---|---|---|
-| MySQL | **9.7.2** | 2026-09-08 | `mysql:9.7.2` | not recorded |
+| MySQL | **26.7.0** | 2026-09-17 | `mysql@sha256:45abdd9b4144…` | not recorded |
 | Dolt | **2.3.2** | 2026-09-08 | `dolthub/dolt-sql-server@sha256:38d5e9005832…` | not recorded |
 | PostgreSQL | **18.6** | 2026-09-10 | `postgres@sha256:1c59e2c3c818…` | not recorded |
 | DoltgreSQL | **1.3.2** | 2026-09-14 | `dolthub/doltgresql@sha256:267aff12f01c…` | release not recorded |
-| SQLite shell | **3.46.1** | 2026-09-10 | Debian 13's package in `debian:13-slim@sha256:d7e12182ce18…` | not recorded |
+| SQLite shell | **3.53.4** | 2026-09-17 | Debian 13's package in `debian:13-slim@sha256:d7e12182ce18…` | not recorded |
 | DoltLite | **0.50.10** | 2026-09-12 | `libdoltlite0_0.50.10_amd64.deb` sha256 `09f2e13df763…`, `doltlite_0.50.10_amd64.deb` sha256 `3a832d5580cf…` | not recorded |
 
 What each Dolt engine is, and how it is served here:
@@ -385,11 +385,11 @@ The sample databases are not in this repository. They come from `sql-megasamples
 
 ```sh
 make versions      # what versions.json names, beside the newest release upstream
-make new-run       # a new run: every Dolt engine to its newest release, the DoltLite image built,
-                   # the sqlite3 shell it carries recorded, the previous run's records dropped
+make new-run       # a new run: every engine to its newest release -- the three Dolt engines, the two
+                   # baseline images, the SQLite shell built from sqlite.org's release into the DoltLite image, the previous run's records dropped
 ```
 
-A run uses one version of each engine from its first unit to its last, and a new run starts on the newest release of every Dolt engine; nothing is pinned. The baselines are the corpus's own and are recorded as found. If versions.json names versions you did not measure, `make new-run` is the first step; a runner refuses to add to a result set measured on another version.
+A run uses one version of each engine from its first unit to its last, and a new run starts on the newest release of all six; nothing is pinned. The corpus's own engine versions matter only for the exports; the timed loads run on the images and the shell versions.json names. If versions.json names versions you did not measure, `make new-run` is the first step; a runner refuses to add to a result set measured on another version.
 
 ### The loads
 

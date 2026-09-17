@@ -58,9 +58,8 @@ def main():
             "storage_driver": run("docker", "info", "-f", "{{.Driver}}").stdout.strip(),
         },
         "engines": {
-            "mysql_image": os.environ.get("MYSQL_TIMING_IMAGE", "mysql:9.7.2"),
-            "mysql_version": image_version(os.environ.get("MYSQL_TIMING_IMAGE", "mysql:9.7.2"),
-                                           "mysqld", "--version"),
+            "mysql_image": VERSIONS["mysql"]["image"],
+            "mysql_version": image_version(VERSIONS["mysql"]["image"], "mysqld", "--version"),
             "mysql_flags": ["--local-infile=1", "--skip-log-bin"],
             "dolt_image": DOLT_IMAGE,
             "dolt_version": image_version(DOLT_IMAGE, "dolt", "version"),
