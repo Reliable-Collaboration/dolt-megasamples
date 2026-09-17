@@ -555,6 +555,9 @@ def compare(ref, got, dropped=()):
     short = None
     for t, want in ref["rows"].items():
         g = got["rows"].get(t)
+        if want is None:   # the export could not count it: the reference is broken, and that is what to say
+            short = f"{t}: the reference recorded no row count (the export's shell could not count it); export again"
+            break
         if g != want:
             short = f"{t} has {g if g is not None else 'no'} rows, expected {want:,}"
             break

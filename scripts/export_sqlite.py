@@ -85,6 +85,11 @@ def main():
             ref = lite_catalog("sqlite3", f"/dumps/sqlite/{db}.sqlite", container=EXPORTER,
                                script_host=os.path.join(LITE_DUMPS, "catalog.sql"),
                                script_inside="/dumps/sqlite/catalog.sql")
+            uncounted = sorted(t for t, n in ref["rows"].items() if n is None)
+            if uncounted:   # a reference with a hole is worse than none: every unit would be checked against it
+                raise RuntimeError(f"{db}: the exporter's sqlite3 could not count {', '.join(uncounted)} "
+                                   f"(a shell built without FTS5?); nothing recorded. The image's shell is what "
+                                   f"`make lite-image` builds; its errors: {str(ref.get('catalog_errors'))[:200]}")
             sizes = {k: os.path.getsize(os.path.join(LITE_DUMPS, f"{db}.{k}")) for k in ("sqlite", "dump.sql", "schema.sql")}
             v = run("docker", "exec", EXPORTER, "sqlite3", "-version").stdout.strip()
             ref.update({"database": db, "source": src_dir or "megasamples-sqlite", "sqlite3": v,
