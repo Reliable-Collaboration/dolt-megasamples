@@ -351,7 +351,7 @@ Every unit is written to `build/progress.json` the moment it finishes. To pause,
 
 ### How far this has been tested
 
-Not yet end to end from an empty machine. The run these documents describe was made on one machine over several sessions in September 2026, on a corpus that had been built there earlier; every step above was run on that machine, some of them several times, but never in one pass from a fresh clone. What was tested from a fresh clone is the served stack, with the stores of that run linked in. The next run, on another machine, is the first full test of this section; where it finds a gap, the fix belongs here, not in a note to the reader.
+End to end, once, on one database. On 2026-09-17 every step above was followed from nothing on the machine of the previous run: `sql-megasamples` cloned from GitHub and built by its own README (all three engines, the 21 core databases), then this repository cloned beside it and every command run in the order given, with the loads and the memory studies restricted to `sakila`, through to the served stack and its checks. That pass found and fixed the gaps it met -- an export target that wrote one dump style, a memory study that needed the corpus running, the corpus's own fetch crashing on a fresh clone, two of its artifacts a script cannot fetch -- and a second pass with the final tooling went through clean, one hour from `make new-run` to a served, checked stack. What has not been done from nothing is the full run on all 21 databases, which takes days; the run these documents describe was made over several sessions on a corpus built earlier. Where the next full run finds a gap, the fix belongs here, not in a note to the reader.
 
 ## Layout
 

@@ -294,7 +294,10 @@ def versions_table():
         ("Dolt", "dolt", short(VERSIONS["dolt"]["image"]), env.get("dolt_version")),
         ("PostgreSQL", "postgres", short(VERSIONS["postgres"]["image"]), env.get("postgres_version")),
         ("DoltgreSQL", "doltgres", short(VERSIONS["doltgres"]["image"]), f"release {env.get('doltgres_version', 'not recorded')}"),
-        ("SQLite shell", "sqlite", f"Debian 13's package in {short(base.group(1)) if base else '`debian:13-slim`'}",
+        ("SQLite shell", "sqlite",
+         (f"built from sqlite.org's `{VERSIONS['sqlite']['tarball']['name']}` sha256 `{VERSIONS['sqlite']['tarball']['sha256'][:12]}…` "
+          f"into the DoltLite image" if VERSIONS["sqlite"].get("tarball")
+          else f"Debian 13's package in {short(base.group(1)) if base else '`debian:13-slim`'}"),
          env.get("sqlite3_version")),
         ("DoltLite", "doltlite", ", ".join(f"`{pkg['name']}` sha256 `{pkg['sha256'][:12]}…`"
                                            for pkg in VERSIONS["doltlite"]["packages"]),

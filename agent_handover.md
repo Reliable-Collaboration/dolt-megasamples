@@ -141,9 +141,9 @@ the timed pairs (its MySQL is needed only for `make export`, its PostgreSQL only
    from the top as the run proceeds.
 8. **`make up`**, **`make test-stack`**, **`make screenshots`**, then `make report` and
    `make check` again, so the README's pictures show this machine's stack.
-9. When the run is complete, rewrite the README's *How far this has been tested* paragraph: it says,
-   truthfully, that these steps have never been followed end to end from an empty machine, and your
-   run is the first time. Say what it took and what the section got wrong.
+9. When the run is complete, rewrite the README's *How far this has been tested* paragraph: it says
+   the steps were followed end to end on one database on 2026-09-17, and that the full run on all 21
+   has not yet been done from nothing. Your run is that. Say what it took and what the section got wrong.
 10. Knowledge: a tool record per new engine version (what was verified on it, as
    `knowledge/tools/doltgresql-1-3-2.md` and `knowledge/tools/doltlite-0-50-10.md` do), the older
    ones deprecated; `log.md` entries; `make okf-check`. Then the pull request.
@@ -187,6 +187,16 @@ the timed pairs (its MySQL is needed only for `make export`, its PostgreSQL only
   it upstream is an open question for the maintainer.
 - **Memory caps**: `DOLTSAMPLES_MEM_WORKER=12g` was the smallest that finished every DoltgreSQL
   load; every unit records the cap it ran under.
+
+## Known at handover: what the clean-room passes of 2026-09-17 established
+
+Three passes on this machine, each from a fresh clone, restricted to `sakila`. The final one, on the
+tooling this branch carries, went from `make new-run` to a served and checked stack in one hour with
+every check green: MySQL 26.7.0 (the newest official image) loaded the corpus's 9.7.2 dumps without
+complaint; the sqlite3 shell built from sqlite.org's 3.53.4 replayed the SQLite dumps once it was built
+with Debian's feature set (FTS5 above all -- a plain build refused the corpus's full-text tables, and
+`make lite-image` now checks the features); DoltgreSQL 1.3.3 still refuses the same nine views as
+1.3.2; DoltLite 0.50.11 loaded and collected `sakila` as 0.50.10 did.
 
 ## Known at handover: the corpus's fetch on a fresh machine
 
