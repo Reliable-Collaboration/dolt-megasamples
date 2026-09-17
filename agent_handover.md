@@ -182,7 +182,21 @@ the timed pairs (its MySQL is needed only for `make export`, its PostgreSQL only
 - **Memory caps**: `DOLTSAMPLES_MEM_WORKER=12g` was the smallest that finished every DoltgreSQL
   load; every unit records the cap it ran under.
 
+## Known at handover: the corpus's fetch on a fresh machine
+
+Tested on 2026-09-16 by cloning sql-megasamples from GitHub and building it from nothing. Its fetch
+crashed on every freshly downloaded artifact until the fix on its branch `fix/fetch-start-time`
+(merge it, or clone that branch, until it is in `main`). Two of its 155 artifacts could not be
+fetched by a script: `lahman` is a hand download its README explains; `chicago_crimes`'s 2024
+extract from the city's open-data API no longer matches the size its manifest pins, so a stranger
+cannot build that database from upstream until the corpus re-pins it (and re-verifies its row
+counts) or mirrors the file. Placing a maintainer-supplied copy works only with its verification
+markers (`.ok` and `.meta.json`) beside it. The corpus's `make run` builds the other 19 and exits
+non-zero naming the two; after they are placed, it builds the rest.
+
 ## Open items the maintainer has not decided
+
+- `chicago_crimes` in the corpus: re-pin the manifest to the current extract or mirror the file.
 
 - Whether to report the `nulls first` index-definition finding to DoltHub.
 - Whether JOURNAL.md should be reframed the way the README was (story first); the maintainer's
