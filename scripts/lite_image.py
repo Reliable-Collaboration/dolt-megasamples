@@ -61,6 +61,15 @@ def main():
     lines = [l for l in v.stdout.splitlines() if l.strip()]
     print("  . " + " / ".join(lines))
     shell = (lines[1].split() or [""])[0] if len(lines) > 1 else ""
+    # the shell must carry what the corpus's files use; a build without FTS5 would refuse their full-text tables
+    opts = subprocess.run(["docker", "run", "--rm", "--label", "doltsamples.transient=true", "--entrypoint", "sqlite3", LITE_IMAGE,
+                           ":memory:", "pragma compile_options"], capture_output=True, text=True).stdout.split()
+    needed = {"ENABLE_FTS5", "ENABLE_FTS4", "ENABLE_FTS3", "ENABLE_RTREE", "ENABLE_GEOPOLY", "ENABLE_MATH_FUNCTIONS",
+              "ENABLE_COLUMN_METADATA", "ENABLE_DBSTAT_VTAB", "ENABLE_SESSION", "SECURE_DELETE", "USE_URI"}
+    missing = sorted(needed - set(opts))
+    if missing:
+        sys.exit(f"the built sqlite3 lacks {', '.join(missing)}: the Dockerfile's feature flags no longer match Debian's package")
+    print(f"  . sqlite3 built with {', '.join(sorted(needed))}")
     recorded = VERSIONS["sqlite"]
     if shell and shell != recorded["version"]:
         if a.record:

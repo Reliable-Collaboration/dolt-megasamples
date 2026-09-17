@@ -132,7 +132,10 @@ def main():
         try:
             res = load(db, phase, a.indexes)
         except Exception as exc:                                   # noqa: BLE001
+            import traceback
+            where = traceback.extract_tb(exc.__traceback__)[-1]   # the frame that raised, so the record says where
             res = {"error": f"{type(exc).__name__}: {exc}"[:300], "method": METHOD,
+                   "error_at": f"{os.path.basename(where.filename)}:{where.lineno} {where.line}"[:200],
                    "engine_version": version_of(ENGINE[phase])}
         res["status"] = "error" if "error" in res else "done"
         res["samples"] = 1
