@@ -37,6 +37,31 @@ def image_version(image, *cmd):
     return (p.stdout or p.stderr).strip().splitlines()[0] if (p.stdout or p.stderr) else None
 
 
+def container_engine():
+    """The engine behind `docker` as its server names itself (Docker Engine, or Podman through its
+    Docker-compatible socket), whether it runs rootless, the client, and what else it was running
+    when this was captured: a run on a shared host says so, and these are the numbers it says."""
+    components = run("docker", "version", "-f", "{{json .Server.Components}}").stdout
+    try:
+        names = [c.get("Name", "") for c in json.loads(components or "[]")]
+    except ValueError:
+        names = []
+    name = "Podman" if any("Podman" in n for n in names) else "Docker Engine"
+    running = run("docker", "ps", "--format", "{{.Names}}").stdout.split()
+    others = [n for n in running if not n.startswith(("doltsamples-", "megasamples-"))]
+    avail_kb = first("/proc/meminfo", "MemAvailable")
+    return {
+        "engine": name,
+        "version": run("docker", "version", "-f", "{{.Server.Version}}").stdout.strip(),
+        "rootless": "name=rootless" in run("docker", "info", "-f", "{{json .SecurityOptions}}").stdout,
+        "client": run("docker", "version", "-f", "{{.Client.Version}}").stdout.strip(),
+        "storage_driver": run("docker", "info", "-f", "{{.Driver}}").stdout.strip(),
+        # counted, not named: the other workloads on the host are not this repository's to publish
+        "other_containers_at_capture": len(others),
+        "memory_available_at_capture": human(int(avail_kb.split()[0]) * 1024) if avail_kb else None,
+    }
+
+
 def main():
     total, used, free = shutil.disk_usage(ROOT)
     mem_kb = first("/proc/meminfo", "MemTotal")
@@ -53,10 +78,7 @@ def main():
             "disk_free_at_capture": human(free),
             "python": platform.python_version(),
         },
-        "docker": {
-            "version": run("docker", "version", "-f", "{{.Server.Version}}").stdout.strip(),
-            "storage_driver": run("docker", "info", "-f", "{{.Driver}}").stdout.strip(),
-        },
+        "docker": container_engine(),
         "engines": {
             "mysql_image": VERSIONS["mysql"]["image"],
             "mysql_version": image_version(VERSIONS["mysql"]["image"], "mysqld", "--version"),

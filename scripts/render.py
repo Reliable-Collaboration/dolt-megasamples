@@ -58,6 +58,7 @@ def blocks():
         "index_parity": guarded(lambda r: "\n".join(report.index_parity_table(report.rows(r)))
                                 or "*No mode has been measured for index parity yet.*"),
         "environment": guarded(lambda r: report.environment_table(), need="environment"),
+        "machine_sharing": guarded(lambda e: report.sharing_caveat(e), need="environment"),
         "memory_table": guarded(lambda m: memory_table(m), need="memory"),
         "missing_facts": lambda: missing_list(),
         # the two further pairs (scripts/report_pairs.py)

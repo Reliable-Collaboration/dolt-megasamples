@@ -244,7 +244,7 @@ Everything here that weakens the result, found by auditing the method against th
 
 **The expensive loads are single samples.** Repeats stop once a unit has spent its budget, so the slow loads on the large databases are one run each. A figure or table shows a spread only where there is one to show.
 
-**The machine is not idle.** The run shares the host with the source MySQL it reads the dumps from. It is realistic, but it is not a benchmark rig.
+{{block:machine_sharing}}
 
 **Dolt is not given quite the same schema.** The transform removes what Dolt cannot take: cross-database foreign keys and views, and stored routines, which it does not implement. All of it makes Dolt's job slightly smaller; none of it touches a row. The cross-database views are worth singling out because the two engines *disagreed* rather than both failing — MySQL refused them and Dolt stored them, and dropping them is what keeps "the same file" true.
 
@@ -278,7 +278,7 @@ The two are separate on purpose. `sql-megasamples` builds the corpus -- 21 datab
 ### What you need
 
 * **A machine you can leave alone for days.** The loads are timed, so nothing else may run on it while they do, and the slowest of them take hours each. Count on days of machine time for everything; `make estimate` projects the rest from the units already measured once a few exist.
-* **Docker Engine** (Docker Desktop on WSL2 works) with hundreds of gigabytes free where it keeps its data and where this checkout lives: the per-row-commit loads of the largest databases write most of it, and the runners stop before a unit that would take free space below `--floor-gb`. Every container this repository starts carries a memory limit with swap off, so a load that outgrows its limit is killed rather than dragging the machine down; the worker's limit defaults to 16 GiB (`DOLTSAMPLES_MEM_WORKER`), and the largest loads used most of it. [The machine](#the-machine) says what this run had.
+* **Docker Engine** (Docker Desktop on WSL2 works; so does rootless Podman behind Docker's own client, pointed at Podman's Docker-compatible socket with `docker context`) with hundreds of gigabytes free where it keeps its data and where this checkout lives: the per-row-commit loads of the largest databases write most of it, and the runners stop before a unit that would take free space below `--floor-gb`. Every container this repository starts carries a memory limit with swap off, so a load that outgrows its limit is killed rather than dragging the machine down; the worker's limit defaults to the host's memory less 2.75 GiB (`DOLTSAMPLES_MEM_WORKER` sets it; set it lower on a host that runs other work), and every unit records the limit it ran under. [The machine](#the-machine) says what this run had.
 * **Python 3.11 or newer**, `git` and `make`. The figures and the knowledge-bundle checker need matplotlib and PyYAML, which the Makefile installs into `.venv` on first use (with `uv` if present, else `pip`).
 
 ### Getting the data: the corpus

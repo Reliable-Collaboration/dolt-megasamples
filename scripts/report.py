@@ -184,7 +184,8 @@ def environment_table():
         f"| Memory | {h['memory']} |",
         f"| Disk | {h['disk_total']} {h['filesystem']} |",
         f"| Kernel | {h['kernel']} |",
-        f"| Docker | {d['version']}, storage driver `{d['storage_driver']}` |",
+        f"| Containers | {engine_line(d)} |",
+        *([f"| Shared with | {shared_line(d)} |"] if shared_line(d) else []),
         f"| MySQL | `{g['mysql_image']}` — {g['mysql_version']}, named by image {'digest' if '@sha256:' in g['mysql_image'] else 'tag'} |",
         f"| Dolt | `{g['dolt_image'].split('@')[0]}` — {g['dolt_version']}, named by image digest |",
         f"| PostgreSQL | `{g.get('postgres_image', '').split('@')[0]}` — {g.get('postgres_version', 'not recorded')}, named by image digest |",
@@ -193,6 +194,40 @@ def environment_table():
         f"| Tuning | {g['tuning']} |",
         f"| MySQL flags | {', '.join('`' + f + '`' for f in g['mysql_flags'])} |",
     ])
+
+
+def engine_line(d):
+    """The container engine as environment.json records it, e.g. `Podman 5.7.0, rootless, through
+    Docker's client 29.8.2; storage driver overlay`. An older record has only version and driver."""
+    head = f"{d.get('engine', 'Docker Engine')} {d['version']}"
+    if d.get("rootless"):
+        head += ", rootless"
+    if d.get("engine") == "Podman" and d.get("client"):
+        head += f", through Docker's client {d['client']}"
+    return f"{head}; storage driver `{d['storage_driver']}`"
+
+
+def shared_line(d):
+    """What else the host was running when the machine was recorded, or None if nothing was."""
+    n = d.get("other_containers_at_capture")
+    if not n:
+        return None
+    return (f"{n} other container{'s' if n != 1 else ''} running at capture, belonging to other work on the "
+            f"host; {d.get('memory_available_at_capture') or 'an unrecorded amount of'} memory available")
+
+
+def sharing_caveat(env):
+    """The README's caveat about the host, from what environment.json recorded of it."""
+    d, h = env.get("docker") or {}, env.get("host") or {}
+    n = d.get("other_containers_at_capture")
+    if not n:
+        return ("**The machine is not idle.** The run shares the host with the source MySQL it reads the "
+                "dumps from. It is realistic, but it is not a benchmark rig.")
+    return (f"**The machine is not dedicated.** Besides the source MySQL it reads the dumps from, the run "
+            f"shares the host with other work: {n} other container{'s' if n != 1 else ''} were running when "
+            f"the machine was recorded, with {d.get('memory_available_at_capture')} of {h.get('memory')} "
+            f"memory available. The timings were taken on a shared host, so read small differences in time as "
+            f"no difference. It is realistic, but it is not a benchmark rig.")
 
 
 def summary_table(items):
