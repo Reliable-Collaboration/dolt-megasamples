@@ -29,7 +29,7 @@ name: dolt-megasamples
 
 services:
   dolt:
-    image: dolthub/dolt-sql-server@sha256:38d5e900583267f35e36ad738e13f202e62860b351aa4c088dceaf7dbaed7ab6
+    image: dolthub/dolt-sql-server@sha256:8771be743f1b81b1e9d8d12b9587798446fa0bf34c56ec5b7b14539f895daa0b
     mem_limit: 1536m
     container_name: doltsamples-dolt
     ports: ["127.0.0.1:3307:3306"]
@@ -80,7 +80,7 @@ services:
   # (data/doltgres-oneshot, one repository per database) on 5433, one above sql-megasamples' 5432.
   # ============================================================================================
   doltgres:
-    image: dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae
+    image: dolthub/doltgresql@sha256:82a33ad03f6a2a419092b9097e26485b3aec5e7e3ca8b2ffdf97c7d1aa3c3629
     mem_limit: 1536m
     container_name: doltsamples-doltgres
     ports: ["127.0.0.1:5433:5432"]
@@ -102,7 +102,7 @@ services:
       start_period: 1800s
     restart: unless-stopped
   doltgres-init:
-    image: dolthub/doltgresql@sha256:267aff12f01c63f2f0fe54541edf788e58b10ffd907935d1189049b03985b2ae
+    image: dolthub/doltgresql@sha256:82a33ad03f6a2a419092b9097e26485b3aec5e7e3ca8b2ffdf97c7d1aa3c3629
     mem_limit: 256m
     container_name: doltsamples-doltgres-init
     depends_on: { doltgres: { condition: service_healthy } }
@@ -124,7 +124,7 @@ services:
   # Use it with `docker exec -it doltsamples-doltlite doltlite /data/sakila.doltlite`, or copy a
   # file out; no web console reads a DoltLite file, since it is not SQLite pages.
   doltlite:
-    image: doltsamples-doltlite:0.50.10
+    image: doltsamples-doltlite:0.50.14
     mem_limit: 512m
     container_name: doltsamples-doltlite
     volumes:

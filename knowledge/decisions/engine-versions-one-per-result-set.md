@@ -34,6 +34,9 @@ sources:
   title: The newest DoltgreSQL release when the rule was written
   accessed: "2026-09-12"
   version: "v1.3.2, published 2026-09-12"
+- resource: https://hub.docker.com/v2/repositories/library/mysql/tags?page_size=40&ordering=last_updated
+  title: MySQL's official image tags, two tracks -- `latest`/`innovation` on 26.7.0 and `lts` on 9.7.2
+  accessed: "2026-10-01"
 ---
 
 # Question
@@ -63,6 +66,8 @@ Read on 2026-09-12: DoltLite v0.50.10 carries the fix (pull request 2836 is 20 c
 
 * **Revised 2026-09-16**, in the maintainer's words: "lets not pin anything anymore - We'll want any new run to use the latest release version of everything out there. The only real requirement is that we want all of the experiments in a run to use the same latest version, we don't want to switch in the middle." So: `make new-run` (`scripts/versions.py --latest`) resolves the newest release of every Dolt engine at once, writes `versions.json` and the compose defaults, and drops every unit and memory-study cell of an engine that moved; it refuses while a runner holds the lock, so a run keeps its versions until it is complete. The runners' gate covers every recorded unit of the engines a run touches (not only the run's scope) and has no override; `--accept-version-change` and the `superseded` records are gone. The baselines are recorded, not chosen: MySQL and PostgreSQL as the corpus builds them, the sqlite3 shell as Debian ships it in the DoltLite image, read from the built image into `versions.json` by `make lite-image --record`. The image overrides that could run another engine than the recorded one are gone, and the MySQL timing image comes from `versions.json`. Later that day the maintainer extended the rule to the baselines -- "we want all tools to be the newest during a run. especially dolt, doltgres, and doltlite; but 'latest release' is what anyone is going to be interested in - we'll have already published data from prior releases" -- so `make new-run` resolves MySQL and PostgreSQL to the newest version tag of their official Docker Hub images and SQLite to sqlite.org's newest release, built from its source tarball into the DoltLite image (Debian 13's package was 3.46.1 of 2024 against a DoltLite built on SQLite 3.54); the corpus's own versions matter only for the exports. Every folded number and every memory study carries its version and `make check` fails on any that is not this run's; `common.current()` is the one test every reader of `build/progress.json` uses.
 
+* **Revised 2026-10-01: MySQL on its LTS track.** MySQL now publishes two tracks on Docker Hub: Innovation, whose newest release 26.7.0 the `latest` and `innovation` tags name, and Long-Term Support, whose newest release 9.7.2 the `lts` tag names (both images published 2026-09-29; read from the Hub's tag listing, each tag's digest compared). `make new-run` had resolved "the newest version tag" to 26.7.0, which the handover of 2026-09-17 flagged for the maintainer. Asked on 2026-10-01 whether the baseline should be 26.7.0 (the newest, Innovation) or 9.7.2 (LTS, and the version the corpus builds its dumps with), the maintainer chose 9.7.2. So `scripts/versions.py` resolves MySQL to the version tag that names the same image as `lts`; PostgreSQL, which publishes one track, is unchanged. Lost: the run does not measure MySQL's newest Innovation release. Gained: the baseline is the release production users run, and the exports and the timed loads use one MySQL.
+
 # Status
 
-accepted (2026-09-12; revised 2026-09-16; the maintainer's decisions, quoted above).
+accepted (2026-09-12; revised 2026-09-16 and 2026-10-01; the maintainer's decisions, quoted above).

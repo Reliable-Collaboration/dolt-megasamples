@@ -85,12 +85,12 @@ Every number in this document belongs to one run, and a run uses one version of 
 
 | engine | version of this result set | since | named by | what the image answers |
 |---|---|---|---|---|
-| MySQL | **26.7.0** | 2026-09-17 | `mysql@sha256:45abdd9b4144…` | not recorded |
-| Dolt | **2.3.2** | 2026-09-08 | `dolthub/dolt-sql-server@sha256:38d5e9005832…` | not recorded |
+| MySQL | **9.7.2** | 2026-10-01 | `mysql@sha256:e2bde46db656…` | not recorded |
+| Dolt | **2.4.0** | 2026-10-01 | `dolthub/dolt-sql-server@sha256:8771be743f1b…` | not recorded |
 | PostgreSQL | **18.6** | 2026-09-10 | `postgres@sha256:1c59e2c3c818…` | not recorded |
-| DoltgreSQL | **1.3.2** | 2026-09-14 | `dolthub/doltgresql@sha256:267aff12f01c…` | release not recorded |
+| DoltgreSQL | **1.3.3** | 2026-10-01 | `dolthub/doltgresql@sha256:82a33ad03f6a…` | release not recorded |
 | SQLite shell | **3.53.4** | 2026-09-17 | built from sqlite.org's `sqlite-autoconf-3530400.tar.gz` sha256 `0e9483900e92…` into the DoltLite image | not recorded |
-| DoltLite | **0.50.10** | 2026-09-12 | `libdoltlite0_0.50.10_amd64.deb` sha256 `09f2e13df763…`, `doltlite_0.50.10_amd64.deb` sha256 `3a832d5580cf…` | not recorded |
+| DoltLite | **0.50.14** | 2026-10-01 | `libdoltlite0_0.50.14_amd64.deb` sha256 `d452573a3284…`, `doltlite_0.50.14_amd64.deb` sha256 `13f407d1fc4c…` | not recorded |
 
 What each Dolt engine is, and how it is served here:
 

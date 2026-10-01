@@ -12,7 +12,8 @@ reports; nothing moves on its own. `--latest` resolves the newest release of eac
 Dolt and DoltgreSQL: the newest GitHub release's image tag, pulled and resolved to its digest;
 DoltLite: the newest GitHub release's two amd64 Debian packages, downloaded fresh and checked
 against the release's own digests; MySQL and PostgreSQL: the newest version tag of the official
-Docker Hub image, pulled and resolved to its digest; SQLite: the newest release sqlite.org's
+Docker Hub image, pulled and resolved to its digest (MySQL's on its long-term-support track: the
+version tag that names the same image as `lts`, by the maintainer's decision of 2026-10-01); SQLite: the newest release sqlite.org's
 download page names, its source tarball downloaded and checked against the page's SHA3-256, to be
 built into the DoltLite image as the pair's baseline shell -- rewrites versions.json and
 compose.yaml's defaults, and retires the old run: every recorded unit and memory-study cell of an
@@ -27,8 +28,11 @@ from common import ROOT, VERSIONS, VERSIONS_PATH, lock_held, run  # noqa: E402
 
 RELEASES = {"doltlite": "dolthub/doltlite", "doltgres": "dolthub/doltgresql", "dolt": "dolthub/dolt"}
 IMAGES = {"doltgres": "dolthub/doltgresql", "dolt": "dolthub/dolt-sql-server"}
-# the baselines' official images, and the tag shape that names a release (not a variant like 9.7.2-oraclelinux9)
-HUB = {"mysql": ("mysql", r"^\d+\.\d+\.\d+$"), "postgres": ("postgres", r"^\d+\.\d+$")}
+# the baselines' official images, the tag shape that names a release (not a variant like 9.7.2-oraclelinux9),
+# and the track tag a release must share an image with, if any. MySQL publishes two tracks, Innovation
+# (`latest`, 26.7.0 on 2026-09-29) and LTS (`lts`, 9.7.2); the maintainer chose LTS on 2026-10-01, the
+# release production users run and the one the corpus builds its dumps with.
+HUB = {"mysql": ("mysql", r"^\d+\.\d+\.\d+$", "lts"), "postgres": ("postgres", r"^\d+\.\d+$", None)}
 SQLITE_DOWNLOADS = "https://sqlite.org/download.html"
 ENGINES = ("mysql", "dolt", "postgres", "doltgres", "sqlite", "doltlite")
 WORK = os.path.join(ROOT, "build", "doltlite")     # the DoltLite image's build context: its packages and the SQLite tarball
@@ -47,14 +51,14 @@ def github(path):
 
 
 def hub_tags(repo):
-    """Every tag of an official Docker Hub image, newest first, as (name, last_updated date)."""
+    """Every tag of an official Docker Hub image, newest first, as (name, last_updated date, digest)."""
     url = f"https://hub.docker.com/v2/repositories/library/{repo}/tags?page_size=100&ordering=last_updated"
     out = []
     for _ in range(10):
         req = urllib.request.Request(url, headers={"User-Agent": "dolt-megasamples"})
         with urllib.request.urlopen(req, timeout=60) as r:
             page = json.load(r)
-        out += [(t["name"], (t.get("last_updated") or "")[:10]) for t in page.get("results", [])]
+        out += [(t["name"], (t.get("last_updated") or "")[:10], t.get("digest") or "") for t in page.get("results", [])]
         url = page.get("next")
         if not url:
             break
@@ -71,10 +75,15 @@ def newest(engine):
         rel = github(f"repos/{RELEASES[engine]}/releases/latest")
         return rel["tag_name"].lstrip("v"), rel.get("published_at", "")[:10], rel
     if engine in HUB:
-        repo, pattern = HUB[engine]
-        tags = [(n, d) for n, d in hub_tags(repo) if re.fullmatch(pattern, n)]
+        repo, pattern, track = HUB[engine]
+        every = hub_tags(repo)
+        tags = [(n, d) for n, d, _ in every if re.fullmatch(pattern, n)]
+        if track:
+            image = next((g for n, _, g in every if n == track), "")
+            tags = [(n, d) for n, d, g in every if re.fullmatch(pattern, n) and g and g == image]
         if not tags:
-            raise RuntimeError(f"no release tag of library/{repo} matches {pattern}")
+            raise RuntimeError(f"no release tag of library/{repo} matches {pattern}"
+                               + (f" on the image `{track}` names" if track else ""))
         name, date = max(tags, key=lambda t: version_key(t[0]))
         return name, date, {"tag": name}
     # sqlite.org's download page carries a machine-readable line per product:
@@ -137,6 +146,23 @@ def download(url, path, digest=None):
     return got
 
 
+def pulled_digest(repo, tag):
+    """`repo@sha256:...` for the image just pulled as repo:tag: the digest Docker Hub names for the tag
+    (the multi-platform index, which every platform pulls by), checked against what the engine recorded.
+    Docker records `repo@digest`; Podman records `docker.io/library/repo@digest` and the platform
+    manifest's digest beside it, so the recorded names are compared without the registry prefix."""
+    path = repo if "/" in repo else f"library/{repo}"
+    req = urllib.request.Request(f"https://hub.docker.com/v2/repositories/{path}/tags/{tag}",
+                                 headers={"User-Agent": "dolt-megasamples"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        want = json.load(r).get("digest") or ""
+    recorded = run("docker", "image", "inspect", "--format", "{{join .RepoDigests \" \"}}", f"{repo}:{tag}").stdout.split()
+    bare = {re.sub(r"^docker\.io/(library/)?", "", d) for d in recorded}
+    if not want or f"{repo}@{want}" not in bare:
+        sys.exit(f"the pulled {repo}:{tag} is not the image Docker Hub names ({want or 'no digest'}): {recorded}")
+    return f"{repo}@{want}"
+
+
 def resolve(engine):
     """Move one engine's entry in VERSIONS to its newest release. Returns (was, now) or None if unchanged."""
     here = VERSIONS[engine]
@@ -163,10 +189,7 @@ def resolve(engine):
         print(f"  . pulling {ref}", flush=True)
         if run("docker", "pull", ref).returncode != 0:
             sys.exit(f"could not pull {ref}")
-        digests = run("docker", "image", "inspect", "--format", "{{join .RepoDigests \" \"}}", ref).stdout.split()
-        digest = next((d for d in digests if d.startswith(HUB[engine][0] + "@")), None)
-        if not digest:
-            sys.exit(f"no repository digest recorded for {ref}: {digests}")
+        digest = pulled_digest(HUB[engine][0], version)
         here.update(version=version, since=today, image=digest, named_by=f"the official image {ref}, by digest")
     elif engine == "doltlite":
         work = WORK
@@ -187,10 +210,7 @@ def resolve(engine):
         print(f"  . pulling {ref}", flush=True)
         if run("docker", "pull", ref).returncode != 0:
             sys.exit(f"could not pull {ref}")
-        digests = run("docker", "image", "inspect", "--format", "{{join .RepoDigests \" \"}}", ref).stdout.split()
-        digest = next((d for d in digests if d.startswith(IMAGES[engine] + "@")), None)
-        if not digest:
-            sys.exit(f"no repository digest recorded for {ref}: {digests}")
+        digest = pulled_digest(IMAGES[engine], version)
         here.update(version=version, since=today, image=digest)
     print(f"  . {engine}: {was} -> {version} (published {date})")
     return was, version
