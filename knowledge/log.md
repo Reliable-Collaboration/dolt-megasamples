@@ -2,7 +2,7 @@
 
 ## 2026-10-02
 
-* **Creation**: [hosting only](/decisions/hosting-only.md) -- the repository split on the maintainer's word: dolt-megasamples keeps the tooling to host a chosen set of Dolt engines x databases x history, with sql-megasamples as its prerequisite; the side-by-side tests, their documents and their records move with this history to dolt-unofficial-benchmarking. Verified end to end on sakila and chinook in all three engines, sakila in both histories: nine stores, 23 of 23 stack checks.
+* **Creation**: [hosting only](/decisions/hosting-only.md) -- the repository split on the maintainer's word: dolt-megasamples keeps the tooling to host a chosen set of Dolt engines x databases x history, with sql-megasamples as its prerequisite; the side-by-side tests, their documents and their records move with this history to dolt-unofficial-benchmarking. Verified end to end on sakila and chinook in all three engines, sakila in both histories (nine stores, 23 of 23 stack checks), then on the default set, the 21 core databases in all three engines plus sakila per-row in each (66 stores, 80 of 80 stack checks).
 * **Deprecation**: the records of the measurements leave this bundle for dolt-unofficial-benchmarking's -- the version rule for runs, the load shapes, the run runbook, the review dispositions, the concurrency and durability questions, and the release and tool records of the measured versions; the links from the records kept here point to their new home.
 * **Deviation**: release 3's run was stopped at 163 of its units and deleted, on the maintainer's word, before the split; employees' one-commit-per-row load had been killed for memory at 3,624,968 of 3,919,015 commits under a 12 GiB cap on Dolt 2.4.0.
 
