@@ -240,10 +240,10 @@ def export(cfg, only=None, force=False, everything=False):
     wanted = {}
     for engine, _, db in cfg.wanted():
         wanted.setdefault(SOURCE_ENGINE[engine], set()).add(db)
-    if only:
-        wanted = {s: set(only) for s in (wanted or {"mysql": None, "postgres": None, "sqlite": None})}
     if everything:
         wanted = {"mysql": None, "postgres": None, "sqlite": None}
+    if only:
+        wanted = {s: set(only) for s in (wanted or {"mysql": None, "postgres": None, "sqlite": None})}
     if not wanted:
         print("dolt-megasamples.yaml asks for no databases; nothing to export")
         return 0
