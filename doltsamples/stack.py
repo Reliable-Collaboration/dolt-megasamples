@@ -74,6 +74,12 @@ def settings():
 
 
 # ---------------------------------------------------------------------------- what is served ---
+def preferred(stores):
+    """The store a connection opens by default: sakila when it is served (the example everyone knows,
+    and the README's), else the first."""
+    return next((s for s in stores if s["name"] == "sakila"), stores[0])["name"] if stores else ""
+
+
 def served(cfg):
     """{engine: [{name, database, history, path, ...record}]} for every wanted store that is built,
     and [(engine, history, db, why)] for those that are not."""
@@ -157,7 +163,6 @@ def compose(cfg, stores, pw):
             "volumes": ["./data/serve/doltlite:/data"]
                        + [f"./{rel(s['path'])}:/data/{s['name']}.doltlite" for s in stores["doltlite"]],
             "restart": "unless-stopped"}
-    first = lambda e: (stores[e][0]["name"] if stores[e] else "")
     if "landing" in consoles:
         svc["console"] = {"image": IMAGES["landing"], "container_name": CONTAINERS["landing"], "mem_limit": "32m",
                           "ports": [f"127.0.0.1:{P['landing']}:80"],
@@ -222,11 +227,11 @@ def workbench_store(stores, pw):
     demo, admin = quote(pw["demo"], safe=""), quote(pw["admin"], safe="")
     out = []
     if stores["dolt"]:
-        db = stores["dolt"][0]["name"]
+        db = preferred(stores["dolt"])
         out += [{"name": "Dolt (read-only)", "connectionUrl": f"mysql://demo:{demo}@dolt:3306/{db}", "type": "mysql"},
                 {"name": "Dolt (full access)", "connectionUrl": f"mysql://admin:{admin}@dolt:3306/{db}", "type": "mysql"}]
     if stores["doltgres"]:
-        db = stores["doltgres"][0]["name"]
+        db = preferred(stores["doltgres"])
         out += [{"name": "DoltgreSQL (read-only)", "connectionUrl": f"postgresql://demo:{demo}@doltgres:5432/{db}", "type": "postgres"},
                 {"name": "DoltgreSQL (full access)", "connectionUrl": f"postgresql://admin:{admin}@doltgres:5432/{db}", "type": "postgres"}]
     out += [{"name": f"DoltLite {s['name']}", "connectionUrl": f"file:///data/doltlite/{s['name']}.doltlite", "type": "sqlite"}
@@ -245,7 +250,7 @@ def cloudbeaver_sources(stores):
         engine = "dolt" if conn["configuration"]["host"] == "dolt" else "doltgres"
         if not stores[engine]:
             continue
-        db = stores[engine][0]["name"]
+        db = preferred(stores[engine])
         c = conn["configuration"]
         c["database"] = db
         c["url"] = c["url"].rsplit("/", 1)[0] + "/" + db

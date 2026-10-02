@@ -4,7 +4,7 @@ consoles. Written by `make up` from build/serve.json into docker/console/index.h
 import html, json, os
 
 from doltsamples.config import HISTORY_LABEL
-from doltsamples.stack import CONTAINERS, PASSWORDS, SERVE
+from doltsamples.stack import CONTAINERS, PASSWORDS, SERVE, preferred
 from doltsamples.util import ROOT, human, load_json, versions
 
 OUT = os.path.join(ROOT, "docker", "console", "index.html")
@@ -29,7 +29,7 @@ def write():
     shown = {k: (v if v == PASSWORDS[k][1] else f"${PASSWORDS[k][0]}") for k, v in pw.items()}
     v = versions()
     catalogue = load_json(CATALOGUE, {}) or {}
-    first = {e: (engines.get(e) or [{}])[0].get("name", "sakila") for e in ("dolt", "doltgres", "doltlite")}
+    first = {e: preferred(engines.get(e) or []) or "sakila" for e in ("dolt", "doltgres", "doltlite")}
 
     connect = []
     if engines.get("dolt"):
