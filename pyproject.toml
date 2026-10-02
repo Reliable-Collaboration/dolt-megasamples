@@ -1,0 +1,18 @@
+[project]
+name = "dolt-megasamples"
+version = "3.0.0"
+description = "The sql-megasamples databases in Dolt, DoltgreSQL and DoltLite, with the history you choose, served beside their consoles"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = ["PyYAML>=6"]
+
+[project.urls]
+Repository = "https://github.com/Reliable-Collaboration/dolt-megasamples"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["doltsamples", "doltsamples.dialects"]

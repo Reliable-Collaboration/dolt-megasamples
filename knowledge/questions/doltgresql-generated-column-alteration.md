@@ -12,7 +12,7 @@ generated:
   by: claude-code/claude-fable-5-1
   at: "2026-09-10T03:45:00Z"
 sources:
-- resource: /tools/doltgresql-1-3-1.md
+- resource: https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-1.md
   title: DoltgreSQL 1.3.1 (the observation)
   accessed: "2026-09-10"
 ---
@@ -23,7 +23,7 @@ On 1.3.1, the pinned version, `CREATE TABLE t (id integer NOT NULL, a numeric(19
 
 # Cheapest experiment
 
-Run the four statements above against the next DoltgreSQL release (`docker run --rm -e DOLTGRES_PASSWORD=x dolthub/doltgresql:<tag>` and `psql`); search the project's issues for "Invalid default value" and "generated". If it is fixed, that is reported to the maintainer: DoltgreSQL stays pinned at 1.3.1 unless the maintainer explicitly asks for the pin to be removed ([the pin](/decisions/doltgresql-version-pin.md)), and only then is `adventureworks_lt` rerun on both index policies. Checked in part on 2026-09-10: no release after 1.3.1 exists, a reading of the default branch at b7a87dad (not run) finds the defect unfixed there, and [issue 810](https://github.com/dolthub/doltgresql/issues/810), open since 2024-10-03, is the same family; where it lives and how large a fix would be: [patch or work around](/decisions/engine-bugs-patch-or-work-around.md).
+Run the four statements above against the next DoltgreSQL release (`docker run --rm -e DOLTGRES_PASSWORD=x dolthub/doltgresql:<tag>` and `psql`); search the project's issues for "Invalid default value" and "generated". If it is fixed, that is reported to the maintainer: DoltgreSQL stays pinned at 1.3.1 unless the maintainer explicitly asks for the pin to be removed ([the pin](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/decisions/doltgresql-version-pin.md)), and only then is `adventureworks_lt` rerun on both index policies. Checked in part on 2026-09-10: no release after 1.3.1 exists, a reading of the default branch at b7a87dad (not run) finds the defect unfixed there, and [issue 810](https://github.com/dolthub/doltgresql/issues/810), open since 2024-10-03, is the same family; where it lives and how large a fix would be: [patch or work around](/decisions/engine-bugs-patch-or-work-around.md).
 
 # Resolves
 

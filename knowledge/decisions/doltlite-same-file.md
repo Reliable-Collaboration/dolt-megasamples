@@ -19,7 +19,7 @@ sources:
 - resource: /sources/doltlite-readme.md
   title: DoltLite README
   accessed: "2026-09-10"
-- resource: /tools/doltlite-0-50-9.md
+- resource: https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltlite-0-50-9.md
   title: DoltLite v0.50.9 (verified behaviour)
   accessed: "2026-09-10"
 ---
@@ -36,7 +36,7 @@ The MySQL/Dolt and PostgreSQL/DoltgreSQL pairs load a dump into two servers. sql
 
 # Evidence
 
-The stock-file behaviour and the replay results (row counts, triggers, views, FTS5, index catalogue all matching the source): [DoltLite v0.50.9](/tools/doltlite-0-50-9.md), the pinned version. A DoltLite file is not readable by `sqlite3` ("file is not a database"), so there is no shared-file shape to measure either way.
+The stock-file behaviour and the replay results (row counts, triggers, views, FTS5, index catalogue all matching the source): [DoltLite v0.50.9](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltlite-0-50-9.md), the pinned version. A DoltLite file is not readable by `sqlite3` ("file is not a database"), so there is no shared-file shape to measure either way.
 
 # Outcome
 

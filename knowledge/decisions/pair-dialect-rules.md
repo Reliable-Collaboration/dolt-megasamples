@@ -17,10 +17,10 @@ verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-10T06:50:00Z"
 sources:
-- resource: /tools/doltgresql-1-3-1.md
+- resource: https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-1.md
   title: DoltgreSQL 1.3.1
   accessed: "2026-09-10"
-- resource: /tools/doltlite-0-50-9.md
+- resource: https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltlite-0-50-9.md
   title: DoltLite v0.50.9
   accessed: "2026-09-10"
 ---
@@ -68,7 +68,7 @@ The refusals were found on sakila's rows (2026-09-10) and on the quick subset's 
 
 # Outcome
 
-**One version per result set.** Every rule below was found on DoltgreSQL 1.3.1 and DoltLite v0.50.9 and is written for the versions `versions.json` names -- DoltgreSQL 1.3.2 since 2026-09-14 and DoltLite v0.50.10 since 2026-09-12 -- on which every database loaded again under the same rules with the same refusals ([DoltgreSQL 1.3.2](/tools/doltgresql-1-3-2.md), [DoltLite v0.50.10](/tools/doltlite-0-50-10.md)). A moved version means every unit of that engine is measured again and the rules re-checked against it ([one version per result set](/decisions/engine-versions-one-per-result-set.md)).
+**One version per result set.** Every rule below was found on DoltgreSQL 1.3.1 and DoltLite v0.50.9 and is written for the versions `versions.json` names -- DoltgreSQL 1.3.2 since 2026-09-14 and DoltLite v0.50.10 since 2026-09-12 -- on which every database loaded again under the same rules with the same refusals ([DoltgreSQL 1.3.2](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-2.md), [DoltLite v0.50.10](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltlite-0-50-10.md)). A moved version means every unit of that engine is measured again and the rules re-checked against it ([one version per result set](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/decisions/engine-versions-one-per-result-set.md)).
 
 **DoltgreSQL** (`scripts/doltgres_dialect.py`, working on pg_dump's object blocks, never on the rows inside `TABLE DATA`; since method 2 the files are also read and written byte for byte, after a text-mode read was found to turn the carriage returns inside row values into line feeds -- the rules never touched a row, the read did):
 
