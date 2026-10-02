@@ -1,15 +1,8 @@
 {
-  "_rule": "One version per result set. Every number in this repository belongs to exactly the versions below; nothing is pinned, and nothing moves on its own. `python3 scripts/versions.py --check` says what is newer upstream; `python3 scripts/versions.py --latest <engine>` moves one engine to its newest release, after which every recorded unit of that engine is superseded and the runners measure them all again (pass --accept-version-change). The maintainer's rule, 2026-09-12: knowledge/decisions/engine-versions-one-per-result-set.md.",
   "dolt": {
     "version": "2.4.0",
     "image": "dolthub/dolt-sql-server@sha256:8771be743f1b81b1e9d8d12b9587798446fa0bf34c56ec5b7b14539f895daa0b",
     "named_by": "image digest",
-    "since": "2026-10-01"
-  },
-  "mysql": {
-    "version": "9.7.2",
-    "image": "mysql@sha256:e2bde46db6563855d7177adb5f0b57b9dc663f5a20927a90f4259d3312068497",
-    "named_by": "the official image mysql:9.7.2, by digest",
     "since": "2026-10-01"
   },
   "doltgres": {
@@ -17,12 +10,6 @@
     "image": "dolthub/doltgresql@sha256:82a33ad03f6a2a419092b9097e26485b3aec5e7e3ca8b2ffdf97c7d1aa3c3629",
     "named_by": "image digest",
     "since": "2026-10-01"
-  },
-  "postgres": {
-    "version": "18.6",
-    "image": "postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
-    "named_by": "image digest",
-    "since": "2026-09-10"
   },
   "doltlite": {
     "version": "0.50.14",
