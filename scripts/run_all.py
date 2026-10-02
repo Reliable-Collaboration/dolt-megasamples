@@ -848,6 +848,7 @@ def main():
             res = {"error": f"{type(exc).__name__}: {exc}"[:300]}
         res["status"] = "error" if "error" in res else "done"
         res["samples"] = len(runs)
+        res["memory_limit"] = MEM_WORKER          # the worker's cap; a run may raise it for one unit
         res["finished"] = time.time()
         res["wall_seconds"] = round(time.time() - started, 1)
         note(p, key, **res)
