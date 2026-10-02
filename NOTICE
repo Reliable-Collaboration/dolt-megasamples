@@ -10,25 +10,29 @@ this notice to travel with any redistribution of this project's code.
 What this notice does NOT cover
 ------------------------------------------------------------------------------
 
-Apache-2.0 covers the code in this repository: the scripts, the compose stack and
-the generated report. It covers no data.
+Apache-2.0 covers the code in this repository: the doltsamples package, the stack
+it generates and the consoles' configuration. It covers no data.
 
 This repository redistributes no sample data. `make export` reads it from a
-mysql-megasamples instance running on your own machine, and every dataset there
+sql-megasamples build on your own machine, and every dataset there
 keeps its own upstream licence -- several are CC BY-SA and carry share-alike and
 attribution obligations that Apache-2.0 does not satisfy and cannot override.
 Those terms, and the attribution each dataset requires, are in that project's
 LICENSES.md and NOTICE.md.
 
-The databases measured here are named in REPORT.md purely as measurements. The
-numbers are this project's; the data they describe is not.
+A store this project builds is a copy of that data in another engine: the
+dataset's licence and attribution travel with it.
 
 ------------------------------------------------------------------------------
 Third-party software run by this project (not redistributed)
 ------------------------------------------------------------------------------
 
-Dolt (https://github.com/dolthub/dolt), Apache-2.0, is run from the published
-image dolthub/dolt-sql-server and is not vendored or modified here.
+Dolt (https://github.com/dolthub/dolt) and DoltgreSQL
+(https://github.com/dolthub/doltgresql), Apache-2.0, are run from their published
+images and are not vendored or modified here. DoltLite
+(https://github.com/dolthub/doltlite), Apache-2.0 over public-domain SQLite, is
+installed from its release packages into an image built here, beside a sqlite3
+shell built from sqlite.org's source.
 
-MySQL, phpMyAdmin, Adminer, DbGate and CloudBeaver are likewise run from their
-published images under their own licences.
+The Dolt Workbench, nginx, phpMyAdmin, Adminer, DbGate and CloudBeaver are
+likewise run from their published images under their own licences.

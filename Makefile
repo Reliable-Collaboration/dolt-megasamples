@@ -6,7 +6,7 @@
 PY := .venv/bin/python
 MS := $(PY) -m doltsamples
 
-.PHONY: help run export build status up down ps test compose list versions update lite-image clean clean-all okf-check
+.PHONY: help run export build status up down ps test compose list versions update lite-image clean clean-all okf-check screenshots
 
 help:
 	@echo "make run         export from sql-megasamples, then build every store dolt-megasamples.yaml asks for"
@@ -24,6 +24,7 @@ help:
 	@echo "make update      move the engines to their newest release (then make lite-image, make build)"
 	@echo "make lite-image  build the DoltLite image from its checksummed release packages"
 	@echo "make clean       remove the stores and their records; make clean-all removes the exports too"
+	@echo "make screenshots retake the README's pictures from the running stack (docs/screenshots/)"
 
 $(PY):
 	@uv venv -q .venv 2>/dev/null || python3 -m venv .venv
@@ -50,6 +51,15 @@ clean: $(PY)
 	@$(MS) clean
 clean-all: $(PY)
 	@$(MS) clean --all
+
+# the README's pictures, retaken from the running stack in the Playwright image on the host's network
+# (the Workbench's page calls its API at the address the host publishes). The pictures are written as
+# the caller: the caller's uid on rootful Docker, container root on a rootless engine, which maps to the caller.
+WRITER = $(shell docker info -f '{{json .SecurityOptions}}' 2>/dev/null | grep -q rootless && echo 0:0 || echo $$(id -u):$$(id -g))
+PER_ROW = $(shell $(PY) -c "import json; e=json.load(open('build/serve.json'))['engines']['dolt']; print(next((s['name'] for s in e if s['history'] == 'per-row'), ''))" 2>/dev/null)
+screenshots:
+	@docker run --rm --network host --user "$(WRITER)" -e HOME=/tmp -e WORKBENCH_DB="$(PER_ROW)" -v "$(CURDIR)/docs/screenshots:/out" \
+	  mcr.microsoft.com/playwright/python:v1.49.1-noble sh -c "pip install -q --user playwright==1.49.1 && python3 /out/capture.py"
 
 # the knowledge bundle's checker (knowledge/)
 okf-check: $(PY)

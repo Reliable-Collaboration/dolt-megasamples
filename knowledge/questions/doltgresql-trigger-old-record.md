@@ -15,7 +15,7 @@ verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-10T07:00:00Z"
 sources:
-- resource: /tools/doltgresql-1-3-1.md
+- resource: https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-1.md
   title: DoltgreSQL 1.3.1 (the observation)
   accessed: "2026-09-10"
 ---
@@ -34,4 +34,4 @@ Whether the stood-up DoltgreSQL instance can take updates on the ported tables (
 
 # Answer
 
-Not the body. The trigger's `WHEN ((old.* IS DISTINCT FROM new.*))` clause, which pg_dump writes for the port's "only when the row changed" guard, is what DoltgreSQL 1.3.1 cannot evaluate; every variant of the body (`IS NOT DISTINCT FROM`, `<>`, quoted or unquoted fields, `OLD` read into a variable, no `OLD` at all) works under a per-column `WHEN`, and none works under the whole-row one. Reproduced with sakila's `actor` objects alone (`scripts/doltgres_dialect.py` blocks, 2026-09-10) and bisected through the creation order, `check_function_bodies`, the search path, the identity column, COPY versus INSERT and the comment headers. Dialect rule G6 expands the clause column by column from the table's CREATE TABLE block; with it `UPDATE actor SET first_name = first_name` answers `UPDATE 0` and leaves `last_update`, `UPDATE actor SET first_name = 'X'` moves it, on DoltgreSQL and on PostgreSQL 18.6 alike ([the dialect rules](/decisions/pair-dialect-rules.md), [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md)). One run-time limit remains: a `BEFORE INSERT` trigger that fills a NOT NULL column is refused before it runs.
+Not the body. The trigger's `WHEN ((old.* IS DISTINCT FROM new.*))` clause, which pg_dump writes for the port's "only when the row changed" guard, is what DoltgreSQL 1.3.1 cannot evaluate; every variant of the body (`IS NOT DISTINCT FROM`, `<>`, quoted or unquoted fields, `OLD` read into a variable, no `OLD` at all) works under a per-column `WHEN`, and none works under the whole-row one. Reproduced with sakila's `actor` objects alone (`scripts/doltgres_dialect.py` blocks, 2026-09-10) and bisected through the creation order, `check_function_bodies`, the search path, the identity column, COPY versus INSERT and the comment headers. Dialect rule G6 expands the clause column by column from the table's CREATE TABLE block; with it `UPDATE actor SET first_name = first_name` answers `UPDATE 0` and leaves `last_update`, `UPDATE actor SET first_name = 'X'` moves it, on DoltgreSQL and on PostgreSQL 18.6 alike ([the dialect rules](/decisions/pair-dialect-rules.md), [DoltgreSQL 1.3.1](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-1.md)). One run-time limit remains: a `BEFORE INSERT` trigger that fills a NOT NULL column is refused before it runs.
