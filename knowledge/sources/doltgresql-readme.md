@@ -55,6 +55,6 @@ The README of `dolthub/doltgresql` on its default branch, fetched raw through th
 
 # What it was used to decide
 
-* The import path for the PostgreSQL pair -- `pg_dump` then `psql` -- is the one the project recommends: [pair load shapes](/decisions/pair-load-shapes-and-measurement.md).
-* Version control is SQL-only (`dolt_commit(...)` as a function), which is why the settle step is a query and not a CLI call: [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md), the pinned version.
+* The import path for the PostgreSQL pair -- `pg_dump` then `psql` -- is the one the project recommends: [pair load shapes](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/decisions/pair-load-shapes-and-measurement.md).
+* Version control is SQL-only (`dolt_commit(...)` as a function), which is why the settle step is a query and not a CLI call: [DoltgreSQL 1.3.1](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-1.md), the pinned version.
 * "Some Postgres syntax, types, functions, and features are not yet implemented" is the reason the preflight exists and refusals are recorded rather than assumed: [dialect rules](/decisions/pair-dialect-rules.md).

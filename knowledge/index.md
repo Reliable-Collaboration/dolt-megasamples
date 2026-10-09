@@ -10,8 +10,7 @@ The research trail behind dolt-megasamples: what DoltgreSQL and DoltLite are, wh
 <!-- /intro -->
 
 ## Directories
-* [decisions/](decisions/index.md) - 10 concepts
-* [questions/](questions/index.md) - 5 concepts
-* [runbooks/](runbooks/index.md) - 2 concepts
-* [sources/](sources/index.md) - 9 concepts
-* [tools/](tools/index.md) - 6 concepts
+* [decisions/](decisions/index.md) - 5 concepts
+* [questions/](questions/index.md) - 3 concepts
+* [runbooks/](runbooks/index.md) - 1 concepts
+* [sources/](sources/index.md) - 4 concepts

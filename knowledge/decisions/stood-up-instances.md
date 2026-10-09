@@ -15,10 +15,10 @@ verified:
 - by: claude-code/claude-fable-5-1
   at: "2026-09-10T16:00:00Z"
 sources:
-- resource: /tools/doltgresql-1-3-1.md
+- resource: https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-1.md
   title: DoltgreSQL 1.3.1
   accessed: "2026-09-10"
-- resource: /tools/doltlite-0-50-9.md
+- resource: https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltlite-0-50-9.md
   title: DoltLite v0.50.9
   accessed: "2026-09-10"
 ---
@@ -44,11 +44,11 @@ sources:
 
 The stack stood up again with both fixes in and `scripts/stack_check.py` passed all 22 checks (2026-09-10 06:36 UTC): Dolt answers both accounts (`sakila.film` = 1000, `demo` refused a write), and Adminer's login pages for both servers answer 200.
 
-The engine facts the stack rests on, for the versions `versions.json` names (the stack serves the version the stores were written with, through `compose.override.yaml`): [DoltgreSQL 1.3.1](/tools/doltgresql-1-3-1.md) (an `UPDATE` on a ported table with an `ON UPDATE` trigger is refused at run time), [DoltLite v0.50.10](/tools/doltlite-0-50-10.md) (since 2026-09-12; [v0.50.9](/tools/doltlite-0-50-9.md) before).
+The engine facts the stack rests on, for the versions `versions.json` names (the stack serves the version the stores were written with, through `compose.override.yaml`): [DoltgreSQL 1.3.1](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-1.md) (an `UPDATE` on a ported table with an `ON UPDATE` trigger is refused at run time), [DoltLite v0.50.10](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltlite-0-50-10.md) (since 2026-09-12; [v0.50.9](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltlite-0-50-9.md) before).
 
 # Outcome
 
-* **DoltgreSQL** is served from the one-commit loads (`data/doltgres-oneshot`, every database a repository with one commit) on `127.0.0.1:5433`, the same image digest as the loads (`versions.json`). DoltgreSQL 1.3.2 enforces database privileges (1.3.1 did not), so its `demo` account reads every table and is refused `CREATE DATABASE` and `DROP DATABASE`; it can still grant itself `CREATEDB` with `ALTER ROLE`, which PostgreSQL refuses ([DoltgreSQL 1.3.2](/tools/doltgresql-1-3-2.md)); the stores it serves are bind mounts of the measured ones, while the measurements themselves are kept in `build/results.json`, so a dropped database loses the sample, not a number. `doltgres-init` applies the two accounts with the image's own `psql` on every `up`: `demo` reads (USAGE on `public`, SELECT on every table, EXECUTE on the functions of `public` and `pg_catalog`), `admin` is a superuser.
+* **DoltgreSQL** is served from the one-commit loads (`data/doltgres-oneshot`, every database a repository with one commit) on `127.0.0.1:5433`, the same image digest as the loads (`versions.json`). DoltgreSQL 1.3.2 enforces database privileges (1.3.1 did not), so its `demo` account reads every table and is refused `CREATE DATABASE` and `DROP DATABASE`; it can still grant itself `CREATEDB` with `ALTER ROLE`, which PostgreSQL refuses ([DoltgreSQL 1.3.2](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking/blob/main/knowledge/tools/doltgresql-1-3-2.md)); the stores it serves are bind mounts of the measured ones, while the measurements themselves are kept in `build/results.json`, so a dropped database loses the sample, not a number. `doltgres-init` applies the two accounts with the image's own `psql` on every `up`: `demo` reads (USAGE on `public`, SELECT on every table, EXECUTE on the functions of `public` and `pg_catalog`), `admin` is a superuser.
 * **DoltLite** is served as files (`data/doltlite-oneshot/<db>.doltlite`) in a container of the image built here from the release packages `versions.json` names, with the `doltlite` shell as the client, and the same directory is mounted into Dolt Workbench, whose bundled `@dolthub/doltlite` (0.11.51, DoltLite amalgamation on SQLite 3.54.0) opened the v0.50.9 files (the v0.50.10 files are to be checked the same way when the loads finish): one saved connection per file (`file:///data/doltlite/<db>.doltlite`, type `Sqlite`), verified on jaffle_shop (tables, the `main` branch, both commits, the database and table pages) and by `make test-stack` on sakila. Adminer, DbGate and CloudBeaver cannot read the format.
 * **Consoles**: CloudBeaver and DbGate carry a PostgreSQL connection per account to DoltgreSQL beside the Dolt ones; Adminer takes either server from its login form (deep links name the server and the database); Dolt Workbench starts with all four connections saved (`scripts/stack_config.py` writes its `store.json` before `make up`; its API holds one current connection at a time, so a saved connection is a click, not a login -- its routes name only the database, and the connection can be set through its API, which takes browser requests from any origin); phpMyAdmin stays Dolt-only. The landing page orders them by what they open and carries "connect with your own tool" for all three engines.
 * **Dolt** is served with a generated config naming every repository, which is what made the existing stack work again.

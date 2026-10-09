@@ -1,0 +1,57 @@
+# dolt-megasamples.yaml -- what this checkout builds and serves.
+#
+#   cp dolt-megasamples.example.yaml dolt-megasamples.yaml     # then edit
+#
+# Without a dolt-megasamples.yaml the built-in default applies: the 21 core databases in all three
+# engines, each with a single commit, and every console. Every command reads this file.
+
+# Where sql-megasamples is checked out and built. Its images (or its running servers) are where the
+# data comes from: Dolt loads its MySQL dumps, DoltgreSQL its PostgreSQL dumps, DoltLite its SQLite files.
+corpus: ../sql-megasamples
+
+# Which databases each engine serves, and with what history. A list is a selector sql-megasamples
+# understands -- core (the 21), quick (15 small ones), all, a tier -- or a list of names.
+#
+#   single    one commit holding the whole database: the data as it is, ready to branch and change.
+#   per-row   one commit per row, in the order the corpus dumps them: a long history to browse,
+#             diff and travel through. Served as <database>_per_row, so a database can be under both.
+#             Far slower to build and larger to keep than single; start with a small database.
+engines:
+  dolt:
+    single: core
+    per-row: [sakila]
+  doltgres:
+    single: core
+  doltlite:
+    single: core
+
+# The web consoles. Each starts only when an engine it can read is served.
+#   landing      the generated index page: every database served, how to connect, the consoles
+#   workbench    Dolt Workbench: branches, commits and diffs, on all three engines
+#   phpmyadmin   Dolt
+#   adminer      Dolt, DoltgreSQL
+#   dbgate       Dolt, DoltgreSQL
+#   cloudbeaver  Dolt, DoltgreSQL
+consoles: [landing, workbench, phpmyadmin, adminer, dbgate, cloudbeaver]
+
+# Host ports, all on 127.0.0.1 -- one range above sql-megasamples' (3306, 5432, 8080-8084), so both
+# stacks can run at once.
+ports:
+  dolt: 3307
+  doltgres: 5433
+  landing: 8090
+  phpmyadmin: 8091
+  adminer: 8092
+  dbgate: 8093
+  cloudbeaver: 8094
+  workbench: 8095
+  workbench_api: 9002       # the Workbench's GraphQL API, which your browser calls directly
+
+# Memory limits. The servers hold what they open, and a per-row history takes more to open than
+# a single commit; raise them if a server is killed for memory. `build` is what one build container
+# may use: the per-row history of a large database needs a great deal (default: this machine's
+# memory less 2.75 GiB, at most 16g).
+memory:
+  dolt: 2g
+  doltgres: 2g
+  # build: 12g
