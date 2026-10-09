@@ -75,6 +75,13 @@ by engine and database by database, is what
 [dolt-unofficial-benchmarking](https://github.com/Reliable-Collaboration/dolt-unofficial-benchmarking)
 measures.
 
+The largest database is past what a modest machine can give Dolt. employees' per-row history is 3.9
+million commits: built here under a 10 GiB `memory.build`, with the store collected every 10 chunks,
+the replay itself stayed near 3 GiB, but the last commit and collection needed more than 8 GiB and the
+host, shared with other services, ran out first (2026-10-08); the benchmark's store of the same
+history takes 12 GiB just to open. Ask for a per-row history that large only on a machine with
+that much memory to spare; every other database's per-row history opens in Dolt within 1.5 GiB.
+
 ## The engines
 
 ### Dolt
